@@ -1,0 +1,6 @@
+<!-- Badge Icon 72x72 for notifications -->
+<svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="72" height="72" rx="8" fill="#007cba"/>
+  <path d="M36 18C31.0294 18 27 22.0294 27 27V33C27 36.0817 25.4377 38.9647 22.8201 40.6647L21 42V45H51V42L49.1799 40.6647C46.5623 38.9647 45 36.0817 45 33V27C45 22.0294 40.9706 18 36 18ZM33 51C33 52.6569 34.3431 54 36 54C37.6569 54 39 52.6569 39 51H33Z" fill="white"/>
+</svg>
+

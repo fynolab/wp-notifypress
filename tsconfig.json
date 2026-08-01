@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "node",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "checkJs": false,
+    "strict": true,
+    "noImplicitAny": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./assets/src/*"]
+    },
+    "types": ["node"]
+  },
+  "include": [
+    "assets/src/global.d.ts",
+    "assets/src/assets.d.ts",
+    "assets/src/wordpress-modules.d.ts",
+    "assets/src/types.ts",
+    "assets/src/main.tsx",
+    "assets/src/global.ts",
+    "assets/src/editor.ts",
+    "assets/src/editor/**/*.tsx",
+    "assets/src/App.tsx",
+    "assets/src/components/shell.tsx",
+    "assets/src/lib/**/*.ts",
+    "assets/src/pages/dashboard.tsx",
+    "assets/src/pages/notifications.tsx",
+    "assets/src/pages/subscribers.tsx",
+    "assets/src/pages/segments.tsx",
+    "assets/src/pages/settings.tsx"
+  ],
+  "exclude": ["node_modules", "assets/*-dist"]
+}
