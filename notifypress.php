@@ -28,7 +28,7 @@ defined( 'NOTIFYPRESS_MINIMUM_PHP_VERSION' ) || define( 'NOTIFYPRESS_MINIMUM_PHP
 
 require_once __DIR__ . '/src/PhpVersionCheck.php';
 
-if ( ! php_version_check() ) {
+if ( ! PhpVersionCheck::passes() ) {
 	return;
 }
 
