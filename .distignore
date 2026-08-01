@@ -24,3 +24,8 @@ docs
 tests
 .git
 .github
+vendor/bin
+vendor/squizlabs
+vendor/wp-coding-standards
+vendor/phpcsstandards
+vendor/dealerdirect
