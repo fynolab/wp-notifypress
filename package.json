@@ -1,0 +1,83 @@
+{
+  "name": "notifypress",
+  "version": "1.0.0",
+  "description": "A web push notification plugin for WordPress.",
+  "main": "index.js",
+  "packageManager": "pnpm@10.11.0",
+  "scripts": {
+    "app": "wp-scripts start assets/src/main.js --output-path=assets/main-dist",
+    "app:build": "wp-scripts build assets/src/main.js --output-path=assets/main-dist",
+    "global:dev": "wp-scripts start assets/src/global.js --output-path=assets/global-dist",
+    "global:build": "wp-scripts build assets/src/global.js --output-path=assets/global-dist",
+    "editor:dev": "wp-scripts start assets/src/editor.js --output-path=assets/editor-dist",
+    "editor:build": "wp-scripts build assets/src/editor.js --output-path=assets/editor-dist",
+    "format": "wp-scripts format",
+    "format:php": "composer exec phpcbf -- --standard=phpcs.xml.dist notifypress.php uninstall.php src",
+    "lint:css": "wp-scripts lint-style",
+    "lint:js": "wp-scripts lint-js",
+    "lint:php": "composer exec phpcs -- --standard=phpcs.xml.dist notifypress.php uninstall.php src",
+    "typecheck": "tsc --noEmit",
+    "packages-update": "wp-scripts packages-update",
+    "plugin-zip": "composer install --no-dev && pnpm run build && wp-scripts plugin-zip",
+    "test:e2e": "wp-scripts test-e2e",
+    "test:unit": "wp-scripts test-unit-js",
+    "dev": "pnpm run app",
+    "build": "pnpm run app:build && pnpm run global:build && pnpm run editor:build"
+  },
+  "files": [
+    "notifypress.php",
+    "src",
+    "assets/editor-dist",
+    "assets/global-dist",
+    "assets/main-dist",
+    "languages",
+    "vendor"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fynolab/notifypress.com"
+  },
+  "author": "notifypress",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/fynolab/notifypress.com/issues"
+  },
+  "homepage": "https://github.com/fynolab/notifypress.com#readme",
+  "dependencies": {
+    "@radix-ui/react-alert-dialog": "^1.1.18",
+    "@radix-ui/react-checkbox": "^1.3.7",
+    "@radix-ui/react-dialog": "^1.1.19",
+    "@radix-ui/react-dropdown-menu": "^2.1.20",
+    "@radix-ui/react-icons": "^1.3.2",
+    "@radix-ui/react-label": "^2.1.11",
+    "@radix-ui/react-popover": "^1.1.18",
+    "@radix-ui/react-progress": "^1.1.8",
+    "@radix-ui/react-radio-group": "^1.4.3",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-switch": "^1.3.2",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-tooltip": "^1.2.12",
+    "@tanstack/react-query": "^5.100.14",
+    "@xyflow/react": "^12.11.1",
+    "autoprefixer": "^10.5.0",
+    "date-fns": "^3.6.0",
+    "jquery": "^3.7.1",
+    "lucide-react": "^0.477.0",
+    "postcss": "^8.5.15",
+    "react-content-loader": "^7.1.2",
+    "react-day-picker": "^8.10.2",
+    "react-loading-skeleton": "^3.5.0",
+    "react-router-dom": "^6.30.3",
+    "recharts": "^2.15.4",
+    "sonner": "^1.5.0",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^3.4.19"
+  },
+  "devDependencies": {
+    "@types/jquery": "^3.5.34",
+    "@types/react": "^18.3.29",
+    "@types/react-dom": "^18.3.7",
+    "@wordpress/scripts": "^30.27.0",
+    "typescript": "^5.9.3"
+  }
+}

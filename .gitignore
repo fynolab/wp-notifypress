@@ -1,0 +1,30 @@
+# ignore packaged files
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Ignore system created fils
+.idea
+.DS_Store
+
+# Ignore build directories and tmp folders
+/assets/build/*.map
+/misc/tmp
+/node_modules
+/coverage
+/vendor/bin/
+/vendor/squizlabs/
+/vendor/wp-coding-standards/
+/vendor/phpcsstandards/
+/vendor/dealerdirect/
+phpcs-report.txt
+.env
+psysh_history
+
+# Local-only credentials, never commit
+docs/credentials.md

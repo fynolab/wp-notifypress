@@ -1,0 +1,36 @@
+.footer {
+    margin-top: 4.2rem;
+    text-align: center;
+
+    h4 {
+        color: #00000073;
+        font-weight: 400;
+
+        span {
+            margin-right: 6px;
+            font-size: 10px;
+        }
+    }
+
+    a {
+        text-decoration: none;
+        color: #00000073;
+    }
+
+    &__links {
+        display: flex;
+        justify-content: center;
+        margin-top: 2rem;
+
+        a {
+            color: #aaaaaa;
+            font-weight: 300;
+            font-size: 12px;
+
+            &:not(&:last-child):after {
+                content: "/";
+                margin: 0 5px;
+            }
+        }
+    }
+}
