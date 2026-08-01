@@ -26,10 +26,9 @@ defined( 'ASSETS_DIR' ) || define( 'ASSETS_DIR', __DIR__ . '/assets/' );
 defined( 'ASSETS_URL' ) || define( 'ASSETS_URL', plugin_dir_url( __FILE__ ) . 'assets/' );
 defined( 'NOTIFYPRESS_MINIMUM_PHP_VERSION' ) || define( 'NOTIFYPRESS_MINIMUM_PHP_VERSION', '8.1' );
 
-if ( version_compare( PHP_VERSION, NOTIFYPRESS_MINIMUM_PHP_VERSION, '<' ) ) {
-	require_once __DIR__ . '/src/PhpVersionCheck.php';
-	register_activation_hook( __FILE__, __NAMESPACE__ . '\\activation_php_version_error' );
-	add_action( 'admin_notices', __NAMESPACE__ . '\\php_version_notice' );
+require_once __DIR__ . '/src/PhpVersionCheck.php';
+
+if ( ! php_version_check() ) {
 	return;
 }
 
