@@ -9,6 +9,17 @@ declare global {
             nonce?: string;
             ajaxUrl?: string;
             restNonce?: string;
+            /** Block-editor panel bootstrap — only present on editor screens. */
+            editor?: {
+                siteName?: string;
+                siteHost?: string;
+                titleMax?: number;
+                messageMax?: number;
+                postTypes?: string[];
+                enabled?: boolean;
+                connected?: boolean;
+                settingsUrl?: string;
+            };
         };
         notifypressGlobal?: {
             ajaxUrl: string;

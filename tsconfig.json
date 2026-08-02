@@ -19,13 +19,14 @@
     "types": ["node"]
   },
   "include": [
-    "assets/src/global.d.ts",
+    "assets/src/window.d.ts",
     "assets/src/assets.d.ts",
     "assets/src/wordpress-modules.d.ts",
     "assets/src/types.ts",
     "assets/src/main.tsx",
     "assets/src/global.ts",
     "assets/src/editor.ts",
+    "assets/src/editor/**/*.ts",
     "assets/src/editor/**/*.tsx",
     "assets/src/App.tsx",
     "assets/src/components/shell.tsx",

@@ -111,16 +111,6 @@ export interface NotifyPressSettings {
     pwaEnabled?: boolean;
 }
 
-declare global {
-    interface Window {
-        notifypress?: NotifyPressSettings & {
-            nonce?: string;
-            settings?: NotifyPressSettings;
-            siteUrl?: string;
-        };
-    }
-}
-
 export interface LaravelCollection<T> {
     data?: T[];
     total?: number;

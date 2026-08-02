@@ -14,11 +14,11 @@ module.exports = {
         '@wordpress/i18n-text-domain': [
             'error',
             {
-                allowedTextDomain: [ 'async-push' ],
+                allowedTextDomain: [ 'notifypress' ],
             },
         ],
     },
     globals: {
-        'async-push': true,
+        notifypress: true,
     },
 };
