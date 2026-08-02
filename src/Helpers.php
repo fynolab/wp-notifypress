@@ -9,11 +9,7 @@ declare( strict_types=1 );
 
 namespace Fynolab\NotifyPress\Helpers;
 
-// No ABSPATH guard here: this file only declares a namespaced function (no
-// side effects when loaded), and it's eagerly required by Composer's "files"
-// autoload entry the moment the autoloader initializes — including by CLI
-// tooling (phpcs, phpcbf, PHPUnit) that runs before WordPress ever loads.
-// A guard here would silently `exit` and kill that tooling.
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Log the message.
