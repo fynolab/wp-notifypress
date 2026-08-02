@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Fynolab\NotifyPress;
 
+use Fynolab\NotifyPress\Services\NewPost\PostNotification;
 use Fynolab\NotifyPress\Services\Settings\Settings;
 
 defined( 'ABSPATH' ) || exit;
@@ -173,6 +174,26 @@ class Assets {
 				$localized_data['settings'] = Settings::for_frontend();
 			}
 
+			// The editor panel needs enough to render the notification preview
+			// and decide whether the post-publish notification applies at all —
+			// site identity, the app's field limits, and the two global
+			// post-notification switches. No credentials.
+			if ( 'editor' === $script_name ) {
+				$localized_data['editor'] = array(
+					'siteName'    => get_bloginfo( 'name' ),
+					'siteHost'    => (string) wp_parse_url( home_url(), PHP_URL_HOST ),
+					'titleMax'    => PostNotification::TITLE_MAX,
+					'messageMax'  => PostNotification::MESSAGE_MAX,
+					// Post types that actually notify, per the "all public post
+					// types" / explicit-list setting — the panel hides itself
+					// for anything not in here.
+					'postTypes'   => array_values( array_filter( PostNotification::post_types(), array( PostNotification::class, 'post_type_is_selected' ) ) ),
+					'enabled'     => (bool) Settings::get( 'postNotificationEnabled', true ),
+					'connected'   => '' !== (string) Settings::get( 'apiToken', '' ),
+					'settingsUrl' => admin_url( 'admin.php?page=notifypress#/settings?tab=wordpress' ),
+				);
+			}
+
 			wp_localize_script(
 				self::SCRIPT_HANDLE . "-{$script_name}",
 				self::OBJECT_NAME,
@@ -241,5 +262,6 @@ class Assets {
 	 */
 	public function enqueue_editor_scripts(): void {
 		wp_enqueue_script( self::SCRIPT_HANDLE . '-editor' );
+		wp_enqueue_style( self::STYLE_HANDLE . '-editor' );
 	}
 }

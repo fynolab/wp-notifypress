@@ -158,9 +158,11 @@ hash (`#/dashboard`, `#/setup`, etc.), not separate PHP-rendered pages.
   (`dashboard`, `notifications`, `subscribers`, `segments`, `automations` + its
   `templates`/`wizard`/`canvas`/`messages` variants, `analytics`, `reports`, `settings`, `setup`)
   — mirroring the Laravel app's Inertia page set.
-- `editor.ts` (`assets/editor-dist`) — Gutenberg sidebar panel for triggering a notification from
-  the post editor; loaded for any user who can open the block editor, so it receives only the
-  nonce/REST URL, never `apiKey`/`apiToken` (enforced in `Assets::register_scripts()`).
+- `editor.ts` (`assets/editor-dist`) — the block editor's document-sidebar panel for composing the
+  post's push notification (opt-out, title/message, preview, test send); loaded for any user who
+  can open the block editor, so it receives only the nonce/REST URL plus the non-sensitive
+  `editor` bootstrap (site identity, field limits, global switches) — never `apiKey`/`apiToken`
+  (enforced in `Assets::register_scripts()`).
 - `global.ts` (`assets/global-dist`) — public-facing glue around the app-hosted widget bundle
   (see above).
 

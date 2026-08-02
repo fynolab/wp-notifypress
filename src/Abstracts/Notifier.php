@@ -34,6 +34,26 @@ abstract class Notifier {
 	private static string $token = '';
 
 	/**
+	 * Whether the last send() call reached the app and was accepted.
+	 *
+	 * send() returns the response body either way (an error string on
+	 * failure), which callers can't reliably tell apart — the app answers a
+	 * rejected send with a JSON body of the same shape as an accepted one.
+	 *
+	 * @var bool
+	 */
+	private static bool $last_send_succeeded = false;
+
+	/**
+	 * Whether the most recent send succeeded.
+	 *
+	 * @return bool
+	 */
+	public static function last_send_succeeded(): bool {
+		return self::$last_send_succeeded;
+	}
+
+	/**
 	 * Set up the API
 	 *
 	 * @return void
@@ -70,6 +90,7 @@ abstract class Notifier {
 	 */
 	protected static function send( array $payload ): string {
 		self::setup();
+		self::$last_send_succeeded = false;
 		log( 'Sending the payload', $payload );
 
 		// Validate API token exists.
@@ -96,17 +117,24 @@ abstract class Notifier {
 		if ( ! empty( $payload['url'] ) ) {
 			$sanitized_payload['url'] = esc_url_raw( $payload['url'] );
 		}
+
+		$headers = array(
+			'Content-Type'  => 'application/json',
+			'Authorization' => self::$token,
+		);
+
+		// A single-subscriber send is addressed by header, not by a body
+		// field — the app reads `notifypress-subscription-token` and ignores
+		// anything unknown in the JSON body, so putting the token there would
+		// silently send to every subscriber instead of just the one.
 		if ( ! empty( $payload['subscriber_token'] ) ) {
-			$sanitized_payload['subscriber_token'] = sanitize_text_field( $payload['subscriber_token'] );
+			$headers['notifypress-subscription-token'] = sanitize_text_field( $payload['subscriber_token'] );
 		}
 
 		$request = wp_remote_post(
 			self::$api_endpoint,
 			array(
-				'headers' => array(
-					'Content-Type'  => 'application/json',
-					'Authorization' => self::$token,
-				),
+				'headers' => $headers,
 				'body'    => wp_json_encode( $sanitized_payload ),
 				'timeout' => 15,
 			)
@@ -136,6 +164,8 @@ abstract class Notifier {
 			log( $error );
 			return $error;
 		}
+
+		self::$last_send_succeeded = true;
 
 		return $response;
 	}

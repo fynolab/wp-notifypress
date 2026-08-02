@@ -12,12 +12,11 @@ namespace Fynolab\NotifyPress\Services\NewPost;
 use Fynolab\NotifyPress\Assets;
 use Fynolab\NotifyPress\Interfaces\Observer as ObserverInterface;
 use Fynolab\NotifyPress\Notifier;
-use Fynolab\NotifyPress\Services\Settings\Settings;
 use WP_Post;
 
 /**
- * Notifies subscribers when a post is published, and handles the
- * "send now" admin AJAX trigger.
+ * Notifies subscribers when a post is published, and handles the editor
+ * panel's "Test Notification" AJAX action.
  */
 class Observer implements ObserverInterface {
 	/**
@@ -26,10 +25,11 @@ class Observer implements ObserverInterface {
 	 * @return void
 	 */
 	public function observe(): void {
+		add_action( 'init', array( PostNotification::class, 'register_meta' ) );
 		add_action( 'transition_post_status', array( $this, 'on_new_post' ), 10, 3 );
 
-		// Trigger notification for individual post via AJAX.
-		add_action( 'wp_ajax_notifypress_trigger_notification', array( $this, 'trigger_notification' ) );
+		// Send a test notification to the editing browser's own subscription.
+		add_action( 'wp_ajax_notifypress_send_test_notification', array( $this, 'send_test_notification' ) );
 	}
 
 	/**
@@ -46,89 +46,90 @@ class Observer implements ObserverInterface {
 			return;
 		}
 
-		$post_type = get_post_type_object( $post->post_type );
-
-		if ( ! $post_type || ! $post_type->public ) {
-			return;
-		}
-
-		if ( ! Settings::get( 'postNotificationEnabled', true ) ) {
-			return;
-		}
-
-		if ( ! $this->post_type_is_selected( $post->post_type ) ) {
+		if ( ! PostNotification::should_send( $post ) ) {
 			return;
 		}
 
 		$payload = array(
-			'title'      => 'A new post has been published',
-			'message'    => $post->post_title,
-			'target_url' => get_permalink( $post ),
+			'title'      => PostNotification::title_for( $post ),
+			'message'    => PostNotification::message_for( $post ),
+			'target_url' => PostNotification::target_url( $post ),
 		);
 
 		Notifier::notify_subscribers( $payload );
 	}
 
 	/**
-	 * Whether the given post type should trigger a notification, per the
-	 * "all public post types" / "specific post types" setting.
-	 *
-	 * @param string $post_type The post type slug.
-	 *
-	 * @return bool
-	 */
-	private function post_type_is_selected( string $post_type ): bool {
-		if ( Settings::get( 'postNotificationAllTypes', true ) ) {
-			return true;
-		}
-
-		return in_array( $post_type, Settings::get( 'postNotificationPostTypes', array() ), true );
-	}
-
-	/**
-	 * Trigger notification via AJAX.
+	 * Send a test notification to a single subscriber — the browser the post
+	 * is being edited in — using the panel's current, possibly unsaved values.
 	 *
 	 * @return void
 	 */
-	public function trigger_notification(): void {
+	public function send_test_notification(): void {
 		// Verify nonce.
 		$nonce = sanitize_text_field( wp_unslash( $_POST['nonce'] ?? '' ) );
 
 		if ( ! wp_verify_nonce( $nonce, Assets::NONCE_ACTION ) ) {
-			wp_send_json_error( 'Invalid nonce.' );
+			wp_send_json_error( __( 'Invalid nonce.', 'notifypress' ) );
 		}
 
 		// Check user capability.
 		if ( ! current_user_can( 'edit_posts' ) ) {
-			wp_send_json_error( 'Insufficient permissions.' );
+			wp_send_json_error( __( 'Insufficient permissions.', 'notifypress' ) );
 		}
 
 		// Sanitize and validate post ID.
 		$post_id = absint( $_POST['post_id'] ?? 0 );
 
 		if ( ! $post_id ) {
-			wp_send_json_error( 'Post ID is required.' );
+			wp_send_json_error( __( 'Post ID is required.', 'notifypress' ) );
 		}
 
 		$post = get_post( $post_id );
 
 		if ( ! $post instanceof WP_Post ) {
-			wp_send_json_error( 'Post not found' );
+			wp_send_json_error( __( 'Post not found.', 'notifypress' ) );
 		}
 
 		// Verify user can edit this post.
 		if ( ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_send_json_error( 'You do not have permission to send notifications for this post.' );
+			wp_send_json_error( __( 'You do not have permission to send notifications for this post.', 'notifypress' ) );
 		}
 
+		// The widget stores this in the visitor's browser when they subscribe.
+		// Without it there is nobody to send the test to — and falling back to
+		// "everyone" would turn a test into a live campaign.
+		$subscriber_token = sanitize_text_field( wp_unslash( $_POST['subscriber_token'] ?? '' ) );
+
+		if ( empty( $subscriber_token ) ) {
+			wp_send_json_error(
+				__( 'Subscribe to push notifications in this browser first — a test is sent only to you.', 'notifypress' )
+			);
+		}
+
+		$title   = sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) );
+		$message = sanitize_text_field( wp_unslash( $_POST['message'] ?? '' ) );
+
 		$payload = array(
-			'title'      => 'A new post has been published',
-			'message'    => $post->post_title,
-			'target_url' => 'publish' === $post->post_status ? get_permalink( $post ) : '',
+			'title'      => PostNotification::trim_to(
+				'' !== trim( $title ) ? $title : PostNotification::title_for( $post ),
+				PostNotification::TITLE_MAX
+			),
+			'message'    => PostNotification::trim_to(
+				'' !== trim( $message ) ? $message : PostNotification::message_for( $post ),
+				PostNotification::MESSAGE_MAX
+			),
+			'target_url' => PostNotification::target_url( $post ),
 		);
 
-		Notifier::notify_subscribers( $payload );
+		Notifier::notify_subscriber( $subscriber_token, $payload );
 
-		wp_send_json_success( 'Notification sent successfully!' );
+		if ( ! Notifier::last_send_succeeded() ) {
+			wp_send_json_error(
+				__( 'The app rejected the test notification. Check the connection in NotifyPress → Settings, and that this browser is still subscribed.', 'notifypress' )
+			);
+		}
+
+		wp_send_json_success( __( 'Test notification sent to this browser.', 'notifypress' ) );
 	}
 }

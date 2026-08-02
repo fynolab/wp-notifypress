@@ -63,14 +63,15 @@ Each of these is a `Service` that wires a WordPress/plugin event to a push notif
 `Settings` toggle where noted.
 
 - **New Post** (`NewPost`) — on `transition_post_status` reaching `publish` for a public post
-  type, notifies all subscribers with the post title + permalink. Gated by
+  type, notifies all subscribers with the post's notification title/message + permalink. Gated by
   `postNotificationEnabled`. By default fires for every public post type (including custom post
   types); toggling **Limit to specific post types** in Settings → WordPress Events restricts it
   to an explicit list (`postNotificationAllTypes: false` + `postNotificationPostTypes`, sourced
   from a `GET /notifypress/v1/post-types` REST endpoint listing the site's current public post
-  types). Also exposes a manual "send now" AJAX action (`notifypress_trigger_notification`) used
-  by the Gutenberg sidebar (see below) — that manual trigger is unaffected by either setting,
-  since it's an explicit per-post action.
+  types). What gets sent — and whether this particular post sends at all — comes from the
+  post's own meta, edited in the block editor panel (see below) and resolved by
+  `NewPost\PostNotification`. It also exposes a test-send AJAX action
+  (`notifypress_send_test_notification`) that delivers to one subscriber only.
 - **WooCommerce order placed** (`WC\OrderNotifications`) — on `woocommerce_order_status_changed`,
   notifies all subscribers with the order ID + view-order link. Gated by
   `wcOrderNotificationEnabled`.
@@ -96,14 +97,35 @@ diagram):
    `wcAbandonedCartNotificationEnabled` setting, so toggling it off in Settings actually stops the
    cron rather than just skipping inside the handler.
 
-## Gutenberg Editor Panel
+## Block Editor Panel
 
-`editor.ts` (`assets/editor-dist`) adds a sidebar panel to the block editor
-(`editor/trigger-notification.tsx`) letting any user who can edit the post trigger a "new post
-published" notification manually via the `notifypress_trigger_notification` AJAX action —
-independent of whether the automatic publish-time notification already fired. Loaded for anyone
-who can open the block editor, so it only receives a nonce/REST URL, never the API
-token/key.
+`editor.ts` (`assets/editor-dist`) adds a **NotifyPress** panel to the block editor's document
+sidebar (`editor/notification-panel.tsx`), below Publish/Visibility, where the author composes the
+push notification the post will send:
+
+- **Send Push Notification** — per-post opt-out (`_notifypress_send`). Global settings still win:
+  a post opted in individually is not sent if post notifications are off site-wide or its post
+  type is excluded, and the panel says so inline.
+- **Notification title / message** (`_notifypress_title`, `_notifypress_message`) — blank means
+  "use the post title / excerpt". Both are capped at the app's own limits (50 / 100 characters)
+  and shown with a live character count.
+- **Audience** — "Send to all subscribers" today; the app's send endpoint also accepts a
+  `segment_id`, which is where segment targeting will slot in.
+- **Notification preview** — the copy as subscribers will see it, framed as the editing browser's
+  own notification chrome (browser name, title, message, site host).
+- **Test notification** — posts to `notifypress_send_test_notification`, which delivers to a
+  single subscriber: whoever this browser is, identified by the
+  `notifypress-SubscriptionToken` the widget wrote to `localStorage`. Without that token the
+  action refuses rather than falling back to a send-to-everyone.
+
+Defaults, truncation, and the "does this post send?" decision live in
+`NewPost\PostNotification` on the PHP side and are mirrored in `editor/post-notification.ts`, so
+the preview matches what publishing actually sends. The meta keys are registered with
+`show_in_rest` (and `custom-fields` support added where a post type lacks it) so the editor saves
+them with the post — no separate save step.
+
+The panel is loaded for anyone who can open the block editor, so its bootstrap carries only site
+identity, field limits, and the two global switches — never the API token/key.
 
 ## PWA (Progressive Web App) Support
 

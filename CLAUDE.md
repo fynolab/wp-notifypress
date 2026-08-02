@@ -38,7 +38,7 @@ pnpm run plugin-zip
 Any change to `assets/src/` requires rebuilding **all three** bundles (`pnpm run build`):
 - `assets/main-dist` — wp-admin React SPA
 - `assets/global-dist` — public prompt/subscription flow (keep lean)
-- `assets/editor-dist` — Gutenberg sidebar only
+- `assets/editor-dist` — block editor document panel only
 
 ## Architecture
 
@@ -70,7 +70,7 @@ React 18 + TypeScript + Tailwind CSS + `@wordpress/scripts` (webpack).
 
 - `main.tsx` → admin SPA (React Router, TanStack Query, shadcn/ui components in `components/ui/`)
 - `global.ts` → public prompt UI; minimal — no heavy deps
-- `editor.ts` → Gutenberg panel for triggering notifications from post editor
+- `editor.ts` → block editor panel for composing the post's push notification (meta-backed; see docs/features.md)
 
 API layer (`lib/api.ts`): all Laravel calls go through `laravelRequest()` / `laravelFetch()`. Uses `Bearer {apiToken}` auth. Visitor-context requests must include `notifypress-subscription-token` header (sourced from `localStorage['notifypress-SubscriptionToken']`).
 
