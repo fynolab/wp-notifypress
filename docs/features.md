@@ -109,8 +109,6 @@ push notification the post will send:
 - **Notification title / message** (`_notifypress_title`, `_notifypress_message`) — blank means
   "use the post title / excerpt". Both are capped at the app's own limits (50 / 100 characters)
   and shown with a live character count.
-- **Audience** — "Send to all subscribers" today; the app's send endpoint also accepts a
-  `segment_id`, which is where segment targeting will slot in.
 - **Notification preview** — the copy as subscribers will see it, framed as the editing browser's
   own notification chrome (browser name, title, message, site host).
 - **Test notification** — posts to `notifypress_send_test_notification`, which delivers to a

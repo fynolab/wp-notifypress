@@ -73,12 +73,6 @@ declare module '@wordpress/components' {
         onChange?: ( value: boolean ) => void;
     }
 
-    interface RadioControlProps extends BaseControlProps {
-        onChange?: ( value: string ) => void;
-        options?: Array<{ label: string; value: string }>;
-        selected?: string;
-    }
-
     interface ExternalLinkProps {
         children?: import('react').ReactNode;
         className?: string;
@@ -111,7 +105,6 @@ declare module '@wordpress/components' {
     export const CheckboxControl: import('react').ComponentType<CheckboxControlProps>;
     export const ExternalLink: import('react').ComponentType<ExternalLinkProps>;
     export const Notice: import('react').ComponentType<NoticeProps>;
-    export const RadioControl: import('react').ComponentType<RadioControlProps>;
     export const PanelBody: import('react').ComponentType<PanelBodyProps>;
     export const SelectControl: import('react').ComponentType<SelectControlProps>;
     export const TextControl: import('react').ComponentType<TextControlProps>;

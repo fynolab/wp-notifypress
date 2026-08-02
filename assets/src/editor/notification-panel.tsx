@@ -9,7 +9,6 @@ import {
     CheckboxControl,
     ExternalLink,
     Notice,
-    RadioControl,
     TextControl,
     TextareaControl,
 } from '@wordpress/components';
@@ -217,22 +216,6 @@ const NotificationPanel = () => {
                         onChange={ ( value ) =>
                             updateMeta( { _notifypress_message: value } )
                         }
-                    />
-
-                    <RadioControl
-                        className="notifypress-panel__audience"
-                        label={ __( 'Audience', 'notifypress' ) }
-                        selected="all"
-                        options={ [
-                            {
-                                label: __(
-                                    'Send to all subscribers',
-                                    'notifypress'
-                                ),
-                                value: 'all',
-                            },
-                        ] }
-                        onChange={ () => undefined }
                     />
 
                     <div className="notifypress-preview">
