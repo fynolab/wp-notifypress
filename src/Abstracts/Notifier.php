@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Fynolab\NotifyPress\Abstracts;
 
+use Fynolab\NotifyPress\Api;
 use Fynolab\NotifyPress\Services\Settings\Settings;
 use function Fynolab\NotifyPress\Helpers\log;
 
@@ -48,9 +49,7 @@ abstract class Notifier {
 	 * @return string
 	 */
 	private static function get_api_endpoint(): string {
-		$app_url = untrailingslashit( Settings::get( 'appUrl', Settings::DEFAULT_APP_URL ) );
-
-		return $app_url . '/api/v1/notifications/send';
+		return Api::url( 'notifications/send' );
 	}
 
 	/**

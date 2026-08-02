@@ -1,4 +1,5 @@
-import { getApiToken, getPluginBootstrap } from './settings';
+import { API_URL } from './app';
+import { getApiToken } from './settings';
 import type { Announcement, ConnectedSite, NotifyPressSettings } from '../types';
 
 type QueryValue = string | number | boolean | null | undefined;
@@ -24,18 +25,6 @@ const toQueryString = ( params?: Record< string, QueryValue > ) => {
 
     const query = search.toString();
     return query ? `?${ query }` : '';
-};
-
-const getBaseUrl = ( settings?: NotifyPressSettings ) => {
-    const bootstrap = getPluginBootstrap() as NotifyPressSettings & {
-        defaultAppUrl?: string;
-    };
-    const appUrl =
-        settings?.appUrl ||
-        bootstrap.defaultAppUrl ||
-        bootstrap.appUrl ||
-        'https://app.notifypress.com';
-    return `${ String( appUrl ).replace( /\/$/, '' ) }/api/v1`;
 };
 
 const getSubscriptionToken = () => {
@@ -78,7 +67,7 @@ function buildLaravelFetch(
     }
 
     const query = toQueryString( options.query );
-    const url = `${ getBaseUrl( settings ) }${ path }${ query }`;
+    const url = `${ API_URL }${ path }${ query }`;
     const headers: Record< string, string > = {
         Authorization: `Bearer ${ token }`,
         Accept: 'application/json',

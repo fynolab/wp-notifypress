@@ -223,7 +223,6 @@ function AutomationsList( { settings }: { settings: NotifyPressSettings } ) {
                 isPaidUser={ listQuery.data?.isPaidUser ?? true }
                 featureName="Automations"
                 description="Automation workflows are available on Starter plans and above. Upgrade to send notifications automatically when subscribers join or take an action."
-                settings={ settings }
             >
             <div className="space-y-6">
             <div className="flex items-center gap-2 border-b">

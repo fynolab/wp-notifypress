@@ -22,8 +22,6 @@ defined( 'ABSPATH' ) || exit;
  * `Settings::all()` entry point every other service already depends on.
  */
 class Settings implements Service {
-	public const DEFAULT_APP_URL = SettingsRepository::DEFAULT_APP_URL;
-
 	/**
 	 * Ensure defaults are persisted and register the REST routes.
 	 */

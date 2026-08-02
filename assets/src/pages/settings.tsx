@@ -13,6 +13,7 @@ import {
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getPostTypes, getSettings, updateSettings } from '../lib/settings';
 import { laravelRequest, validateConnection } from '../lib/api';
+import { APP_URL } from '../lib/app';
 import { ui } from '../lib/admin-ui';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
@@ -198,7 +199,6 @@ function PromptPreview( {
 }
 
 const emptySettings: NotifyPressSettings = {
-    appUrl: '',
     apiToken: '',
     apiKey: '',
     siteKey: '',
@@ -424,9 +424,7 @@ export default function SettingsPage() {
     };
 
     const status = displayForm.connectionStatus || 'disconnected';
-    const connectUrl = `${
-        displayForm.appUrl || 'https://app.notifypress.com'
-    }/connect?${ new URLSearchParams( {
+    const connectUrl = `${ APP_URL }/connect?${ new URLSearchParams( {
         callback_uri: `${
             window.notifypress?.siteUrl || window.location.origin
         }/wp-admin/admin.php?page=notifypress`,
@@ -635,19 +633,6 @@ export default function SettingsPage() {
                                     </Button>
                                 </div>
                             ) }
-                            <div className="grid gap-1.5">
-                                <Label htmlFor="np-app-url">App URL</Label>
-                                <Input
-                                    id="np-app-url"
-                                    value={ displayForm.appUrl || '' }
-                                    onChange={ ( e ) =>
-                                        setForm( {
-                                            ...displayForm,
-                                            appUrl: e.target.value,
-                                        } )
-                                    }
-                                />
-                            </div>
                             <div className="grid gap-1.5">
                                 <Label htmlFor="np-api-token">
                                     API token

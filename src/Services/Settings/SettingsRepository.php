@@ -19,8 +19,7 @@ defined( 'ABSPATH' ) || exit;
  * of what triggered the update).
  */
 class SettingsRepository {
-	public const OPTION_KEY      = 'notifypress_settings';
-	public const DEFAULT_APP_URL = 'https://app.notifypress.com';
+	public const OPTION_KEY = 'notifypress_settings';
 
 	/**
 	 * Get the full settings array, merged with defaults.
@@ -110,7 +109,6 @@ class SettingsRepository {
 	private static function defaults(): array {
 		return array(
 			'enabled'                            => true,
-			'appUrl'                             => self::DEFAULT_APP_URL,
 			'apiToken'                           => '',
 			'apiKey'                             => '',
 			'siteKey'                            => '',
@@ -157,7 +155,6 @@ class SettingsRepository {
 
 		$api_token = sanitize_text_field( $params['apiToken'] ?? $params['apiKey'] ?? '' );
 		$site_key  = sanitize_text_field( $params['siteKey'] ?? '' );
-		$app_url   = esc_url_raw( $params['appUrl'] ?? self::DEFAULT_APP_URL );
 
 		// Only allow post types that are actually public right now — drops
 		// stale slugs left over from a since-deactivated plugin/theme.
@@ -171,7 +168,6 @@ class SettingsRepository {
 
 		return array(
 			'enabled'                            => rest_sanitize_boolean( $params['enabled'] ?? true ),
-			'appUrl'                             => untrailingslashit( $app_url ? $app_url : self::DEFAULT_APP_URL ),
 			'apiToken'                           => $api_token,
 			'apiKey'                             => $api_token,
 			'siteKey'                            => $site_key,

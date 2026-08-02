@@ -86,7 +86,6 @@ export interface Announcement {
 }
 
 export interface NotifyPressSettings {
-    appUrl?: string;
     apiToken?: string;
     apiKey?: string;
     siteKey?: string;
@@ -115,8 +114,6 @@ export interface NotifyPressSettings {
 declare global {
     interface Window {
         notifypress?: NotifyPressSettings & {
-            apiUrl?: string;
-            defaultAppUrl?: string;
             nonce?: string;
             settings?: NotifyPressSettings;
             siteUrl?: string;

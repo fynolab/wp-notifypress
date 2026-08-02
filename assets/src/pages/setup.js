@@ -18,6 +18,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getSettings, updateSettings } from '../lib/settings';
 import { validateConnection, laravelRequest } from '../lib/api';
+import { APP_URL } from '../lib/app';
 import { ui } from '../lib/admin-ui';
 import LogoMark from '../components/logo-mark';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -54,17 +55,6 @@ const steps = [
     },
 ];
 
-const getConfiguredAppUrl = ( settings ) => {
-    const bootstrap = window.notifypress || {};
-
-    return (
-        settings.appUrl ||
-        bootstrap.defaultAppUrl ||
-        bootstrap.appUrl ||
-        'https://app.notifypress.com'
-    ).replace( /\/$/, '' );
-};
-
 const getSiteUrl = ( settings ) =>
     settings.siteUrl ||
     settings.connectedSite?.site_url ||
@@ -78,7 +68,7 @@ const getSiteName = ( settings ) =>
     'WordPress Site';
 
 const getConnectUrl = ( settings ) =>
-    `${ getConfiguredAppUrl( settings ) }/connect?${ new URLSearchParams( {
+    `${ APP_URL }/connect?${ new URLSearchParams( {
         callback_uri: `${
             window.notifypress?.siteUrl || window.location.origin
         }/wp-admin/admin.php?page=notifypress#/setup`,

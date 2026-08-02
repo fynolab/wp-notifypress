@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Fynolab\NotifyPress\Services\NotifyPress;
 
+use Fynolab\NotifyPress\Api;
 use Fynolab\NotifyPress\Assets;
 use Fynolab\NotifyPress\Interfaces\Service;
 use Fynolab\NotifyPress\Services\Settings\Settings;
@@ -195,9 +196,7 @@ class NotifyPress implements Service {
 	 * @return string
 	 */
 	private function get_api_url( string $path ): string {
-		$app_url = untrailingslashit( Settings::get( 'appUrl', Settings::DEFAULT_APP_URL ) );
-
-		return $app_url . '/api/v1/' . ltrim( $path, '/' );
+		return Api::url( $path );
 	}
 
 	/**
@@ -208,9 +207,7 @@ class NotifyPress implements Service {
 	 * @return string
 	 */
 	private function get_recent_notifications_cache_key( string $api_token ): string {
-		$app_url = untrailingslashit( Settings::get( 'appUrl', Settings::DEFAULT_APP_URL ) );
-
-		return 'notifypress_recent_notifications_' . md5( $app_url . '|' . $api_token );
+		return 'notifypress_recent_notifications_' . md5( $api_token );
 	}
 
 	/**
