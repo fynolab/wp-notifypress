@@ -7,9 +7,6 @@ declare global {
             siteUrl?: string;
             restUrl?: string;
             nonce?: string;
-            defaultAppUrl?: string;
-            appUrl?: string;
-            apiUrl?: string;
             ajaxUrl?: string;
             restNonce?: string;
         };

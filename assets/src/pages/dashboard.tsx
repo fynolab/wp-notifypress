@@ -105,11 +105,7 @@ function useDashboardData() {
     } );
 
     const dashboardQuery = useQuery( {
-        queryKey: [
-            'np-dashboard',
-            getApiToken( settingsQuery.data ),
-            settingsQuery.data?.appUrl,
-        ],
+        queryKey: [ 'np-dashboard', getApiToken( settingsQuery.data ) ],
         enabled: hasApiToken( settingsQuery.data ),
         queryFn: () =>
             laravelRequest< LaravelResource< DashboardData > >(

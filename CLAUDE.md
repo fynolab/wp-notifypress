@@ -78,7 +78,7 @@ Settings bootstrap is injected via PHP into `window` and read via `lib/settings.
 
 ## Key Conventions
 
-- App URL never hardcoded — always read from `Settings::get('appUrl', Settings::DEFAULT_APP_URL)`
+- App URL is a constant, not a setting — `Api::APP_URL` / `Api::url()` in PHP, `lib/app.ts` (`APP_URL`, `API_URL`, `BILLING_URL`) in JS. Never hardcode the host anywhere else, and don't reintroduce an `appUrl` option or UI field.
 - `apiToken` and `apiKey` are kept in sync in the settings option; prefer `apiToken` in new code
 - Cache read-only Laravel responses with `set_transient()`; never cache subscribe/unsubscribe mutations
 - FCM push payload fields (`targetUrl`, etc.) must be strings — never `null`

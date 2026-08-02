@@ -25,7 +25,6 @@ class Assets {
 	const REST_NONCE            = 'wp_rest';
 	const SERVICE_WORKER_JS     = 'service-worker.js';
 	const SERVICE_WORKER_HANDLE = 'notifypress_service_worker';
-	const NOTIFYPRESS_APP_HOST  = 'https://app.notifypress.com';
 	const WIDGET_HANDLE         = 'notifypress-widget';
 	const GLOBAL_SCRIPT_HANDLE  = 'notifypress-global';
 
@@ -131,9 +130,6 @@ class Assets {
 			'editor' => ASSETS_DIR . 'editor-dist/editor.asset.php',
 		);
 
-		$settings = Settings::all();
-		$app_url  = untrailingslashit( $settings['appUrl'] ?? self::NOTIFYPRESS_APP_HOST );
-
 		foreach ( $script_paths as $script_name => $script_path ) {
 			if ( ! is_readable( $script_path ) ) {
 				continue;
@@ -152,15 +148,14 @@ class Assets {
 			wp_register_script( self::SCRIPT_HANDLE . "-{$script_name}", ASSETS_URL . "{$script_name}-dist/{$script_name}.js", $dependency, $script_version, true );
 			wp_register_style( self::STYLE_HANDLE . "-{$script_name}", ASSETS_URL . "{$script_name}-dist/style-{$script_name}.css", array(), $style_version );
 
+			// No app URL here — it is a fixed constant the JS bundle already
+			// knows (assets/src/lib/app.ts).
 			$localized_data = array(
-				'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
-				'nonce'         => wp_create_nonce( self::NONCE_ACTION ),
-				'restUrl'       => rest_url( 'notifypress/v1' ),
-				'restNonce'     => wp_create_nonce( self::REST_NONCE ),
-				'siteUrl'       => site_url(),
-				'defaultAppUrl' => $app_url,
-				'appUrl'        => $app_url,
-				'apiUrl'        => $app_url . '/api/v1',
+				'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
+				'nonce'     => wp_create_nonce( self::NONCE_ACTION ),
+				'restUrl'   => rest_url( 'notifypress/v1' ),
+				'restNonce' => wp_create_nonce( self::REST_NONCE ),
+				'siteUrl'   => site_url(),
 			);
 
 			// The 'main' script only runs on the manage_options-gated settings
@@ -198,7 +193,6 @@ class Assets {
 
 		$settings = Settings::all();
 		$site_key = $settings['siteKey'] ?? '';
-		$app_url  = untrailingslashit( $settings['appUrl'] ?? self::NOTIFYPRESS_APP_HOST );
 
 		if ( empty( $site_key ) ) {
 			return;
@@ -206,7 +200,7 @@ class Assets {
 
 		wp_enqueue_script(
 			self::WIDGET_HANDLE,
-			$app_url . '/widget.js?site_key=' . rawurlencode( $site_key ),
+			Api::widget_url( $site_key ),
 			array(),
 			null, // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- third-party asset; versioned by app.notifypress.com, not by this plugin.
 			false

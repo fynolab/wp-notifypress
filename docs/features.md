@@ -23,7 +23,8 @@ pair that everything else depends on.
 
 Single options page (`Settings` service, REST-backed at `notifypress/v1/settings`) controlling:
 
-- Connection (`apiToken`/`apiKey`, `siteKey`, `appUrl`, `connectedSite`)
+- Connection (`apiToken`/`apiKey`, `siteKey`, `connectedSite`) — the app URL is **not** a setting;
+  it is the `Api::APP_URL` constant (see Architecture → App URL)
 - Global on/off (`enabled`)
 - Welcome notification content and toggle: `welcomeNotificationEnabled`,
   `welcomeNotificationTitle`, `welcomeNotificationMessage`, `welcomeNotificationIcon`,
@@ -40,11 +41,11 @@ re-sanitized on every save.
 ## Subscription Widget (public site)
 
 The actual opt-in prompt + FCM registration UI is loaded from the Laravel app
-(`{appUrl}/widget.js?site_key=...`, enqueued by `Assets::enqueue_widget()`) — this plugin doesn't
+(`{app}/widget.js?site_key=...`, enqueued by `Assets::enqueue_widget()`) — this plugin doesn't
 implement that UI itself. What the plugin does provide:
 
 - **Subscribe/unsubscribe relay** — `wp_ajax(_nopriv)_notifypress_update_subscription` takes the
-  widget's subscription token and forwards it to `{appUrl}/api/v1/subscribers`, nonce-verified.
+  widget's subscription token and forwards it to `{app}/api/v1/subscribers`, nonce-verified.
 - **Welcome notification** — the moment a visitor's subscription is activated,
   `WelcomeNotification::send()` pushes a one-off notification to that subscriber only, built from
   the configurable `welcomeNotificationTitle`/`Message`/`Icon`/`Url` settings (with a sensible
@@ -52,13 +53,13 @@ implement that UI itself. What the plugin does provide:
   notification source. Gated by `welcomeNotificationEnabled` — see the **Settings → Welcome
   Message** tab.
 - **Recent notifications feed** — `wp_ajax(_nopriv)_notifypress_get_recent_notifications` proxies
-  `{appUrl}/api/v1/notifications?status=sent&limit=3`, cached 2 minutes per API token
+  `{app}/api/v1/notifications?status=sent&limit=3`, cached 2 minutes per API token
   (`set_transient`) so the public-facing feed doesn't hit the app API on every page load.
 
 ## Automatic Notifications (Observer pattern)
 
 Each of these is a `Service` that wires a WordPress/plugin event to a push notification via
-`Notifier::notify_subscriber(s)` → `{appUrl}/api/v1/notifications/send`. Gated individually by a
+`Notifier::notify_subscriber(s)` → `{app}/api/v1/notifications/send`. Gated individually by a
 `Settings` toggle where noted.
 
 - **New Post** (`NewPost`) — on `transition_post_status` reaching `publish` for a public post

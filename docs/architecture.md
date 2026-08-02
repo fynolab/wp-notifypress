@@ -65,7 +65,7 @@ WP/WC action fires
   → Observer method (e.g. WC\OrderNotifications::on_new_order)
     → builds payload { title, message, target_url }
       → Notifier::notify_subscriber(s)   [Abstracts\Notifier::send()]
-        → POST {appUrl}/api/v1/notifications/send  (Bearer apiKey)
+        → POST {app}/api/v1/notifications/send  (Bearer apiKey)
 ```
 
 `Abstracts\Notifier` (`src/Abstracts/Notifier.php`) centralizes the outbound call: resolves the
@@ -118,7 +118,7 @@ UI would show wrong values for up to 30 seconds after every fresh page load.
 The plugin does not implement the opt-in prompt or FCM registration itself — that logic lives in
 `assets/global-dist`, a **build output of `app.notifypress.com`'s widget bundle served from the
 Laravel app**, loaded via `Assets::enqueue_widget()` as an async `<script>` pointed at
-`{appUrl}/widget.js?site_key={siteKey}`. This plugin's own `global.ts` bundle is the thin glue
+`{app}/widget.js?site_key={siteKey}`. This plugin's own `global.ts` bundle is the thin glue
 around it (public prompt UI wiring, kept intentionally lean since it loads on every page).
 
 Subscription state changes flow through the plugin's own AJAX endpoints, not directly to the app,
@@ -128,15 +128,15 @@ so the plugin can attach its own nonce and manage the `apiKey`/cache server-side
 Visitor toggles subscription (widget UI)
   → wp_ajax(_nopriv)_notifypress_update_subscription
     → verify nonce (Assets::NONCE_ACTION)
-    → POST {appUrl}/api/v1/subscribers  (Bearer apiKey)
+    → POST {app}/api/v1/subscribers  (Bearer apiKey)
     → on activate: NotifyPress::maybe_send_welcome_notification_to()
         → WelcomeNotification::send()  [Settings-driven content, gated by welcomeNotificationEnabled]
           → Notifier::notify_subscriber()   [Abstracts\Notifier::send()]
 ```
 
-`notifypress_get_recent_notifications` proxies `GET {appUrl}/api/v1/notifications?status=sent`
+`notifypress_get_recent_notifications` proxies `GET {app}/api/v1/notifications?status=sent`
 and caches the response in a transient (`RECENT_NOTIFICATIONS_CACHE_TTL` = 2 min, keyed by
-`md5(appUrl|apiToken)`) — mutation endpoints (subscribe/unsubscribe) are never cached, matching
+`md5(apiToken)`) — mutation endpoints (subscribe/unsubscribe) are never cached, matching
 the app repo's caching convention.
 
 `WelcomeNotification` (`src/Services/NotifyPress/WelcomeNotification.php`) is a plain class, not a
@@ -144,8 +144,8 @@ the app repo's caching convention.
 never registered in `App::get_services()`. Its content (title/message/icon/URL) comes entirely from
 `Settings` (`welcomeNotificationTitle`, `welcomeNotificationMessage`, `welcomeNotificationIcon`,
 `welcomeNotificationUrl`) rather than a hardcoded template, and it's sent through the same shared
-`Notifier` → `Abstracts\Notifier::send()` path as every other notification source, so it also picks
-up the configured `appUrl` instead of a hardcoded app domain.
+`Notifier` → `Abstracts\Notifier::send()` path as every other notification source, so it also
+reaches the app through `Api::url()` rather than a URL of its own.
 
 ## Admin SPA
 
@@ -169,9 +169,9 @@ separate webpack entry points with very different size/permission constraints.
 
 ### Talking to the Laravel App from JS
 
-`assets/src/lib/api.ts` is the single client for `{appUrl}/api/v1/...` calls from the admin SPA
-(`laravelRequest`/`laravelFetch`). It resolves `appUrl` from the localized bootstrap
-(`window.notifypress`, read via `lib/settings.ts`), sends `Authorization: Bearer {apiToken}`, and
+`assets/src/lib/api.ts` is the single client for `{app}/api/v1/...` calls from the admin SPA
+(`laravelRequest`/`laravelFetch`). It builds every URL from `API_URL` in `lib/app.ts` (see
+**App URL** below), sends `Authorization: Bearer {apiToken}`, and
 for visitor-context calls attaches a `notifypress-subscription-token` header sourced from
 `localStorage['notifypress-SubscriptionToken']`. This is the same token issued to the widget when
 a visitor subscribes.
@@ -179,9 +179,9 @@ a visitor subscribes.
 ## Settings
 
 `Settings` (`src/Services/Settings/Settings.php`) is a thin `Service` facade — every other class
-in the plugin talks to settings only through its static `Settings::get()`/`Settings::all()`/
-`Settings::DEFAULT_APP_URL`, and that surface is deliberately kept stable. It delegates to three
-collaborators under `src/Services/Settings/`:
+in the plugin talks to settings only through its static `Settings::get()`/`Settings::all()`, and
+that surface is deliberately kept stable. It delegates to three collaborators under
+`src/Services/Settings/`:
 
 | Class | Responsibility |
 |---|---|
@@ -215,9 +215,23 @@ logic itself.
   registered when the flag is on — see `PWA::__construct()`), and `notifypress_settings_updated`
   fires after every successful update for other services to hook into.
 
-`app.notifypress.com` never has a hardcoded URL for this plugin's REST API — conversely, this
-plugin never hardcodes the app's URL either: always read `Settings::get('appUrl',
-Settings::DEFAULT_APP_URL)`.
+## App URL
+
+The app lives at one fixed URL for every install, so it is a constant — not a setting, and not
+user-editable:
+
+| Side | Source of truth |
+|---|---|
+| PHP | `Fynolab\NotifyPress\Api` (`src/Api.php`) — `Api::APP_URL`, `Api::url( $path )` for `/api/v1/...`, `Api::widget_url( $site_key )` |
+| JS | `assets/src/lib/app.ts` — `APP_URL`, `API_URL`, `BILLING_URL` |
+
+Nothing else may hardcode the host: build URLs through those two modules only. The URL is
+deliberately **not** in the localized `window.notifypress` bootstrap either — the bundle already
+knows it.
+
+It was briefly a stored setting (`appUrl`) with a text field on **Settings → Connect Your Site**.
+Both are gone — the option key no longer exists in `defaults()`/`sanitize()`, so nothing a client
+sends can repoint the plugin at another host.
 
 ## PWA
 
@@ -234,6 +248,6 @@ See the repo's `CLAUDE.md` for the full list; the architecturally load-bearing o
 - Namespace `Fynolab\NotifyPress`, PSR-4, `declare(strict_types=1)` everywhere.
 - Every feature module is a `Service` (`register(): void`) added to `App::get_services()`.
 - Every event-driven notification source is an `Observer` calling `Notifier`.
-- App URL and API token are always read from `Settings`, never hardcoded (except the
-  `DEFAULT_APP_URL`/`get_api_endpoint()` fallback constants themselves).
+- The API token is always read from `Settings`; the app URL never is — it comes from `Api`
+  (PHP) / `lib/app.ts` (JS), and is hardcoded nowhere else.
 - `global-dist` must stay minimal — it loads unconditionally on every public page.
