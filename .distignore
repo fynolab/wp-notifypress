@@ -9,7 +9,6 @@
 AGENTS.md
 CLAUDE.md
 UI_PARITY_REPORT.md
-composer.json
 composer.lock
 package.json
 pnpm-lock.yaml
