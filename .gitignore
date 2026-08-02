@@ -13,7 +13,9 @@
 .DS_Store
 
 # Ignore build directories and tmp folders
-/assets/build/*.map
+# Source maps are emitted by dev-mode builds only; the shipped bundles are
+# committed, their maps are not.
+/assets/*-dist/*.map
 /misc/tmp
 /node_modules
 /coverage
