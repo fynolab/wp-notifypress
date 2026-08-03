@@ -51,7 +51,45 @@ class SettingsRepository {
 	public static function ensure_defaults(): void {
 		// array_merge, not array_replace_recursive — see update() for why
 		// list-type settings need a full replace.
-		self::persist( array_merge( self::defaults(), self::raw() ) );
+		self::persist( self::upgrade( array_merge( self::defaults(), self::raw() ) ) );
+	}
+
+	/**
+	 * Bring a stored settings array up to the current schema.
+	 *
+	 * Runs on every load (from ensure_defaults()) and is a no-op once the old
+	 * keys are gone, so each upgrade removes itself.
+	 *
+	 * @param array $settings The settings array, defaults already merged in.
+	 *
+	 * @return array
+	 */
+	private static function upgrade( array $settings ): array {
+		// postNotificationAllTypes used to mean "every public post type,
+		// including ones registered later". That mode is gone: the post type
+		// list is now the only source of truth. Sites that were on "all types"
+		// land on the current default rather than an empty list, which would
+		// silently stop them notifying altogether.
+		if ( array_key_exists( 'postNotificationAllTypes', $settings ) ) {
+			if ( ! empty( $settings['postNotificationAllTypes'] ) ) {
+				$settings['postNotificationPostTypes'] = self::default_post_types();
+			}
+
+			unset( $settings['postNotificationAllTypes'] );
+		}
+
+		return $settings;
+	}
+
+	/**
+	 * The post types that notify on a fresh install: blog posts only. Pages
+	 * and custom post types are opt-in — publishing a page or a
+	 * plugin-registered record is rarely news a subscriber asked for.
+	 *
+	 * @return string[]
+	 */
+	private static function default_post_types(): array {
+		return array_values( array_intersect( array( 'post' ), PostTypeOptions::selectable_names() ) );
 	}
 
 	/**
@@ -124,8 +162,7 @@ class SettingsRepository {
 			'welcomeNotificationIcon'            => '',
 			'welcomeNotificationUrl'             => home_url(),
 			'postNotificationEnabled'            => true,
-			'postNotificationAllTypes'           => true,
-			'postNotificationPostTypes'          => array(),
+			'postNotificationPostTypes'          => self::default_post_types(),
 			'wcOrderNotificationEnabled'         => true,
 			'wcAbandonedCartNotificationEnabled' => true,
 			'pwaEnabled'                         => false,
@@ -156,13 +193,13 @@ class SettingsRepository {
 		$api_token = sanitize_text_field( $params['apiToken'] ?? $params['apiKey'] ?? '' );
 		$site_key  = sanitize_text_field( $params['siteKey'] ?? '' );
 
-		// Only allow post types that are actually public right now — drops
-		// stale slugs left over from a since-deactivated plugin/theme.
+		// Only allow post types the picker actually offers — drops stale slugs
+		// left over from a since-deactivated plugin/theme.
 		$requested_post_types         = is_array( $params['postNotificationPostTypes'] ?? null ) ? $params['postNotificationPostTypes'] : array();
 		$post_notification_post_types = array_values(
 			array_intersect(
 				array_unique( array_map( 'sanitize_key', $requested_post_types ) ),
-				PostTypeOptions::public_names()
+				PostTypeOptions::selectable_names()
 			)
 		);
 
@@ -183,7 +220,6 @@ class SettingsRepository {
 			'welcomeNotificationIcon'            => esc_url_raw( $params['welcomeNotificationIcon'] ?? '' ),
 			'welcomeNotificationUrl'             => esc_url_raw( $params['welcomeNotificationUrl'] ?? home_url() ),
 			'postNotificationEnabled'            => rest_sanitize_boolean( $params['postNotificationEnabled'] ?? true ),
-			'postNotificationAllTypes'           => rest_sanitize_boolean( $params['postNotificationAllTypes'] ?? true ),
 			'postNotificationPostTypes'          => $post_notification_post_types,
 			'wcOrderNotificationEnabled'         => rest_sanitize_boolean( $params['wcOrderNotificationEnabled'] ?? true ),
 			'wcAbandonedCartNotificationEnabled' => rest_sanitize_boolean( $params['wcAbandonedCartNotificationEnabled'] ?? true ),

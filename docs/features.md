@@ -29,9 +29,8 @@ Single options page (`Settings` service, REST-backed at `notifypress/v1/settings
 - Welcome notification content and toggle: `welcomeNotificationEnabled`,
   `welcomeNotificationTitle`, `welcomeNotificationMessage`, `welcomeNotificationIcon`,
   `welcomeNotificationUrl`
-- Per-source toggles: `postNotificationEnabled` (plus `postNotificationAllTypes`/
-  `postNotificationPostTypes` to scope it to specific public post types), `wcOrderNotificationEnabled`,
-  `wcAbandonedCartNotificationEnabled`
+- Per-source toggles: `postNotificationEnabled` (plus `postNotificationPostTypes`, the post types
+  it applies to), `wcOrderNotificationEnabled`, `wcAbandonedCartNotificationEnabled`
 - Geolocation and "remove powered by" flags (mirrored from the connected site on the app side)
 - `pwaEnabled`
 
@@ -64,11 +63,14 @@ Each of these is a `Service` that wires a WordPress/plugin event to a push notif
 
 - **New Post** (`NewPost`) — on `transition_post_status` reaching `publish` for a public post
   type, notifies all subscribers with the post's notification title/message + permalink. Gated by
-  `postNotificationEnabled`. By default fires for every public post type (including custom post
-  types); toggling **Limit to specific post types** in Settings → WordPress Events restricts it
-  to an explicit list (`postNotificationAllTypes: false` + `postNotificationPostTypes`, sourced
-  from a `GET /notifypress/v1/post-types` REST endpoint listing the site's current public post
-  types). What gets sent — and whether this particular post sends at all — comes from the
+  `postNotificationEnabled`, then by the post type: Settings → WordPress Events lists every public
+  post type (custom ones included, attachments excluded) with a switch each, and
+  `postNotificationPostTypes` is the resulting list — the only source of truth, so a post type
+  registered later by some other plugin stays silent until it is switched on. **Only `post` is on
+  by default**; pages and custom post types are opt-in. Choices come from a
+  `GET /notifypress/v1/post-types` REST endpoint, and the list is validated against
+  `PostTypeOptions::selectable_names()`. `SettingsRepository::ensure_defaults()` is hooked to
+  `init` at priority 20, so custom post types are registered before any of that is computed. What gets sent — and whether this particular post sends at all — comes from the
   post's own meta, edited in the block editor panel (see below) and resolved by
   `NewPost\PostNotification`. It also exposes a test-send AJAX action
   (`notifypress_send_test_notification`) that delivers to one subscriber only.

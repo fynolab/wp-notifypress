@@ -102,7 +102,6 @@ export interface NotifyPressSettings {
     welcomeNotificationIcon?: string;
     welcomeNotificationUrl?: string;
     postNotificationEnabled?: boolean;
-    postNotificationAllTypes?: boolean;
     postNotificationPostTypes?: string[];
     wcOrderNotificationEnabled?: boolean;
     wcAbandonedCartNotificationEnabled?: boolean;

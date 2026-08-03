@@ -95,6 +95,17 @@ which seeds the frontend's `initialData` for the `np-settings` react-query cache
 (`staleTime: 30000` in `lib/query-client.ts`), so if only the REST endpoint carried the flag, the
 UI would show wrong values for up to 30 seconds after every fresh page load.
 
+`for_frontend()` also overlays the app's copy of the site record
+(`Services\NotifyPress\CurrentSite`), because a few settings are owned by the app, not by WP:
+`enable_geolocation`, `remove_powered_by` and the opt-in prompt fields can all be changed from the
+NotifyPress dashboard, and the WP option only holds a copy refreshed when settings are saved here.
+`CurrentSite::refresh()` runs once per NotifyPress admin page load (`Assets::register_scripts()`,
+gated on the `toplevel_page_notifypress` hook suffix) and caches for a minute; everything else
+reads `CurrentSite::cached()`, and an unreachable app just falls back to the stored copy. The
+cache is flushed on `notifypress_settings_updated`, since saving PUTs the record to the app.
+`Settings::all()` deliberately does **not** overlay — PHP consumers keep reading the persisted
+option, and nothing about delivery depends on these two flags.
+
 - **`OrderNotifications`** (`src/Services/WC/OrderNotifications.php`) — the plain
   order-status-changed observer described above, gated by `wcOrderNotificationEnabled`.
 - **`AbandonedCart\*`** (`src/Services/WC/AbandonedCart/`) — split into three collaborators

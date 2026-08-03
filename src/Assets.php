@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Fynolab\NotifyPress;
 
 use Fynolab\NotifyPress\Services\NewPost\PostNotification;
+use Fynolab\NotifyPress\Services\NotifyPress\CurrentSite;
 use Fynolab\NotifyPress\Services\Settings\Settings;
 
 defined( 'ABSPATH' ) || exit;
@@ -124,6 +125,11 @@ class Assets {
 			// "Cannot read properties of undefined (reading 'Region')" if the
 			// templates it needs weren't printed yet.
 			wp_enqueue_media();
+
+			// Only the NotifyPress screen shows the app's site record, so only
+			// it pays for refreshing that record. Every other admin page reads
+			// whatever this left cached (Settings::for_frontend()).
+			CurrentSite::refresh();
 		}
 
 		$script_paths = array(
