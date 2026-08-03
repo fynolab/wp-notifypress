@@ -8,8 +8,15 @@
             "src/Helpers.php"
         ]
     },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "git@github.com:fynolab/notifypress-php.git"
+        }
+    ],
     "require": {
-        "php": ">=8.1"
+        "php": ">=8.1",
+        "notifypress/sdk": "^0.1"
     },
     "require-dev": {
         "squizlabs/php_codesniffer": "^3.13",
@@ -22,7 +29,7 @@
         }
     },
     "scripts": {
-        "phpcs": "vendor/bin/phpcs",
-        "phpcbf": "phpcbf"
+        "phpcs": "@php vendor/bin/phpcs --runtime-set installed_paths vendor/wp-coding-standards/wpcs,vendor/phpcsstandards/phpcsutils,vendor/phpcsstandards/phpcsextra",
+        "phpcbf": "@php vendor/bin/phpcbf --runtime-set installed_paths vendor/wp-coding-standards/wpcs,vendor/phpcsstandards/phpcsutils,vendor/phpcsstandards/phpcsextra"
     }
 }

@@ -9,76 +9,36 @@ declare( strict_types=1 );
 
 namespace Fynolab\NotifyPress\Abstracts;
 
-use Fynolab\NotifyPress\Api;
-use Fynolab\NotifyPress\Services\Settings\Settings;
+use Fynolab\NotifyPress\Services\NotifyPress\Client;
+use NotifyPress\Exception\NotifyPressException;
+use NotifyPress\Payload\SendNotification;
 use function Fynolab\NotifyPress\Helpers\log;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * Base class for sending notification payloads to the NotifyPress API.
+ *
+ * Delivery runs through the official PHP SDK, which reports a refused send as a
+ * typed exception rather than as a string that reads like a response body. That
+ * is what lets send() return a plain bool: callers no longer have to inspect a
+ * string to work out whether anything was actually delivered.
  */
 abstract class Notifier {
 	/**
-	 * The NotifyPress API endpoint.
+	 * The error from the most recent failed send, for the caller to surface.
 	 *
 	 * @var string
 	 */
-	private static string $api_endpoint = '';
+	private static string $last_error = '';
 
 	/**
-	 * The Bearer-prefixed API token.
-	 *
-	 * @var string
-	 */
-	private static string $token = '';
-
-	/**
-	 * Whether the last send() call reached the app and was accepted.
-	 *
-	 * send() returns the response body either way (an error string on
-	 * failure), which callers can't reliably tell apart — the app answers a
-	 * rejected send with a JSON body of the same shape as an accepted one.
-	 *
-	 * @var bool
-	 */
-	private static bool $last_send_succeeded = false;
-
-	/**
-	 * Whether the most recent send succeeded.
-	 *
-	 * @return bool
-	 */
-	public static function last_send_succeeded(): bool {
-		return self::$last_send_succeeded;
-	}
-
-	/**
-	 * Set up the API
-	 *
-	 * @return void
-	 */
-	private static function setup(): void {
-		self::$api_endpoint = self::get_api_endpoint();
-		self::$token        = self::get_api_token();
-	}
-
-	/**
-	 * Get the API endpoint
+	 * The reason the most recent send failed, or an empty string if it did not.
 	 *
 	 * @return string
 	 */
-	private static function get_api_endpoint(): string {
-		return Api::url( 'notifications/send' );
-	}
-
-	/**
-	 * Get the API token
-	 *
-	 * @return string
-	 */
-	private static function get_api_token(): string {
-		return 'Bearer ' . Settings::get( 'apiKey' );
+	public static function last_error(): string {
+		return self::$last_error;
 	}
 
 	/**
@@ -86,87 +46,80 @@ abstract class Notifier {
 	 *
 	 * @param  array $payload The notification payload.
 	 *
-	 * @return string
+	 * @return bool Whether the app accepted the notification.
 	 */
-	protected static function send( array $payload ): string {
-		self::setup();
-		self::$last_send_succeeded = false;
-		log( 'Sending the payload', $payload );
+	protected static function send( array $payload ): bool {
+		self::$last_error = '';
 
-		// Validate API token exists.
-		if ( empty( self::$token ) || 'Bearer ' === self::$token ) {
-			$error = 'API key not configured';
-			log( $error );
-			return $error;
+		$client = Client::make();
+
+		if ( null === $client ) {
+			return self::fail( __( 'API key not configured', 'notifypress' ) );
 		}
 
-		// Sanitize payload data.
-		$sanitized_payload = array();
-		if ( ! empty( $payload['title'] ) ) {
-			$sanitized_payload['title'] = sanitize_text_field( $payload['title'] );
+		$notification = self::to_notification( $payload );
+
+		// A single-subscriber send is addressed by header, not by a body field —
+		// the app reads `notifypress-subscription-token` and ignores anything
+		// unknown in the JSON body, so putting the token there would silently
+		// send to every subscriber instead of just the one.
+		$subscriber_token = ! empty( $payload['subscriber_token'] )
+			? sanitize_text_field( $payload['subscriber_token'] )
+			: null;
+
+		try {
+			$result = $client->notifications->send( $notification, $subscriber_token );
+		} catch ( NotifyPressException $exception ) {
+			return self::fail( $exception->getMessage() );
 		}
-		if ( ! empty( $payload['message'] ) ) {
-			$sanitized_payload['message'] = sanitize_text_field( $payload['message'] );
+
+		log( 'Notification sent', array( 'message' => $result->message ) );
+
+		return true;
+	}
+
+	/**
+	 * Build the SDK payload from the plugin's loosely-shaped payload array.
+	 *
+	 * @param array $payload The notification payload.
+	 *
+	 * @return SendNotification
+	 */
+	private static function to_notification( array $payload ): SendNotification {
+		$notification = SendNotification::make(
+			sanitize_text_field( $payload['title'] ?? '' ),
+			sanitize_text_field( $payload['message'] ?? '' )
+		);
+
+		// 'url' is the older name for the click-through target; both are still
+		// accepted so an existing integration keeps working.
+		$target_url = $payload['target_url'] ?? $payload['url'] ?? '';
+
+		if ( ! empty( $target_url ) ) {
+			$notification = $notification->targetUrl( esc_url_raw( $target_url ) );
 		}
-		if ( ! empty( $payload['target_url'] ) ) {
-			$sanitized_payload['target_url'] = esc_url_raw( $payload['target_url'] );
-		}
+
 		if ( ! empty( $payload['icon'] ) ) {
-			$sanitized_payload['icon'] = esc_url_raw( $payload['icon'] );
-		}
-		if ( ! empty( $payload['url'] ) ) {
-			$sanitized_payload['url'] = esc_url_raw( $payload['url'] );
+			$notification = $notification->iconUrl( esc_url_raw( $payload['icon'] ) );
 		}
 
-		$headers = array(
-			'Content-Type'  => 'application/json',
-			'Authorization' => self::$token,
-		);
+		return $notification;
+	}
 
-		// A single-subscriber send is addressed by header, not by a body
-		// field — the app reads `notifypress-subscription-token` and ignores
-		// anything unknown in the JSON body, so putting the token there would
-		// silently send to every subscriber instead of just the one.
-		if ( ! empty( $payload['subscriber_token'] ) ) {
-			$headers['notifypress-subscription-token'] = sanitize_text_field( $payload['subscriber_token'] );
-		}
+	/**
+	 * Record why a send failed, and report it as a failure.
+	 *
+	 * @param string $error The failure reason.
+	 *
+	 * @return false
+	 */
+	private static function fail( string $error ): bool {
+		self::$last_error = $error;
 
-		$request = wp_remote_post(
-			self::$api_endpoint,
-			array(
-				'headers' => $headers,
-				'body'    => wp_json_encode( $sanitized_payload ),
-				'timeout' => 15,
-			)
-		);
+		// The SDK keeps credentials out of exception messages, so this is safe
+		// to log — unlike the token and endpoint this used to write out.
+		log( 'Notification send failed', array( 'error' => $error ) );
 
-		log(
-			'Token and Endpoint',
-			array(
-				'token'    => self::$token,
-				'endpoint' => self::$api_endpoint,
-			)
-		);
-
-		$error = '';
-
-		if ( is_wp_error( $request ) ) {
-			$error = $request->get_error_message();
-		}
-
-		$response = wp_remote_retrieve_body( $request );
-
-		if ( 200 !== wp_remote_retrieve_response_code( $request ) ) {
-			$error = $response;
-		}
-
-		if ( ! empty( $error ) ) {
-			log( $error );
-			return $error;
-		}
-
-		self::$last_send_succeeded = true;
-
-		return $response;
+		return false;
 	}
 }
