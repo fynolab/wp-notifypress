@@ -19,6 +19,42 @@ defined( 'ABSPATH' ) || exit;
  * of what triggered the update).
  */
 class SettingsRepository {
+	/**
+	 * Marks a value as a stand-in for the real API token.
+	 *
+	 * The admin UI is never given the token itself, only a fingerprint of it.
+	 * The prefix is what lets a submitted value be recognised as "unchanged"
+	 * rather than as a new credential.
+	 */
+	public const MASK_PREFIX = 'npmask_';
+
+	/**
+	 * A non-secret stand-in for the API token.
+	 *
+	 * Derived from the token so it stays stable for a given account and changes
+	 * when the account does — the admin app uses it as a react-query cache key,
+	 * and a constant would let one account's cached data survive a reconnect to
+	 * another. It reveals nothing: the token cannot be recovered from it.
+	 *
+	 * @param string $token The real API token.
+	 *
+	 * @return string
+	 */
+	public static function mask_token( string $token ): string {
+		return '' === $token ? '' : self::MASK_PREFIX . substr( md5( $token ), 0, 12 );
+	}
+
+	/**
+	 * Whether a value is a mask rather than a real token.
+	 *
+	 * @param string $value The value to test.
+	 *
+	 * @return bool
+	 */
+	public static function is_masked( string $value ): bool {
+		return str_starts_with( $value, self::MASK_PREFIX );
+	}
+
 	public const OPTION_KEY = 'notifypress_settings';
 
 	/**
@@ -192,6 +228,14 @@ class SettingsRepository {
 
 		$api_token = sanitize_text_field( $params['apiToken'] ?? $params['apiKey'] ?? '' );
 		$site_key  = sanitize_text_field( $params['siteKey'] ?? '' );
+
+		// The settings screen only ever holds a mask, so receiving one back
+		// means the admin did not retype the token. Writing the mask through
+		// would replace a working credential with its own fingerprint and
+		// disconnect the site.
+		if ( self::is_masked( $api_token ) ) {
+			$api_token = (string) ( self::all()['apiToken'] ?? '' );
+		}
 
 		// Only allow post types the picker actually offers — drops stale slugs
 		// left over from a since-deactivated plugin/theme.

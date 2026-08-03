@@ -86,8 +86,14 @@ export interface Announcement {
 }
 
 export interface NotifyPressSettings {
+    /**
+     * A masked fingerprint of the API token, never the token itself — except
+     * momentarily while an admin is entering a new one. See lib/settings.ts.
+     */
     apiToken?: string;
     apiKey?: string;
+    /** Whether an API token is stored on the server. */
+    connected?: boolean;
     siteKey?: string;
     siteName?: string;
     siteUrl?: string;
