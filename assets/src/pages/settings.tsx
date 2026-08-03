@@ -30,7 +30,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Switch } from '../components/ui/switch';
-import type { ConnectedSite, NotifyPressSettings, WpPostType } from '../types';
+import type { ConnectedSite, NotifyPressSettings } from '../types';
 
 const tabs = [
     { key: 'site', label: 'Site Settings', icon: MapPin },
@@ -64,17 +64,6 @@ const promptFormFromSite = ( site: ConnectedSite ): PromptFormData => ( {
     prompt_delay_seconds: site.prompt_delay_seconds ?? 0,
     prompt_hide_days: site.prompt_hide_days ?? 7,
 } );
-
-// When switching from "all post types" to "specific post types", keep any
-// selection already made; otherwise start from every known post type so
-// unchecking one is a real change rather than a silent no-op.
-const selectedOrAllPostTypeNames = (
-    form: NotifyPressSettings,
-    postTypes: WpPostType[] | undefined
-): string[] =>
-    form.postNotificationPostTypes?.length
-        ? form.postNotificationPostTypes
-        : ( postTypes || [] ).map( ( postType ) => postType.name );
 
 const ACCENT_SWATCHES = [
     '#3858e9',
@@ -249,9 +238,31 @@ export default function SettingsPage() {
     } );
 
     useEffect( () => {
-        if ( currentSiteQuery.data?.data ) {
-            setPromptForm( promptFormFromSite( currentSiteQuery.data.data ) );
+        const site = currentSiteQuery.data?.data;
+
+        if ( ! site ) {
+            return;
         }
+
+        setPromptForm( promptFormFromSite( site ) );
+
+        // Geolocation and "powered by" live on the Laravel site record too —
+        // the WP option only holds a copy, refreshed when settings are saved
+        // here. Changing either in the app (or from another site) left this
+        // page showing the stale copy, so take the live record as the truth.
+        setForm( ( current ) =>
+            current
+                ? {
+                      ...current,
+                      enableGeolocation: Boolean( site.enable_geolocation ),
+                      removePoweredBy: Boolean( site.remove_powered_by ),
+                      connectedSite: {
+                          ...( current.connectedSite || {} ),
+                          ...site,
+                      },
+                  }
+                : current
+        );
     }, [ currentSiteQuery.data ] );
 
     const postTypesQuery = useQuery( {
@@ -275,7 +286,9 @@ export default function SettingsPage() {
                 connectionStatus = 'connected';
                 siteKey = connectedSite.public_key || siteKey;
 
-                await laravelRequest( nextForm, '/sites/current', {
+                const updatedSite = await laravelRequest< {
+                    data?: ConnectedSite;
+                } >( nextForm, '/sites/current', {
                     method: 'PUT',
                     body: {
                         site_name: nextForm.siteName || connectedSite.site_name,
@@ -294,27 +307,32 @@ export default function SettingsPage() {
                             nextForm.welcomeNotificationUrl || null,
                         ...( promptForm
                             ? {
-                                    prompt_title:
-                                        promptForm.prompt_title || null,
-                                    prompt_message:
-                                        promptForm.prompt_message || null,
-                                    prompt_icon:
-                                        promptForm.prompt_icon || null,
-                                    prompt_approve_text:
-                                        promptForm.prompt_approve_text || null,
-                                    prompt_cancel_text:
-                                        promptForm.prompt_cancel_text || null,
-                                    prompt_style: promptForm.prompt_style,
-                                    prompt_accent_color:
-                                        promptForm.prompt_accent_color,
-                                    prompt_delay_seconds:
-                                        promptForm.prompt_delay_seconds,
-                                    prompt_hide_days:
-                                        promptForm.prompt_hide_days,
+                                  prompt_title: promptForm.prompt_title || null,
+                                  prompt_message:
+                                      promptForm.prompt_message || null,
+                                  prompt_icon: promptForm.prompt_icon || null,
+                                  prompt_approve_text:
+                                      promptForm.prompt_approve_text || null,
+                                  prompt_cancel_text:
+                                      promptForm.prompt_cancel_text || null,
+                                  prompt_style: promptForm.prompt_style,
+                                  prompt_accent_color:
+                                      promptForm.prompt_accent_color,
+                                  prompt_delay_seconds:
+                                      promptForm.prompt_delay_seconds,
+                                  prompt_hide_days: promptForm.prompt_hide_days,
                               }
                             : {} ),
                     },
                 } );
+
+                // The PUT answers with the saved site record. Keep that, not
+                // the snapshot read before it: SettingsRepository::update()
+                // derives enableGeolocation/removePoweredBy from connectedSite,
+                // so a pre-update snapshot would overwrite the very toggle the
+                // user just flipped.
+                connectedSite = updatedSite?.data || connectedSite;
+                siteKey = connectedSite.public_key || siteKey;
             }
 
             return updateSettings( {
@@ -332,6 +350,11 @@ export default function SettingsPage() {
             setForm( data );
             queryClient.setQueryData( [ 'np-settings' ], data );
             queryClient.invalidateQueries( { queryKey: [ 'np-settings' ] } );
+            // The site record just changed app-side; drop the cached copy so
+            // the site-owned fields re-sync from it.
+            queryClient.invalidateQueries( {
+                queryKey: [ 'np-current-site' ],
+            } );
             setNoticeStatus( 'success' );
             setNotice( 'Settings saved.' );
         },
@@ -549,9 +572,7 @@ export default function SettingsPage() {
                                     </div>
                                     <Dialog
                                         open={ disconnectDialogOpen }
-                                        onOpenChange={
-                                            setDisconnectDialogOpen
-                                        }
+                                        onOpenChange={ setDisconnectDialogOpen }
                                     >
                                         <DialogTrigger asChild>
                                             <Button
@@ -571,13 +592,12 @@ export default function SettingsPage() {
                                                     Disconnect this site?
                                                 </DialogTitle>
                                                 <DialogDescription>
-                                                    This site will stop
-                                                    sending data to
-                                                    NotifyPress and the
-                                                    subscription prompt will
-                                                    no longer be able to
-                                                    register subscribers
-                                                    until you reconnect.
+                                                    This site will stop sending
+                                                    data to NotifyPress and the
+                                                    subscription prompt will no
+                                                    longer be able to register
+                                                    subscribers until you
+                                                    reconnect.
                                                 </DialogDescription>
                                             </DialogHeader>
                                             <DialogFooter>
@@ -596,9 +616,7 @@ export default function SettingsPage() {
                                                     type="button"
                                                     variant="destructive"
                                                     disabled={ disconnecting }
-                                                    onClick={
-                                                        handleDisconnect
-                                                    }
+                                                    onClick={ handleDisconnect }
                                                 >
                                                     Disconnect
                                                 </Button>
@@ -613,8 +631,8 @@ export default function SettingsPage() {
                                             Connect without copying an API key
                                         </strong>
                                         <p className="mt-1 text-sm text-muted-foreground">
-                                            Sign in to NotifyPress and this
-                                            site will be linked automatically.
+                                            Sign in to NotifyPress and this site
+                                            will be linked automatically.
                                         </p>
                                     </div>
                                     <Button
@@ -634,9 +652,7 @@ export default function SettingsPage() {
                                 </div>
                             ) }
                             <div className="grid gap-1.5">
-                                <Label htmlFor="np-api-token">
-                                    API token
-                                </Label>
+                                <Label htmlFor="np-api-token">API token</Label>
                                 <Input
                                     id="np-api-token"
                                     value={ displayForm.apiToken || '' }
@@ -688,15 +704,12 @@ export default function SettingsPage() {
                                 </h3>
                             </div>
                             <div className="grid gap-1.5">
-                                <Label htmlFor="np-site-name">
-                                    Site name
-                                </Label>
+                                <Label htmlFor="np-site-name">Site name</Label>
                                 <Input
                                     id="np-site-name"
                                     value={
                                         displayForm.siteName ||
-                                        displayForm.connectedSite
-                                            ?.site_name ||
+                                        displayForm.connectedSite?.site_name ||
                                         ''
                                     }
                                     onChange={ ( e ) =>
@@ -787,8 +800,8 @@ export default function SettingsPage() {
                                     <p className="mt-0.5 text-xs text-muted-foreground">
                                         Turns your site into an installable
                                         Progressive Web App (adds a web app
-                                        manifest and related meta tags).
-                                        Push notifications work either way.
+                                        manifest and related meta tags). Push
+                                        notifications work either way.
                                     </p>
                                 </div>
                             </div>
@@ -1452,8 +1465,8 @@ export default function SettingsPage() {
                                         Icon URL
                                     </Label>
                                     <p className="text-xs text-muted-foreground">
-                                        Optional. Uses the default bell icon
-                                        if empty.
+                                        Optional. Uses the default bell icon if
+                                        empty.
                                     </p>
                                     <Input
                                         id="np-welcome-icon"
@@ -1534,113 +1547,79 @@ export default function SettingsPage() {
 
                             { displayForm.postNotificationEnabled ? (
                                 <div className="space-y-3 rounded-lg border bg-muted/20 p-4 sm:ml-9">
-                                    <div className="flex items-center gap-3">
-                                        <Switch
-                                            id="np-post-notification-limit"
-                                            checked={
-                                                ! displayForm.postNotificationAllTypes
+                                    <p className="text-xs text-muted-foreground">
+                                        Choose which public post types
+                                        (including custom post types) should
+                                        trigger a notification when published.
+                                    </p>
+
+                                    { postTypesQuery.isLoading ? (
+                                        <p className="text-xs text-muted-foreground">
+                                            Loading post types…
+                                        </p>
+                                    ) : null }
+
+                                    <div className="divide-y divide-border overflow-hidden rounded-md border bg-background">
+                                        { ( postTypesQuery.data || [] ).map(
+                                            ( postType ) => {
+                                                const selected =
+                                                    displayForm.postNotificationPostTypes ||
+                                                    [];
+                                                const checked =
+                                                    selected.includes(
+                                                        postType.name
+                                                    );
+                                                const inputId = `np-post-type-${ postType.name }`;
+
+                                                return (
+                                                    <div
+                                                        key={ postType.name }
+                                                        className="flex items-center justify-between gap-3 px-3 py-2.5"
+                                                    >
+                                                        <Label
+                                                            htmlFor={ inputId }
+                                                            className="cursor-pointer text-sm font-normal"
+                                                        >
+                                                            { postType.label }
+                                                        </Label>
+                                                        <Switch
+                                                            id={ inputId }
+                                                            checked={ checked }
+                                                            onCheckedChange={ (
+                                                                enabled
+                                                            ) =>
+                                                                setForm( {
+                                                                    ...displayForm,
+                                                                    postNotificationPostTypes:
+                                                                        enabled
+                                                                            ? [
+                                                                                  ...selected,
+                                                                                  postType.name,
+                                                                              ]
+                                                                            : selected.filter(
+                                                                                  (
+                                                                                      name
+                                                                                  ) =>
+                                                                                      name !==
+                                                                                      postType.name
+                                                                              ),
+                                                                } )
+                                                            }
+                                                        />
+                                                    </div>
+                                                );
                                             }
-                                            onCheckedChange={ ( limit ) =>
-                                                setForm( {
-                                                    ...displayForm,
-                                                    postNotificationAllTypes:
-                                                        ! limit,
-                                                    postNotificationPostTypes:
-                                                        limit
-                                                            ? selectedOrAllPostTypeNames(
-                                                                  displayForm,
-                                                                  postTypesQuery.data
-                                                              )
-                                                            : [],
-                                                } )
-                                            }
-                                        />
-                                        <Label
-                                            htmlFor="np-post-notification-limit"
-                                            className="cursor-pointer text-sm"
-                                        >
-                                            Limit to specific post types
-                                        </Label>
+                                        ) }
                                     </div>
 
-                                    { ! displayForm.postNotificationAllTypes ? (
-                                        <div>
-                                            <p className="mb-2 text-xs text-muted-foreground">
-                                                Choose which public post types
-                                                (including custom post types)
-                                                should trigger a notification
-                                                when published.
-                                            </p>
-                                            { postTypesQuery.isLoading ? (
-                                                <p className="text-xs text-muted-foreground">
-                                                    Loading post types…
-                                                </p>
-                                            ) : null }
-                                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                                                { (
-                                                    postTypesQuery.data || []
-                                                ).map( ( postType ) => {
-                                                    const selected =
-                                                        displayForm.postNotificationPostTypes ||
-                                                        [];
-                                                    const checked =
-                                                        selected.includes(
-                                                            postType.name
-                                                        );
-                                                    const inputId = `np-post-type-${ postType.name }`;
-
-                                                    return (
-                                                        <div
-                                                            key={
-                                                                postType.name
-                                                            }
-                                                            className="flex items-center gap-2"
-                                                        >
-                                                            <input
-                                                                id={ inputId }
-                                                                type="checkbox"
-                                                                checked={
-                                                                    checked
-                                                                }
-                                                                onChange={ (
-                                                                    e
-                                                                ) =>
-                                                                    setForm( {
-                                                                        ...displayForm,
-                                                                        postNotificationPostTypes:
-                                                                            e
-                                                                                .target
-                                                                                .checked
-                                                                                ? [
-                                                                                      ...selected,
-                                                                                      postType.name,
-                                                                                  ]
-                                                                                : selected.filter(
-                                                                                      (
-                                                                                          name
-                                                                                      ) =>
-                                                                                          name !==
-                                                                                          postType.name
-                                                                                  ),
-                                                                    } )
-                                                                }
-                                                                className="h-4 w-4 rounded border-border"
-                                                            />
-                                                            <Label
-                                                                htmlFor={
-                                                                    inputId
-                                                                }
-                                                                className="cursor-pointer text-sm"
-                                                            >
-                                                                {
-                                                                    postType.label
-                                                                }
-                                                            </Label>
-                                                        </div>
-                                                    );
-                                                } ) }
-                                            </div>
-                                        </div>
+                                    { ! postTypesQuery.isLoading &&
+                                    ! displayForm.postNotificationPostTypes
+                                        ?.length ? (
+                                        <p className="text-xs text-amber-700 dark:text-amber-500">
+                                            Every post type is switched off, so
+                                            publishing will not send a
+                                            notification.
+                                        </p>
                                     ) : null }
                                 </div>
                             ) : null }

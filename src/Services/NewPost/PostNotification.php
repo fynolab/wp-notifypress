@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Fynolab\NotifyPress\Services\NewPost;
 
+use Fynolab\NotifyPress\Services\Settings\PostTypeOptions;
 use Fynolab\NotifyPress\Services\Settings\Settings;
 use WP_Post;
 
@@ -227,22 +228,18 @@ class PostNotification {
 	 * @return string[]
 	 */
 	public static function post_types(): array {
-		return array_values( get_post_types( array( 'public' => true ), 'names' ) );
+		return PostTypeOptions::selectable_names();
 	}
 
 	/**
-	 * Whether the given post type should trigger a notification, per the
-	 * "all public post types" / "specific post types" setting.
+	 * Whether the given post type should trigger a notification, per the post
+	 * type switches in Settings → WordPress Events.
 	 *
 	 * @param string $post_type The post type slug.
 	 *
 	 * @return bool
 	 */
 	public static function post_type_is_selected( string $post_type ): bool {
-		if ( Settings::get( 'postNotificationAllTypes', true ) ) {
-			return true;
-		}
-
 		return in_array( $post_type, Settings::get( 'postNotificationPostTypes', array() ), true );
 	}
 }

@@ -25,7 +25,9 @@ class Observer implements ObserverInterface {
 	 * @return void
 	 */
 	public function observe(): void {
-		add_action( 'init', array( PostNotification::class, 'register_meta' ) );
+		// Priority 20: custom post types register on `init` at the default
+		// priority, and meta must be registered for all of them.
+		add_action( 'init', array( PostNotification::class, 'register_meta' ), 20 );
 		add_action( 'transition_post_status', array( $this, 'on_new_post' ), 10, 3 );
 
 		// Send a test notification to the editing browser's own subscription.

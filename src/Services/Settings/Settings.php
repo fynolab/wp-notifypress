@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Fynolab\NotifyPress\Services\Settings;
 
 use Fynolab\NotifyPress\Interfaces\Service;
+use Fynolab\NotifyPress\Services\NotifyPress\CurrentSite;
 use Fynolab\NotifyPress\Services\Settings\Rest\PostTypesController;
 use Fynolab\NotifyPress\Services\Settings\Rest\SettingsController;
 use Fynolab\NotifyPress\Services\WC\WC;
@@ -24,10 +25,17 @@ defined( 'ABSPATH' ) || exit;
 class Settings implements Service {
 	/**
 	 * Ensure defaults are persisted and register the REST routes.
+	 *
+	 * Defaults are filled on `init` at a late priority, not here: this service
+	 * is constructed on `plugins_loaded`, before custom post types exist, and
+	 * the post-notification defaults/upgrades need the full post type list.
 	 */
 	public function __construct() {
-		SettingsRepository::ensure_defaults();
+		add_action( 'init', array( SettingsRepository::class, 'ensure_defaults' ), 20 );
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
+		// Saving here PUTs the site record to the app, so the cached copy of
+		// it is stale the moment the save succeeds.
+		add_action( 'notifypress_settings_updated', array( CurrentSite::class, 'flush' ) );
 	}
 
 	/**
@@ -59,12 +67,26 @@ class Settings implements Service {
 	 * @return array
 	 */
 	public static function for_frontend(): array {
-		return array_merge(
+		$settings = array_merge(
 			self::all(),
 			array(
 				'wooCommerceActive' => WC::is_active(),
 			)
 		);
+
+		// Geolocation and the "powered by" link live on the app's site record;
+		// the option only holds a copy. Overlay the app's values (cached — see
+		// CurrentSite) so the screen paints the truth on first render instead
+		// of showing the stale copy and correcting itself a moment later.
+		$site = CurrentSite::cached();
+
+		if ( ! empty( $site ) ) {
+			$settings['enableGeolocation'] = (bool) ( $site['enable_geolocation'] ?? $settings['enableGeolocation'] );
+			$settings['removePoweredBy']   = (bool) ( $site['remove_powered_by'] ?? $settings['removePoweredBy'] );
+			$settings['connectedSite']     = array_merge( (array) ( $settings['connectedSite'] ?? array() ), $site );
+		}
+
+		return $settings;
 	}
 
 	/**
