@@ -124,9 +124,7 @@ class Observer implements ObserverInterface {
 			'target_url' => PostNotification::target_url( $post ),
 		);
 
-		Notifier::notify_subscriber( $subscriber_token, $payload );
-
-		if ( ! Notifier::last_send_succeeded() ) {
+		if ( ! Notifier::notify_subscriber( $subscriber_token, $payload ) ) {
 			wp_send_json_error(
 				__( 'The app rejected the test notification. Check the connection in NotifyPress → Settings, and that this browser is still subscribed.', 'notifypress' )
 			);

@@ -21,6 +21,15 @@ final class Api {
 	public const APP_URL = 'https://app.notifypress.com';
 
 	/**
+	 * The base URL every v1 endpoint hangs off.
+	 *
+	 * @return string
+	 */
+	public static function base_url(): string {
+		return self::APP_URL . '/api/v1';
+	}
+
+	/**
 	 * Build an absolute URL to a v1 API endpoint.
 	 *
 	 * @param string $path The endpoint path, with or without a leading slash.
@@ -28,7 +37,7 @@ final class Api {
 	 * @return string
 	 */
 	public static function url( string $path ): string {
-		return self::APP_URL . '/api/v1/' . ltrim( $path, '/' );
+		return self::base_url() . '/' . ltrim( $path, '/' );
 	}
 
 	/**

@@ -9,19 +9,27 @@ declare( strict_types=1 );
 
 namespace Fynolab\NotifyPress\Services\NotifyPress;
 
-use Fynolab\NotifyPress\Api;
 use Fynolab\NotifyPress\Assets;
 use Fynolab\NotifyPress\Interfaces\Service;
-use Fynolab\NotifyPress\Services\Settings\Settings;
-use function Fynolab\NotifyPress\Helpers\log;
+use NotifyPress\Enum\NotificationStatus;
+use NotifyPress\Exception\NotifyPressException;
+use NotifyPress\Exception\RateLimitException;
+use NotifyPress\Model\Notification;
+use NotifyPress\Payload\SubscriberCreate;
+use NotifyPress\Query\NotificationQuery;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * Handles subscriber AJAX endpoints and recent-notifications retrieval.
+ *
+ * Both endpoints proxy the visitor's browser to the app through the PHP SDK, so
+ * the site's API token never reaches the page.
  */
 class NotifyPress implements Service {
 	private const RECENT_NOTIFICATIONS_CACHE_TTL = 2 * MINUTE_IN_SECONDS;
+
+	private const RECENT_NOTIFICATIONS_LIMIT = 3;
 
 	/**
 	 * Register hooks.
@@ -64,56 +72,26 @@ class NotifyPress implements Service {
 			wp_send_json_error( 'Subscription token is required' );
 		}
 
-		$subscription = array(
-			'token'  => $subscription_token,
-			'active' => $active,
-		);
+		$client = Client::make();
 
-		// Save data to the database.
-		$api_endpoint = $this->get_api_url( 'subscribers' );
-		$api_token    = Settings::get( 'apiKey' );
-
-		// Validate API key exists.
-		if ( empty( $api_token ) ) {
+		if ( null === $client ) {
 			wp_send_json_error( 'API key not configured' );
 		}
 
-		delete_transient( $this->get_recent_notifications_cache_key( $api_token ) );
+		delete_transient( $this->get_recent_notifications_cache_key() );
 
-		$api_token = 'Bearer ' . $api_token;
-
-		$response = wp_remote_post(
-			$api_endpoint,
-			array(
-				'body'    => wp_json_encode( $subscription ),
-				'headers' => array(
-					'Content-Type'  => 'application/json',
-					'Authorization' => $api_token,
-				),
-				'timeout' => 15,
-			)
-		);
-
-		if ( is_wp_error( $response ) ) {
-			wp_send_json_error( $response->get_error_message() );
-		}
-
-		$response_code = wp_remote_retrieve_response_code( $response );
-
-		if ( 429 === $response_code ) {
+		try {
+			$subscriber = $client->subscribers->create(
+				SubscriberCreate::make( $subscription_token )->active( $active )
+			);
+		} catch ( RateLimitException $exception ) {
 			wp_send_json_error( 'Too many requests.' );
-		}
-
-		$response_body = wp_remote_retrieve_body( $response );
-
-		if ( 200 !== $response_code ) {
+		} catch ( NotifyPressException $exception ) {
 			wp_send_json_error( 'Subscription update failed' );
 		}
 
-		$data          = json_decode( $response_body );
-		$response_data = $data->data ?? array();
-
-		wp_send_json_success( $response_data );
+		// The raw record, so the browser sees exactly the shape the app sent.
+		wp_send_json_success( $subscriber->toArray() );
 	}
 
 	/**
@@ -130,84 +108,51 @@ class NotifyPress implements Service {
 			}
 		}
 
-		$api_endpoint = $this->get_api_url( 'notifications' );
-		$api_token    = Settings::get( 'apiKey' );
+		$client = Client::make();
 
-		// Validate API key exists.
-		if ( empty( $api_token ) ) {
+		if ( null === $client ) {
 			wp_send_json_error( 'API key not configured' );
 		}
 
-		$cache_key    = $this->get_recent_notifications_cache_key( $api_token );
+		$cache_key    = $this->get_recent_notifications_cache_key();
 		$cached_items = get_transient( $cache_key );
 
 		if ( false !== $cached_items ) {
 			wp_send_json_success( $cached_items );
 		}
 
-		$api_token = 'Bearer ' . $api_token;
-		$api_url   = add_query_arg(
-			array(
-				'limit'  => 3,
-				'status' => 'sent',
-			),
-			$api_endpoint
-		);
-
-		$response = wp_remote_get(
-			$api_url,
-			array(
-				'headers' => array(
-					'Authorization' => $api_token,
-				),
-				'timeout' => 15,
-			)
-		);
-
-		if ( is_wp_error( $response ) ) {
-			wp_send_json_error( $response->get_error_message() );
-		}
-
-		$response_code = wp_remote_retrieve_response_code( $response );
-
-		if ( 429 === $response_code ) {
+		try {
+			$page = $client->notifications->list(
+				NotificationQuery::make()
+					->limit( self::RECENT_NOTIFICATIONS_LIMIT )
+					->status( NotificationStatus::SENT )
+			);
+		} catch ( RateLimitException $exception ) {
 			wp_send_json_error( 'Too many requests.' );
-		}
-
-		$response_body = wp_remote_retrieve_body( $response );
-
-		if ( 200 !== $response_code ) {
+		} catch ( NotifyPressException $exception ) {
 			wp_send_json_error( 'Failed to fetch notifications' );
 		}
 
-		$data          = json_decode( $response_body );
-		$response_data = $data->data ?? array();
+		$notifications = array_map(
+			static fn ( Notification $notification ): array => $notification->toArray(),
+			$page->data
+		);
 
-		set_transient( $cache_key, $response_data, self::RECENT_NOTIFICATIONS_CACHE_TTL );
+		set_transient( $cache_key, $notifications, self::RECENT_NOTIFICATIONS_CACHE_TTL );
 
-		wp_send_json_success( $response_data );
-	}
-
-	/**
-	 * Build a full NotifyPress API URL for the given path.
-	 *
-	 * @param string $path The API path, relative to /api/v1/.
-	 *
-	 * @return string
-	 */
-	private function get_api_url( string $path ): string {
-		return Api::url( $path );
+		wp_send_json_success( $notifications );
 	}
 
 	/**
 	 * Build the transient key used to cache recent notifications.
 	 *
-	 * @param string $api_token The API token, used to scope the cache per account.
+	 * Scoped to the API token so reconnecting to a different account never
+	 * serves the previous one's notifications.
 	 *
 	 * @return string
 	 */
-	private function get_recent_notifications_cache_key( string $api_token ): string {
-		return 'notifypress_recent_notifications_' . md5( $api_token );
+	private function get_recent_notifications_cache_key(): string {
+		return 'notifypress_recent_notifications_' . md5( Client::token() );
 	}
 
 	/**

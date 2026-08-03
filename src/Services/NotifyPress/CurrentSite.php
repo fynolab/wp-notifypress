@@ -9,8 +9,7 @@ declare( strict_types=1 );
 
 namespace Fynolab\NotifyPress\Services\NotifyPress;
 
-use Fynolab\NotifyPress\Api;
-use Fynolab\NotifyPress\Services\Settings\Settings;
+use NotifyPress\Exception\NotifyPressException;
 use function Fynolab\NotifyPress\Helpers\log;
 
 defined( 'ABSPATH' ) || exit;
@@ -52,33 +51,21 @@ class CurrentSite {
 	 * @return array
 	 */
 	public static function refresh(): array {
-		$api_token = (string) Settings::get( 'apiToken', '' );
+		// Short timeout: this blocks the admin page render, so a slow or down
+		// app must cost the page a moment, not ten seconds.
+		$client = Client::make( Client::ADMIN_TIMEOUT );
 
-		if ( '' === $api_token ) {
+		if ( null === $client ) {
 			return array();
 		}
 
-		$response = wp_remote_get(
-			Api::url( 'sites/current' ),
-			array(
-				'headers' => array(
-					'Accept'        => 'application/json',
-					'Authorization' => 'Bearer ' . $api_token,
-				),
-				// Short: this blocks the admin page render, so a slow or down
-				// app must cost the page a moment, not ten seconds.
-				'timeout' => 5,
-			)
-		);
-
-		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
-			log( 'Could not refresh the current site record', $response );
+		try {
+			$site = $client->sites->current()->toArray();
+		} catch ( NotifyPressException $exception ) {
+			log( 'Could not refresh the current site record', array( 'error' => $exception->getMessage() ) );
 
 			return self::cached();
 		}
-
-		$body = json_decode( wp_remote_retrieve_body( $response ), true );
-		$site = is_array( $body ) && is_array( $body['data'] ?? null ) ? $body['data'] : array();
 
 		if ( empty( $site ) ) {
 			return self::cached();
@@ -105,6 +92,6 @@ class CurrentSite {
 	 * @return string
 	 */
 	private static function cache_key(): string {
-		return 'notifypress_current_site_' . md5( (string) Settings::get( 'apiToken', '' ) );
+		return 'notifypress_current_site_' . md5( Client::token() );
 	}
 }

@@ -9,7 +9,14 @@ declare( strict_types=1 );
 
 namespace Fynolab\NotifyPress\Helpers;
 
-defined( 'ABSPATH' ) || exit;
+// This file is loaded by Composer's `files` autoloader, so it runs on every
+// request — including CLI ones that have no WordPress at all. Bailing out on a
+// missing ABSPATH would then take down any Composer-proxied binary the moment
+// it loads the autoloader, which is what silently reduced `composer phpcs` to a
+// no-op. The guard only needs to stop this file being requested over HTTP.
+if ( ! defined( 'ABSPATH' ) && 'cli' !== PHP_SAPI ) {
+	exit;
+}
 
 /**
  * Log the message.
