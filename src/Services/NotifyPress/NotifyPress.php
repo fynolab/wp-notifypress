@@ -11,6 +11,7 @@ namespace Fynolab\NotifyPress\Services\NotifyPress;
 
 use Fynolab\NotifyPress\Assets;
 use Fynolab\NotifyPress\Interfaces\Service;
+use Fynolab\NotifyPress\Services\NotifyPress\Rest\ProxyController;
 use NotifyPress\Enum\NotificationStatus;
 use NotifyPress\Exception\NotifyPressException;
 use NotifyPress\Exception\RateLimitException;
@@ -44,10 +45,20 @@ class NotifyPress implements Service {
 	 * @return void
 	 */
 	public function hooks(): void {
+		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 		add_action( 'wp_ajax_notifypress_update_subscription', array( $this, 'update_subscription' ) );
 		add_action( 'wp_ajax_nopriv_notifypress_update_subscription', array( $this, 'update_subscription' ) );
 		add_action( 'wp_ajax_notifypress_get_recent_notifications', array( $this, 'get_recent_notifications' ) );
 		add_action( 'wp_ajax_nopriv_notifypress_get_recent_notifications', array( $this, 'get_recent_notifications' ) );
+	}
+
+	/**
+	 * Register the app-proxy REST controller.
+	 *
+	 * @return void
+	 */
+	public function register_rest_routes(): void {
+		( new ProxyController() )->register_routes();
 	}
 
 	/**

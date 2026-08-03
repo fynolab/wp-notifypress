@@ -11,7 +11,12 @@ import {
     ShoppingCart,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { getPostTypes, getSettings, updateSettings } from '../lib/settings';
+import {
+    getPostTypes,
+    getSettings,
+    isMaskedToken,
+    updateSettings,
+} from '../lib/settings';
 import { laravelRequest, validateConnection } from '../lib/api';
 import { APP_URL } from '../lib/app';
 import { ui } from '../lib/admin-ui';
@@ -655,7 +660,18 @@ export default function SettingsPage() {
                                 <Label htmlFor="np-api-token">API token</Label>
                                 <Input
                                     id="np-api-token"
-                                    value={ displayForm.apiToken || '' }
+                                    type="password"
+                                    autoComplete="off"
+                                    placeholder={
+                                        isMaskedToken( displayForm.apiToken )
+                                            ? 'Saved \u2014 enter a new token to replace it'
+                                            : ''
+                                    }
+                                    value={
+                                        isMaskedToken( displayForm.apiToken )
+                                            ? ''
+                                            : displayForm.apiToken || ''
+                                    }
                                     onChange={ ( e ) => {
                                         const apiToken = e.target.value;
 

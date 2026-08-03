@@ -81,7 +81,23 @@ final class Client {
 	 * @return Sdk|null
 	 */
 	public static function make( float $timeout = self::TIMEOUT ): ?Sdk {
-		$token = self::token();
+		return self::for_token( self::token(), $timeout );
+	}
+
+	/**
+	 * Build a client for an explicit token rather than the saved one.
+	 *
+	 * Used when connecting: the settings screen has to prove a freshly pasted
+	 * token works before storing it, and at that moment there is nothing saved
+	 * to authenticate with.
+	 *
+	 * @param string $token   The API token to authenticate with.
+	 * @param float  $timeout Request timeout in seconds.
+	 *
+	 * @return Sdk|null
+	 */
+	public static function for_token( string $token, float $timeout = self::TIMEOUT ): ?Sdk {
+		$token = trim( $token );
 
 		if ( '' === $token ) {
 			return null;

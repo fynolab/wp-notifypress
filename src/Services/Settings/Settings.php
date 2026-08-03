@@ -86,6 +86,20 @@ class Settings implements Service {
 			$settings['connectedSite']     = array_merge( (array) ( $settings['connectedSite'] ?? array() ), $site );
 		}
 
+		// The API token is a full-access credential and must not reach the
+		// browser. This is the one place the settings are prepared for the
+		// page — both the REST endpoint and the script localisation go through
+		// here — so masking here covers both.
+		//
+		// A mask rather than removal: the admin app treats the value as a
+		// truthiness check ("is this site connected?") and as a react-query
+		// cache key, and both keep working unchanged. Submitting the mask back
+		// is understood as "unchanged" (see SettingsRepository::sanitize).
+		$masked                = SettingsRepository::mask_token( (string) ( $settings['apiToken'] ?? '' ) );
+		$settings['apiToken']  = $masked;
+		$settings['apiKey']    = $masked;
+		$settings['connected'] = '' !== $masked;
+
 		return $settings;
 	}
 

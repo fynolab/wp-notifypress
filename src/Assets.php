@@ -166,10 +166,11 @@ class Assets {
 			);
 
 			// The 'main' script only runs on the manage_options-gated settings
-			// page, so it's safe to expose the full settings (including
-			// apiKey). The 'editor' script runs for any user who can open the
-			// block editor (Authors, Contributors) and only needs the nonce,
-			// so it must not receive apiKey/apiToken.
+			// page. It receives the full settings, but for_frontend() masks the
+			// API token before they leave the server, so no credential is
+			// embedded in the page. The 'editor' script runs for any user who
+			// can open the block editor (Authors, Contributors) and only needs
+			// the nonce, so it gets no settings at all.
 			//
 			// Uses for_frontend(), not $settings — this seeds react-query's
 			// initial cache (see App.tsx), so it must carry the same
