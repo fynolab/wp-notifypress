@@ -39,21 +39,21 @@ re-sanitized on every save.
 
 ## Subscription Widget (public site)
 
-The actual opt-in prompt + FCM registration UI is loaded from the Laravel app
-(`{app}/widget.js?site_key=...`, enqueued by `Assets::enqueue_widget()`) — this plugin doesn't
-implement that UI itself. What the plugin does provide:
+The whole public-side experience — opt-in prompt, recent-notifications panel, FCM registration —
+is loaded from the Laravel app (`{app}/widget.js?site_key=...`, enqueued by
+`Assets::enqueue_widget()` as an async script). The plugin implements none of it and sits outside
+the request path: the widget calls the app's public API (`/api/v1/public/sites/{public_key}/...`)
+directly.
 
-- **Subscribe/unsubscribe relay** — `wp_ajax(_nopriv)_notifypress_update_subscription` takes the
-  widget's subscription token and forwards it to `{app}/api/v1/subscribers`, nonce-verified.
-- **Welcome notification** — the moment a visitor's subscription is activated,
-  `WelcomeNotification::send()` pushes a one-off notification to that subscriber only, built from
-  the configurable `welcomeNotificationTitle`/`Message`/`Icon`/`Url` settings (with a sensible
-  fallback message if left blank), sent via the same shared `Notifier` path as every other
-  notification source. Gated by `welcomeNotificationEnabled` — see the **Settings → Welcome
-  Message** tab.
-- **Recent notifications feed** — `wp_ajax(_nopriv)_notifypress_get_recent_notifications` proxies
-  `{app}/api/v1/notifications?status=sent&limit=3`, cached 2 minutes per API token
-  (`set_transient`) so the public-facing feed doesn't hit the app API on every page load.
+What the plugin contributes:
+
+- **Enqueueing the widget** — only when the `enabled` setting is on and a `siteKey` is stored.
+- **The service worker** — `/service-worker.js`, served from the bundled file via a rewrite rule,
+  which is what FCM registers against.
+- **The settings that shape it** — prompt copy/style/timing, geolocation, "remove powered by",
+  and the welcome notification all live on the app's site record; the settings screen writes them
+  with `PUT {app}/api/v1/sites/current`, and the app applies them when it builds `widget.js` (and
+  when a subscriber is created).
 
 ## Automatic Notifications (Observer pattern)
 

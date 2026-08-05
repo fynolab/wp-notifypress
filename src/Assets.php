@@ -28,7 +28,6 @@ class Assets {
 	const SERVICE_WORKER_JS     = 'service-worker.js';
 	const SERVICE_WORKER_HANDLE = 'notifypress_service_worker';
 	const WIDGET_HANDLE         = 'notifypress-widget';
-	const GLOBAL_SCRIPT_HANDLE  = 'notifypress-global';
 
 	/**
 	 * Register the asset-related hooks.

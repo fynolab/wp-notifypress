@@ -42,13 +42,14 @@ Services are self-contained feature modules under `src/Services/<Name>/`, each i
 |---|---|
 | `Menus` | Registers the top-level admin menu + hash-routed submenu items; renders the SPA shell page; handles setup redirect |
 | `Settings` | Persists plugin settings as one option (`notifypress_settings`); exposes them via REST (`notifypress/v1/settings`, GET/POST; `notifypress/v1/post-types`, GET — public post types for the WordPress Events picker; both `manage_options`-gated) |
-| `NotifyPress` | AJAX handlers used by the public widget: `notifypress_update_subscription`, `notifypress_get_recent_notifications` |
+| `NotifyPress` | Registers the admin app-proxy REST controller (`notifypress/v1/proxy`), which attaches the site API token server-side |
 | `PWA` | Serves `/manifest.json` and injects PWA `<meta>`/icon tags when `pwaEnabled` |
 | `NewPost` | Observer — notifies subscribers when a post is published |
 | `WC` | No-op unless WooCommerce is active (`WC::is_active()` → `class_exists('WooCommerce')`); otherwise bootstraps two independent features: `OrderNotifications` (order-status observer) and `AbandonedCart\*` (cart tracking + hourly reminder cron) |
 
-`Assets` (`src/Assets.php`, instantiated directly, not a `Service`) registers/enqueues the three
-JS bundles, localizes `window.notifypress` bootstrap data, enqueues the public widget script from
+`Assets` (`src/Assets.php`, instantiated directly, not a `Service`) registers/enqueues the two
+admin JS bundles (`main`, `editor`), localizes `window.notifypress` bootstrap data, enqueues the
+public widget script from
 `app.notifypress.com/widget.js?site_key=...`, and serves the bundled `/service-worker.js` via a
 rewrite rule + `parse_request` hook (same pattern `PWA` uses for `/manifest.json`).
 
@@ -126,37 +127,32 @@ option, and nothing about delivery depends on these two flags.
 
 ## Public Widget / Subscription Flow
 
-The plugin does not implement the opt-in prompt or FCM registration itself — that logic lives in
-`assets/global-dist`, a **build output of `app.notifypress.com`'s widget bundle served from the
-Laravel app**, loaded via `Assets::enqueue_widget()` as an async `<script>` pointed at
-`{app}/widget.js?site_key={siteKey}`. This plugin's own `global.ts` bundle is the thin glue
-around it (public prompt UI wiring, kept intentionally lean since it loads on every page).
+The plugin does not implement the opt-in prompt, the recent-notifications panel, or FCM
+registration — all of it is served by the Laravel app and loaded via `Assets::enqueue_widget()`
+as an async `<script>` pointed at `{app}/widget.js?site_key={siteKey}`. The plugin's only job on
+the public side is enqueueing that tag with the site key, and only when `enabled` is on and a
+site key is stored.
 
-Subscription state changes flow through the plugin's own AJAX endpoints, not directly to the app,
-so the plugin can attach its own nonce and manage the `apiKey`/cache server-side:
+The widget is self-contained and talks to the app's **public** API directly — the plugin is not
+in the request path at all:
 
 ```
-Visitor toggles subscription (widget UI)
-  → wp_ajax(_nopriv)_notifypress_update_subscription
-    → verify nonce (Assets::NONCE_ACTION)
-    → POST {app}/api/v1/subscribers  (Bearer apiKey)
-    → on activate: NotifyPress::maybe_send_welcome_notification_to()
-        → WelcomeNotification::send()  [Settings-driven content, gated by welcomeNotificationEnabled]
-          → Notifier::notify_subscriber()   [Abstracts\Notifier::send()]
+Visitor toggles subscription (widget UI, served by the app)
+  → POST {app}/api/v1/public/sites/{public_key}/subscribers
+Panel opens
+  → GET  {app}/api/v1/public/sites/{public_key}/notifications/recent
 ```
 
-`notifypress_get_recent_notifications` proxies `GET {app}/api/v1/notifications?status=sent`
-and caches the response in a transient (`RECENT_NOTIFICATIONS_CACHE_TTL` = 2 min, keyed by
-`md5(apiToken)`) — mutation endpoints (subscribe/unsubscribe) are never cached, matching
-the app repo's caching convention.
+Those endpoints are unauthenticated by design (public key only, Origin-validated), which is why
+the admin proxy deliberately excludes `public/*` from its allowlist.
 
-`WelcomeNotification` (`src/Services/NotifyPress/WelcomeNotification.php`) is a plain class, not a
-`Service` — it's only ever instantiated directly from `NotifyPress::maybe_send_welcome_notification_to()`,
-never registered in `App::get_services()`. Its content (title/message/icon/URL) comes entirely from
-`Settings` (`welcomeNotificationTitle`, `welcomeNotificationMessage`, `welcomeNotificationIcon`,
-`welcomeNotificationUrl`) rather than a hardcoded template, and it's sent through the same shared
-`Notifier` → `Abstracts\Notifier::send()` path as every other notification source, so it also
-reaches the app through `Api::url()` rather than a URL of its own.
+The welcome notification and the widget's own copy/appearance are app-side concerns too, driven
+by the `welcome_notification_*` and `prompt_*` keys on the site record — the plugin only writes
+them through `PUT {app}/api/v1/sites/current` when the settings screen is saved.
+
+> Earlier versions relayed subscribe/unsubscribe and the recent-notifications feed through the
+> plugin's own `wp_ajax(_nopriv)_notifypress_*` handlers, backed by a `global.ts` prompt bundle
+> and a `WelcomeNotification` class. All of that is gone — the app-served widget replaced it.
 
 ## Admin SPA
 
@@ -174,11 +170,11 @@ hash (`#/dashboard`, `#/setup`, etc.), not separate PHP-rendered pages.
   can open the block editor, so it receives only the nonce/REST URL plus the non-sensitive
   `editor` bootstrap (site identity, field limits, global switches) — never `apiKey`/`apiToken`
   (enforced in `Assets::register_scripts()`).
-- `global.ts` (`assets/global-dist`) — public-facing glue around the app-hosted widget bundle
-  (see above).
+Both are admin-only. The plugin ships no public-facing bundle — the opt-in prompt and
+recent-notifications panel come from the app's `widget.js` (see above).
 
-Any change under `assets/src/` requires rebuilding all three (`pnpm run build`); they are
-separate webpack entry points with very different size/permission constraints.
+Any change under `assets/src/` requires rebuilding both (`pnpm run build`); they are separate
+webpack entry points with very different size/permission constraints.
 
 ### Talking to the Laravel App from JS
 
@@ -263,4 +259,5 @@ See the repo's `CLAUDE.md` for the full list; the architecturally load-bearing o
 - Every event-driven notification source is an `Observer` calling `Notifier`.
 - The API token is always read from `Settings`; the app URL never is — it comes from `Api`
   (PHP) / `lib/app.ts` (JS), and is hardcoded nowhere else.
-- `global-dist` must stay minimal — it loads unconditionally on every public page.
+- No plugin-built asset may load on the public front end; public-side UI belongs in the app's
+  `widget.js`, which is enqueued as a plain external `<script>`.
