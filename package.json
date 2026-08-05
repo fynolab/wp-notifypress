@@ -7,8 +7,6 @@
   "scripts": {
     "app": "wp-scripts start assets/src/main.js --output-path=assets/main-dist",
     "app:build": "wp-scripts build assets/src/main.js --output-path=assets/main-dist",
-    "global:dev": "wp-scripts start assets/src/global.js --output-path=assets/global-dist",
-    "global:build": "wp-scripts build assets/src/global.js --output-path=assets/global-dist",
     "editor:dev": "wp-scripts start assets/src/editor.js --output-path=assets/editor-dist",
     "editor:build": "wp-scripts build assets/src/editor.js --output-path=assets/editor-dist",
     "format": "wp-scripts format",
@@ -22,7 +20,7 @@
     "test:e2e": "wp-scripts test-e2e",
     "test:unit": "wp-scripts test-unit-js",
     "dev": "pnpm run app",
-    "build": "pnpm run app:build && pnpm run global:build && pnpm run editor:build"
+    "build": "pnpm run app:build && pnpm run editor:build"
   },
   "files": [
     "notifypress.php",
@@ -31,7 +29,6 @@
     "composer.json",
     "src",
     "assets/editor-dist",
-    "assets/global-dist",
     "assets/main-dist",
     "assets/images",
     "assets/src",

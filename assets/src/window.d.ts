@@ -21,14 +21,9 @@ declare global {
                 settingsUrl?: string;
             };
         };
-        notifypressGlobal?: {
-            ajaxUrl: string;
-            nonce: string;
-        };
     }
 
     var notifypress: Window['notifypress'];
-    var notifypressGlobal: NonNullable<Window['notifypressGlobal']>;
     var ajaxurl: string;
     var wp: {
         data: {

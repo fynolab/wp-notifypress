@@ -24,7 +24,6 @@
     "assets/src/wordpress-modules.d.ts",
     "assets/src/types.ts",
     "assets/src/main.tsx",
-    "assets/src/global.ts",
     "assets/src/editor.ts",
     "assets/src/editor/**/*.ts",
     "assets/src/editor/**/*.tsx",
