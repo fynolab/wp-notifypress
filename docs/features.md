@@ -74,14 +74,42 @@ Each of these is a `Service` that wires a WordPress/plugin event to a push notif
   post's own meta, edited in the block editor panel (see below) and resolved by
   `NewPost\PostNotification`. It also exposes a test-send AJAX action
   (`notifypress_send_test_notification`) that delivers to one subscriber only.
-- **WooCommerce order placed** (`WC\OrderNotifications`) — on `woocommerce_order_status_changed`,
-  notifies all subscribers with the order ID + view-order link. Gated by
-  `wcOrderNotificationEnabled`.
+- **WooCommerce order placed** (`WC\OrderNotifications`) — on
+  `woocommerce_checkout_order_processed` and `woocommerce_store_api_checkout_order_processed`
+  (classic and block checkout; each fires exactly once, while the shopper is still the current
+  visitor), confirms the order **to the shopper who placed it** and to nobody else, with the
+  order number + view-order link. Gated by `wcOrderNotificationEnabled`. A shopper with no
+  subscriber token is not notified, and no broadcast fallback exists — the link is a My Account
+  page only that customer can open, so there is nobody else it could sensibly go to. The token
+  is stamped onto the order (`_notifypress_subscriber_token`) as it sends, and a
+  `_notifypress_order_notified` marker makes a repeat call a no-op.
+- **WooCommerce subscriber token bridge** (`WC\TokenBridge`) — see below. Both features above
+  depend on it.
 - **WooCommerce abandoned cart** (`WC\AbandonedCart\*`) — see below.
 
 Both WooCommerce features are entirely inactive on sites without the WooCommerce plugin —
 `WC::register()` is a no-op unless `WC::is_active()`. The Settings → WooCommerce tab is hidden
 accordingly (driven by a `wooCommerceActive` flag computed live, not stored).
+
+## Subscriber Token Bridge
+
+`WC\TokenBridge` is what makes any "notify this one shopper" feature possible. The widget keeps
+the subscriber token in `localStorage` under `notifypress-SubscriptionToken`, which PHP cannot
+read; `SubscriberToken::for_current_visitor()` reads it from user meta (logged in) or the
+WooCommerce session (guest). **Until this class existed nothing ever wrote to either**, so both
+`OrderNotifications` and the abandoned-cart reminder resolved an empty token and silently sent
+nothing — the reminder had never fired in production.
+
+An inline script is attached to the widget's own handle (so it is absent when the widget is,
+and there is then no token to mirror). It reads the token, skips the request when it matches
+what it already synced this session (`sessionStorage['notifypress-TokenSynced']`), and otherwise
+POSTs it to `notifypress_store_subscription_token`, retrying a few times to cover the async
+widget not having written the token yet on a first visit. The handler checks a nonce, bounds
+the token to 20–512 chars of `[A-Za-z0-9_:.-]`, and writes it to user meta and/or the WC session.
+
+The storage keys live on `Services\SubscriberToken` — previously they were private constants
+inside `CartTracker`, so a second consumer had to redeclare them. `uninstall.php` deletes the
+user-meta key and must stay in step with `SubscriberToken::USER_META`.
 
 ## Abandoned Cart Reminders
 

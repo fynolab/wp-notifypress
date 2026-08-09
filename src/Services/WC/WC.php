@@ -22,6 +22,9 @@ class WC implements Service {
 	 * Wire up each feature's observer.
 	 */
 	private function __construct() {
+		// First: everything below needs the subscriber token in PHP, and the
+		// bridge is what puts it there.
+		( new TokenBridge() )->observe();
 		( new OrderNotifications() )->observe();
 		( new AbandonedCart() )->observe();
 	}
