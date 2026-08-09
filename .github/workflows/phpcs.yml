@@ -1,6 +1,5 @@
 name: PHPCS
 
-# Test comment: verifying this workflow triggers correctly on a PR.
 on:
   pull_request:
     paths:
