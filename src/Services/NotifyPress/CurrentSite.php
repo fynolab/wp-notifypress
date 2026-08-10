@@ -17,7 +17,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Reads `GET /sites/current` — the app's copy of the connected site.
  *
- * Some settings (geolocation, the "powered by" link, the opt-in prompt) live on
+ * Some settings (the "powered by" link, the opt-in prompt) live on
  * the site record in the app, not in WP options: they can be changed from the
  * NotifyPress dashboard, or from another install pointing at the same site. The
  * WP option only holds a copy, refreshed when settings are saved here, so the

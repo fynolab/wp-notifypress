@@ -9,7 +9,6 @@ import {
     ExternalLink,
     Globe2,
     Loader2,
-    MapPin,
     Megaphone,
     PlugZap,
     Settings,
@@ -277,7 +276,6 @@ export default function SetupPage() {
                     body: {
                         site_name: nextForm.siteName || connectedSite.site_name,
                         site_url: nextForm.siteUrl || connectedSite.site_url,
-                        enable_geolocation: nextForm.enableGeolocation,
                         remove_powered_by: nextForm.removePoweredBy,
                     },
                 } );
@@ -523,22 +521,6 @@ export default function SetupPage() {
                                             notifications.
                                         </p>
                                     </label>
-                                    <div className="md:col-span-2">
-                                        <OptionRow
-                                            icon={ MapPin }
-                                            label="Enable geolocation"
-                                            description="Collect approximate location data for subscriber reporting and segmentation when the app plan supports it."
-                                            checked={ Boolean(
-                                                form.enableGeolocation
-                                            ) }
-                                            onChange={ ( enableGeolocation ) =>
-                                                setForm( {
-                                                    ...form,
-                                                    enableGeolocation,
-                                                } )
-                                            }
-                                        />
-                                    </div>
                                     <div className="md:col-span-2">
                                         <OptionRow
                                             icon={ ShieldCheck }

@@ -74,16 +74,17 @@ class Settings implements Service {
 			)
 		);
 
-		// Geolocation and the "powered by" link live on the app's site record;
-		// the option only holds a copy. Overlay the app's values (cached — see
-		// CurrentSite) so the screen paints the truth on first render instead
-		// of showing the stale copy and correcting itself a moment later.
+		// The "powered by" link lives on the app's site record; the option only
+		// holds a copy. Overlay the app's value (cached — see CurrentSite) so
+		// the screen paints the truth on first render instead of showing the
+		// stale copy and correcting itself a moment later. This matters more
+		// now that the app coerces the flag off for free plans: without the
+		// overlay a lapsed site would keep showing the switch as on.
 		$site = CurrentSite::cached();
 
 		if ( ! empty( $site ) ) {
-			$settings['enableGeolocation'] = (bool) ( $site['enable_geolocation'] ?? $settings['enableGeolocation'] );
-			$settings['removePoweredBy']   = (bool) ( $site['remove_powered_by'] ?? $settings['removePoweredBy'] );
-			$settings['connectedSite']     = array_merge( (array) ( $settings['connectedSite'] ?? array() ), $site );
+			$settings['removePoweredBy'] = (bool) ( $site['remove_powered_by'] ?? $settings['removePoweredBy'] );
+			$settings['connectedSite']   = array_merge( (array) ( $settings['connectedSite'] ?? array() ), $site );
 		}
 
 		// The API token is a full-access credential and must not reach the

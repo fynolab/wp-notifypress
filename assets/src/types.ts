@@ -57,7 +57,6 @@ export interface ConnectedSite {
     site_name?: string;
     site_url?: string;
     public_key?: string;
-    enable_geolocation?: boolean;
     remove_powered_by?: boolean;
     prompt_title?: string | null;
     prompt_message?: string | null;
@@ -100,7 +99,6 @@ export interface NotifyPressSettings {
     setupCompleted?: boolean;
     connectionStatus?: 'connected' | 'disconnected' | string;
     connectedSite?: ConnectedSite;
-    enableGeolocation?: boolean;
     removePoweredBy?: boolean;
     welcomeNotificationEnabled?: boolean;
     welcomeNotificationTitle?: string;
