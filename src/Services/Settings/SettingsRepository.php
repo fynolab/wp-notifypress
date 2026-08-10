@@ -149,11 +149,10 @@ class SettingsRepository {
 			$next['connectedSite']    = array();
 		}
 
-		$next['apiKey']            = $next['apiToken'];
-		$next['siteName']          = $next['connectedSite']['site_name'] ?? $next['siteName'];
-		$next['siteUrl']           = $next['connectedSite']['site_url'] ?? $next['siteUrl'];
-		$next['enableGeolocation'] = (bool) ( $next['connectedSite']['enable_geolocation'] ?? $next['enableGeolocation'] );
-		$next['removePoweredBy']   = (bool) ( $next['connectedSite']['remove_powered_by'] ?? $next['removePoweredBy'] );
+		$next['apiKey']          = $next['apiToken'];
+		$next['siteName']        = $next['connectedSite']['site_name'] ?? $next['siteName'];
+		$next['siteUrl']         = $next['connectedSite']['site_url'] ?? $next['siteUrl'];
+		$next['removePoweredBy'] = (bool) ( $next['connectedSite']['remove_powered_by'] ?? $next['removePoweredBy'] );
 
 		// The /manifest.json rewrite rule is only added when pwaEnabled is
 		// true (see PWA::__construct()), so toggling it requires a flush for
@@ -190,7 +189,6 @@ class SettingsRepository {
 			'connectedSite'                      => array(),
 			'siteName'                           => get_bloginfo( 'name' ),
 			'siteUrl'                            => home_url(),
-			'enableGeolocation'                  => true,
 			'removePoweredBy'                    => false,
 			'welcomeNotificationEnabled'         => true,
 			'welcomeNotificationTitle'           => __( 'Welcome!', 'notifypress' ),
@@ -218,11 +216,10 @@ class SettingsRepository {
 
 		if ( ! empty( $params['connectedSite'] ) && is_array( $params['connectedSite'] ) ) {
 			$connected_site = array(
-				'id'                 => isset( $params['connectedSite']['id'] ) ? (int) $params['connectedSite']['id'] : 0,
-				'site_name'          => sanitize_text_field( $params['connectedSite']['site_name'] ?? '' ),
-				'site_url'           => esc_url_raw( $params['connectedSite']['site_url'] ?? '' ),
-				'enable_geolocation' => rest_sanitize_boolean( $params['connectedSite']['enable_geolocation'] ?? false ),
-				'remove_powered_by'  => rest_sanitize_boolean( $params['connectedSite']['remove_powered_by'] ?? false ),
+				'id'                => isset( $params['connectedSite']['id'] ) ? (int) $params['connectedSite']['id'] : 0,
+				'site_name'         => sanitize_text_field( $params['connectedSite']['site_name'] ?? '' ),
+				'site_url'          => esc_url_raw( $params['connectedSite']['site_url'] ?? '' ),
+				'remove_powered_by' => rest_sanitize_boolean( $params['connectedSite']['remove_powered_by'] ?? false ),
 			);
 		}
 
@@ -256,7 +253,6 @@ class SettingsRepository {
 			'connectedSite'                      => $connected_site,
 			'siteName'                           => sanitize_text_field( $params['siteName'] ?? get_bloginfo( 'name' ) ),
 			'siteUrl'                            => esc_url_raw( $params['siteUrl'] ?? home_url() ),
-			'enableGeolocation'                  => rest_sanitize_boolean( $params['enableGeolocation'] ?? true ),
 			'removePoweredBy'                    => rest_sanitize_boolean( $params['removePoweredBy'] ?? false ),
 			'welcomeNotificationEnabled'         => rest_sanitize_boolean( $params['welcomeNotificationEnabled'] ?? true ),
 			'welcomeNotificationTitle'           => sanitize_text_field( $params['welcomeNotificationTitle'] ?? __( 'Welcome!', 'notifypress' ) ),

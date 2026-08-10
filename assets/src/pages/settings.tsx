@@ -251,15 +251,16 @@ export default function SettingsPage() {
 
         setPromptForm( promptFormFromSite( site ) );
 
-        // Geolocation and "powered by" live on the Laravel site record too —
-        // the WP option only holds a copy, refreshed when settings are saved
-        // here. Changing either in the app (or from another site) left this
-        // page showing the stale copy, so take the live record as the truth.
+        // "Powered by" lives on the Laravel site record too — the WP option
+        // only holds a copy, refreshed when settings are saved here. Changing
+        // it in the app (or from another site) left this page showing the
+        // stale copy, so take the live record as the truth. The app also
+        // coerces the flag off for free plans, so the live record is the only
+        // thing that knows a lapsed subscription turned it back on.
         setForm( ( current ) =>
             current
                 ? {
                       ...current,
-                      enableGeolocation: Boolean( site.enable_geolocation ),
                       removePoweredBy: Boolean( site.remove_powered_by ),
                       connectedSite: {
                           ...( current.connectedSite || {} ),
@@ -298,7 +299,6 @@ export default function SettingsPage() {
                     body: {
                         site_name: nextForm.siteName || connectedSite.site_name,
                         site_url: nextForm.siteUrl || connectedSite.site_url,
-                        enable_geolocation: nextForm.enableGeolocation,
                         remove_powered_by: nextForm.removePoweredBy,
                         welcome_notification_enabled:
                             nextForm.welcomeNotificationEnabled,
@@ -333,7 +333,7 @@ export default function SettingsPage() {
 
                 // The PUT answers with the saved site record. Keep that, not
                 // the snapshot read before it: SettingsRepository::update()
-                // derives enableGeolocation/removePoweredBy from connectedSite,
+                // derives removePoweredBy from connectedSite,
                 // so a pre-update snapshot would overwrite the very toggle the
                 // user just flipped.
                 connectedSite = updatedSite?.data || connectedSite;
@@ -752,26 +752,6 @@ export default function SettingsPage() {
                                         } )
                                     }
                                 />
-                            </div>
-                            <div className="flex items-center gap-3 md:col-span-2">
-                                <Switch
-                                    id="np-enable-geolocation"
-                                    checked={ Boolean(
-                                        displayForm.enableGeolocation
-                                    ) }
-                                    onCheckedChange={ ( enableGeolocation ) =>
-                                        setForm( {
-                                            ...displayForm,
-                                            enableGeolocation,
-                                        } )
-                                    }
-                                />
-                                <Label
-                                    htmlFor="np-enable-geolocation"
-                                    className="cursor-pointer"
-                                >
-                                    Enable geolocation
-                                </Label>
                             </div>
                             <div className="flex items-center gap-3 md:col-span-2">
                                 <Switch
