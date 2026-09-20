@@ -9,6 +9,7 @@
 AGENTS.md
 CLAUDE.md
 UI_PARITY_REPORT.md
+composer.json
 composer.lock
 package.json
 pnpm-lock.yaml
@@ -19,12 +20,7 @@ tsconfig.json
 webpack.config.js
 node_modules
 screenshots
-docs
+assets/src
 tests
 .git
 .github
-vendor/bin
-vendor/squizlabs
-vendor/wp-coding-standards
-vendor/phpcsstandards
-vendor/dealerdirect

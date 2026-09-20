@@ -10,7 +10,6 @@ declare( strict_types=1 );
 namespace Fynolab\NotifyPress\Services\WC\AbandonedCart;
 
 use Fynolab\NotifyPress\Interfaces\Observer as ObserverInterface;
-use Fynolab\NotifyPress\Services\SubscriberToken;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -19,6 +18,9 @@ defined( 'ABSPATH' ) || exit;
  * snapshot again once they actually check out.
  */
 class CartTracker implements ObserverInterface {
+	private const SUBSCRIPTION_TOKEN_USER_META = 'notifypress_subscription_token';
+	private const SUBSCRIPTION_TOKEN_SESSION   = 'notifypress_subscription_token';
+
 	/**
 	 * The cart repository.
 	 *
@@ -64,7 +66,7 @@ class CartTracker implements ObserverInterface {
 			return;
 		}
 
-		$subscriber_token = SubscriberToken::for_current_visitor();
+		$subscriber_token = $this->current_subscriber_token();
 
 		if ( empty( $subscriber_token ) ) {
 			return;
@@ -115,6 +117,25 @@ class CartTracker implements ObserverInterface {
 		$session_id = WC()->session->get_customer_id();
 
 		return $session_id ? (string) $session_id : null;
+	}
+
+	/**
+	 * Resolve the NotifyPress subscriber token for the current visitor.
+	 *
+	 * @return string
+	 */
+	private function current_subscriber_token(): string {
+		$user_id = get_current_user_id();
+
+		if ( $user_id ) {
+			return (string) get_user_meta( $user_id, self::SUBSCRIPTION_TOKEN_USER_META, true );
+		}
+
+		if ( ! function_exists( 'WC' ) || ! WC()->session ) {
+			return '';
+		}
+
+		return (string) WC()->session->get( self::SUBSCRIPTION_TOKEN_SESSION );
 	}
 
 	/**

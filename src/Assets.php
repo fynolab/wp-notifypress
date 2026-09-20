@@ -9,8 +9,6 @@ declare( strict_types=1 );
 
 namespace Fynolab\NotifyPress;
 
-use Fynolab\NotifyPress\Services\NewPost\PostNotification;
-use Fynolab\NotifyPress\Services\NotifyPress\CurrentSite;
 use Fynolab\NotifyPress\Services\Settings\Settings;
 
 defined( 'ABSPATH' ) || exit;
@@ -27,6 +25,7 @@ class Assets {
 	const REST_NONCE            = 'wp_rest';
 	const SERVICE_WORKER_JS     = 'service-worker.js';
 	const SERVICE_WORKER_HANDLE = 'notifypress_service_worker';
+	const NOTIFYPRESS_APP_HOST  = 'https://app.notifypress.com';
 	const WIDGET_HANDLE         = 'notifypress-widget';
 
 	/**
@@ -124,17 +123,15 @@ class Assets {
 			// "Cannot read properties of undefined (reading 'Region')" if the
 			// templates it needs weren't printed yet.
 			wp_enqueue_media();
-
-			// Only the NotifyPress screen shows the app's site record, so only
-			// it pays for refreshing that record. Every other admin page reads
-			// whatever this left cached (Settings::for_frontend()).
-			CurrentSite::refresh();
 		}
 
 		$script_paths = array(
 			'main'   => ASSETS_DIR . 'main-dist/main.asset.php',
 			'editor' => ASSETS_DIR . 'editor-dist/editor.asset.php',
 		);
+
+		$settings = Settings::all();
+		$app_url  = untrailingslashit( $settings['appUrl'] ?? self::NOTIFYPRESS_APP_HOST );
 
 		foreach ( $script_paths as $script_name => $script_path ) {
 			if ( ! is_readable( $script_path ) ) {
@@ -154,22 +151,22 @@ class Assets {
 			wp_register_script( self::SCRIPT_HANDLE . "-{$script_name}", ASSETS_URL . "{$script_name}-dist/{$script_name}.js", $dependency, $script_version, true );
 			wp_register_style( self::STYLE_HANDLE . "-{$script_name}", ASSETS_URL . "{$script_name}-dist/style-{$script_name}.css", array(), $style_version );
 
-			// No app URL here — it is a fixed constant the JS bundle already
-			// knows (assets/src/lib/app.ts).
 			$localized_data = array(
-				'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
-				'nonce'     => wp_create_nonce( self::NONCE_ACTION ),
-				'restUrl'   => rest_url( 'notifypress/v1' ),
-				'restNonce' => wp_create_nonce( self::REST_NONCE ),
-				'siteUrl'   => site_url(),
+				'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
+				'nonce'         => wp_create_nonce( self::NONCE_ACTION ),
+				'restUrl'       => rest_url( 'notifypress/v1' ),
+				'restNonce'     => wp_create_nonce( self::REST_NONCE ),
+				'siteUrl'       => site_url(),
+				'defaultAppUrl' => $app_url,
+				'appUrl'        => $app_url,
+				'apiUrl'        => $app_url . '/api/v1',
 			);
 
 			// The 'main' script only runs on the manage_options-gated settings
-			// page. It receives the full settings, but for_frontend() masks the
-			// API token before they leave the server, so no credential is
-			// embedded in the page. The 'editor' script runs for any user who
-			// can open the block editor (Authors, Contributors) and only needs
-			// the nonce, so it gets no settings at all.
+			// page, so it's safe to expose the full settings (including
+			// apiKey). The 'editor' script runs for any user who can open the
+			// block editor (Authors, Contributors) and only needs the nonce,
+			// so it must not receive apiKey/apiToken.
 			//
 			// Uses for_frontend(), not $settings — this seeds react-query's
 			// initial cache (see App.tsx), so it must carry the same
@@ -178,26 +175,6 @@ class Assets {
 			// staleTime lapses and it refetches.
 			if ( 'main' === $script_name ) {
 				$localized_data['settings'] = Settings::for_frontend();
-			}
-
-			// The editor panel needs enough to render the notification preview
-			// and decide whether the post-publish notification applies at all —
-			// site identity, the app's field limits, and the two global
-			// post-notification switches. No credentials.
-			if ( 'editor' === $script_name ) {
-				$localized_data['editor'] = array(
-					'siteName'    => get_bloginfo( 'name' ),
-					'siteHost'    => (string) wp_parse_url( home_url(), PHP_URL_HOST ),
-					'titleMax'    => PostNotification::TITLE_MAX,
-					'messageMax'  => PostNotification::MESSAGE_MAX,
-					// Post types that actually notify, per the "all public post
-					// types" / explicit-list setting — the panel hides itself
-					// for anything not in here.
-					'postTypes'   => array_values( array_filter( PostNotification::post_types(), array( PostNotification::class, 'post_type_is_selected' ) ) ),
-					'enabled'     => (bool) Settings::get( 'postNotificationEnabled', true ),
-					'connected'   => '' !== (string) Settings::get( 'apiToken', '' ),
-					'settingsUrl' => admin_url( 'admin.php?page=notifypress#/settings?tab=wordpress' ),
-				);
 			}
 
 			wp_localize_script(
@@ -220,6 +197,7 @@ class Assets {
 
 		$settings = Settings::all();
 		$site_key = $settings['siteKey'] ?? '';
+		$app_url  = untrailingslashit( $settings['appUrl'] ?? self::NOTIFYPRESS_APP_HOST );
 
 		if ( empty( $site_key ) ) {
 			return;
@@ -227,7 +205,7 @@ class Assets {
 
 		wp_enqueue_script(
 			self::WIDGET_HANDLE,
-			Api::widget_url( $site_key ),
+			$app_url . '/widget.js?site_key=' . rawurlencode( $site_key ),
 			array(),
 			null, // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- third-party asset; versioned by app.notifypress.com, not by this plugin.
 			false
@@ -268,6 +246,5 @@ class Assets {
 	 */
 	public function enqueue_editor_scripts(): void {
 		wp_enqueue_script( self::SCRIPT_HANDLE . '-editor' );
-		wp_enqueue_style( self::STYLE_HANDLE . '-editor' );
 	}
 }

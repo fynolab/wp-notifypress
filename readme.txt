@@ -2,11 +2,11 @@
 Contributors: fynolab
 Tags: push notifications, web push, notifications, pwa, progressive web app
 Requires at least: 6.0
-Tested up to: 7.0
+Tested up to: 6.7
 Requires PHP: 8.1
 Stable tag: 1.0.0
 License: GPL-2.0+
-License URI: https://www.gnu.org/licenses/gpl-2.0.txt
+License URI: http://www.gnu.org/licenses/gpl-2.0.txt
 
 Send web push notifications to your website visitors. Supports WooCommerce and custom post types.
 
@@ -33,8 +33,6 @@ This plugin relies on the NotifyPress service (https://app.notifypress.com) to d
 * Subscriber tokens are sent to NotifyPress servers for notification delivery
 * Your API key is used to authenticate requests
 * Notification content (title, message, URLs) is transmitted to the service
-* The subscription widget script is loaded from your NotifyPress app instance (https://app.notifypress.com by default)
-* The service worker imports its implementation from the NotifyPress CDN (https://cdn.notifypress.com)
 
 By using this plugin, you agree to the NotifyPress Terms of Service and Privacy Policy:
 * Terms of Service: https://notifypress.com/terms
@@ -126,7 +124,7 @@ Initial release of NotifyPress.
 
 == Third-Party Services ==
 
-This plugin connects to the following external services:
+This plugin connects to the following external service:
 
 **NotifyPress API**
 * Service URL: https://app.notifypress.com
@@ -134,13 +132,7 @@ This plugin connects to the following external services:
 * Privacy Policy: https://notifypress.com/privacy
 * Terms of Service: https://notifypress.com/terms
 
-**NotifyPress CDN**
-* Service URL: https://cdn.notifypress.com
-* Purpose: Serves the subscription widget script and the service worker implementation that handles push events in the visitor's browser
-* Privacy Policy: https://notifypress.com/privacy
-* Terms of Service: https://notifypress.com/terms
-
-The plugin sends the following data to these services:
+The plugin sends the following data to this service:
 * Subscriber tokens (anonymous identifiers)
 * Notification content (titles, messages, URLs)
 * API authentication token

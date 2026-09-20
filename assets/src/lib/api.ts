@@ -1,7 +1,8 @@
-import { isMaskedToken } from './settings';
+import { getApiToken, getPluginBootstrap } from './settings';
 import type { Announcement, ConnectedSite, NotifyPressSettings } from '../types';
 
 type QueryValue = string | number | boolean | null | undefined;
+
 interface LaravelRequestOptions {
     method?: string;
     query?: Record< string, QueryValue >;
@@ -23,6 +24,18 @@ const toQueryString = ( params?: Record< string, QueryValue > ) => {
 
     const query = search.toString();
     return query ? `?${ query }` : '';
+};
+
+const getBaseUrl = ( settings?: NotifyPressSettings ) => {
+    const bootstrap = getPluginBootstrap() as NotifyPressSettings & {
+        defaultAppUrl?: string;
+    };
+    const appUrl =
+        settings?.appUrl ||
+        bootstrap.defaultAppUrl ||
+        bootstrap.appUrl ||
+        'https://app.notifypress.com';
+    return `${ String( appUrl ).replace( /\/$/, '' ) }/api/v1`;
 };
 
 const getSubscriptionToken = () => {
@@ -53,38 +66,22 @@ export const markAllAnnouncementsRead = ( settings?: NotifyPressSettings ) =>
         method: 'POST',
     } );
 
-/**
- * Requests go to the plugin's own REST proxy, never straight to the app.
- *
- * The app's API token is a full-access credential, so it stays on the server:
- * this authenticates as a WordPress administrator with the REST nonce instead,
- * and the proxy attaches the token out of reach of anything running in the
- * page. The proxy replays the app's status, headers and body verbatim, so
- * everything downstream of here behaves exactly as it did when these calls went
- * out directly.
- *
- * `settings` is still read, but only for the connect flow: while the admin is
- * pasting a token that has not been saved yet, there is nothing on the server
- * to authenticate with, so that one token is forwarded for that request. Every
- * other time the settings carry only a mask, and nothing is sent.
- */
 function buildLaravelFetch(
     settings: NotifyPressSettings | undefined,
     path: string,
     options: LaravelRequestOptions = {}
 ) {
-    const bootstrap = window.notifypress;
-    const restUrl = bootstrap?.restUrl;
+    const token = getApiToken( settings );
 
-    if ( ! restUrl ) {
-        throw new Error( 'NotifyPress REST endpoint unavailable.' );
+    if ( ! token ) {
+        throw new Error( 'API token not configured.' );
     }
 
-    const query = toQueryString( { ...( options.query || {} ), np_path: path } );
-    const url = `${ restUrl.replace( /\/$/, '' ) }/proxy${ query }`;
+    const query = toQueryString( options.query );
+    const url = `${ getBaseUrl( settings ) }${ path }${ query }`;
     const headers: Record< string, string > = {
+        Authorization: `Bearer ${ token }`,
         Accept: 'application/json',
-        'X-WP-Nonce': bootstrap?.restNonce || '',
         ...( options.headers || {} ),
     };
     const subscriptionToken =
@@ -97,19 +94,9 @@ function buildLaravelFetch(
         headers[ 'notifypress-subscription-token' ] = subscriptionToken;
     }
 
-    // Only ever set while connecting: anything the server hands back is masked,
-    // so a real token here means the admin just typed one that is not stored.
-    const unsavedToken = settings?.apiToken || settings?.apiKey || '';
-
-    if ( unsavedToken && ! isMaskedToken( unsavedToken ) ) {
-        headers[ 'X-NotifyPress-Token' ] = unsavedToken;
-    }
-
     const config: RequestInit = {
         method: options.method || 'GET',
         headers,
-        // The nonce only authenticates alongside the logged-in cookie.
-        credentials: 'same-origin',
     };
 
     if ( options.body instanceof FormData ) {

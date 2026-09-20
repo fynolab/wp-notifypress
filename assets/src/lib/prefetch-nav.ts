@@ -12,7 +12,7 @@ function prefetchEntries( settings: NotifyPressSettings ) {
 	return {
 		'/dashboard': () =>
 			queryClient.prefetchQuery( {
-				queryKey: [ 'np-dashboard', token ],
+				queryKey: [ 'np-dashboard', token, settings.appUrl ],
 				queryFn: () => laravelRequest( settings, '/dashboard' ),
 			} ),
 		'/subscribers': () => {
@@ -44,7 +44,7 @@ function prefetchEntries( settings: NotifyPressSettings ) {
 			} ),
 		'/analytics': () =>
 			queryClient.prefetchQuery( {
-				queryKey: [ 'np-analytics', token ],
+				queryKey: [ 'np-analytics', token, settings.appUrl ],
 				queryFn: () => laravelRequest( settings, '/analytics' ),
 			} ),
 		'/reports': () =>

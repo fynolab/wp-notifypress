@@ -10,10 +10,10 @@
     "editor:dev": "wp-scripts start assets/src/editor.js --output-path=assets/editor-dist",
     "editor:build": "wp-scripts build assets/src/editor.js --output-path=assets/editor-dist",
     "format": "wp-scripts format",
-    "format:php": "composer phpcbf",
+    "format:php": "composer exec phpcbf -- --standard=phpcs.xml.dist notifypress.php uninstall.php src",
     "lint:css": "wp-scripts lint-style",
     "lint:js": "wp-scripts lint-js",
-    "lint:php": "composer phpcs",
+    "lint:php": "composer exec phpcs -- --standard=phpcs.xml.dist notifypress.php uninstall.php src",
     "typecheck": "tsc --noEmit",
     "packages-update": "wp-scripts packages-update",
     "plugin-zip": "composer install --no-dev && pnpm run build && wp-scripts plugin-zip",
@@ -24,28 +24,22 @@
   },
   "files": [
     "notifypress.php",
-    "uninstall.php",
-    "readme.txt",
-    "composer.json",
     "src",
     "assets/editor-dist",
     "assets/main-dist",
-    "assets/images",
-    "assets/src",
-    "assets/service-worker.js",
     "languages",
     "vendor"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/fynolab/notifypress"
+    "url": "https://github.com/fynolab/notifypress.com"
   },
-  "author": "Fynolab",
-  "license": "GPL-2.0-or-later",
+  "author": "notifypress",
+  "license": "ISC",
   "bugs": {
-    "url": "https://github.com/fynolab/notifypress/issues"
+    "url": "https://github.com/fynolab/notifypress.com/issues"
   },
-  "homepage": "https://github.com/fynolab/notifypress#readme",
+  "homepage": "https://github.com/fynolab/notifypress.com#readme",
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.18",
     "@radix-ui/react-checkbox": "^1.3.7",
