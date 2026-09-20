@@ -107,7 +107,7 @@ export default function Shell( { children }: { children: ReactNode } ) {
                 <Masthead />
 
                 { showMissingTokenNotice ? (
-                    <section className="mt-8 mx-4 mb-0 flex flex-col gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 shadow-sm md:flex-row md:items-center md:justify-between">
+                    <section className="mb-6 flex flex-col gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 shadow-sm md:flex-row md:items-center md:justify-between">
                         <div className="flex items-start gap-3">
                             <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700">
                                 <AlertTriangle className="h-4 w-4" />

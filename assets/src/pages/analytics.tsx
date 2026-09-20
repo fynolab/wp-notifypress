@@ -37,10 +37,9 @@ import {
     type ChartConfig,
 } from '../components/ui/chart';
 import { laravelRequest } from '../lib/api';
-import { BILLING_URL } from '../lib/app';
 import { formatNumber } from '../lib/format';
 import { getApiToken, getSettings, hasApiToken } from '../lib/settings';
-import type { AnalyticsData, LaravelResource } from '../types';
+import type { AnalyticsData, LaravelResource, NotifyPressSettings } from '../types';
 
 const BROWSER_COLORS: Record<string, string> = {
     Chrome: 'hsl(var(--chart-1))',
@@ -91,6 +90,16 @@ const emptyAnalyticsData: AnalyticsData = {
     isPaidUser: true,
 };
 
+function billingUrl(settings?: NotifyPressSettings) {
+    const appUrl =
+        settings?.appUrl ||
+        window.notifypress?.defaultAppUrl ||
+        window.notifypress?.appUrl ||
+        'https://app.notifypress.com';
+
+    return `${String(appUrl).replace(/\/$/, '')}/user/billing`;
+}
+
 function formatTooltipValue(value: string | number) {
     return formatNumber(typeof value === 'number' ? value : Number(value || 0));
 }
@@ -133,7 +142,7 @@ export default function AnalyticsPage() {
     const token = getApiToken(settings);
     const hasToken = hasApiToken(settings);
     const analyticsQuery = useQuery({
-        queryKey: ['np-analytics', token],
+        queryKey: ['np-analytics', token, settings?.appUrl],
         enabled: hasToken,
         queryFn: () =>
             laravelRequest<LaravelResource<AnalyticsData>>(
@@ -182,7 +191,7 @@ export default function AnalyticsPage() {
     const data = analyticsQuery.data?.data ?? emptyAnalyticsData;
     const isPaidUser = analyticsQuery.data?.data?.isPaidUser ?? true;
     const loading = analyticsQuery.isFetching && !analyticsQuery.data;
-    const upgradeHref = BILLING_URL;
+    const upgradeHref = billingUrl(settings);
     const radialChartData = [
         {
             totalSubscribers: data.totalSubscribers,

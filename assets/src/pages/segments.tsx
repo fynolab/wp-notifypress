@@ -1271,6 +1271,7 @@ export default function SegmentsPage() {
                 isPaidUser={ segmentsQuery.data?.isPaidUser ?? true }
                 featureName="Segments"
                 description="Audience segmentation is available on Starter plans and above. Upgrade to target specific groups of subscribers when sending notifications."
+                settings={ settings }
             >
             <section
                 className={ `overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow transition-opacity duration-500 ${

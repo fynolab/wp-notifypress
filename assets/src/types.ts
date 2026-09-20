@@ -57,6 +57,7 @@ export interface ConnectedSite {
     site_name?: string;
     site_url?: string;
     public_key?: string;
+    enable_geolocation?: boolean;
     remove_powered_by?: boolean;
     prompt_title?: string | null;
     prompt_message?: string | null;
@@ -85,20 +86,16 @@ export interface Announcement {
 }
 
 export interface NotifyPressSettings {
-    /**
-     * A masked fingerprint of the API token, never the token itself — except
-     * momentarily while an admin is entering a new one. See lib/settings.ts.
-     */
+    appUrl?: string;
     apiToken?: string;
     apiKey?: string;
-    /** Whether an API token is stored on the server. */
-    connected?: boolean;
     siteKey?: string;
     siteName?: string;
     siteUrl?: string;
     setupCompleted?: boolean;
     connectionStatus?: 'connected' | 'disconnected' | string;
     connectedSite?: ConnectedSite;
+    enableGeolocation?: boolean;
     removePoweredBy?: boolean;
     welcomeNotificationEnabled?: boolean;
     welcomeNotificationTitle?: string;
@@ -106,12 +103,25 @@ export interface NotifyPressSettings {
     welcomeNotificationIcon?: string;
     welcomeNotificationUrl?: string;
     postNotificationEnabled?: boolean;
+    postNotificationAllTypes?: boolean;
     postNotificationPostTypes?: string[];
     wcOrderNotificationEnabled?: boolean;
     wcAbandonedCartNotificationEnabled?: boolean;
     /** Read-only: whether the WooCommerce plugin is active. Not persisted. */
     wooCommerceActive?: boolean;
     pwaEnabled?: boolean;
+}
+
+declare global {
+    interface Window {
+        notifypress?: NotifyPressSettings & {
+            apiUrl?: string;
+            defaultAppUrl?: string;
+            nonce?: string;
+            settings?: NotifyPressSettings;
+            siteUrl?: string;
+        };
+    }
 }
 
 export interface LaravelCollection<T> {

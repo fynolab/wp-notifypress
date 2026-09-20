@@ -19,43 +19,8 @@ defined( 'ABSPATH' ) || exit;
  * of what triggered the update).
  */
 class SettingsRepository {
-	/**
-	 * Marks a value as a stand-in for the real API token.
-	 *
-	 * The admin UI is never given the token itself, only a fingerprint of it.
-	 * The prefix is what lets a submitted value be recognised as "unchanged"
-	 * rather than as a new credential.
-	 */
-	public const MASK_PREFIX = 'npmask_';
-
-	/**
-	 * A non-secret stand-in for the API token.
-	 *
-	 * Derived from the token so it stays stable for a given account and changes
-	 * when the account does — the admin app uses it as a react-query cache key,
-	 * and a constant would let one account's cached data survive a reconnect to
-	 * another. It reveals nothing: the token cannot be recovered from it.
-	 *
-	 * @param string $token The real API token.
-	 *
-	 * @return string
-	 */
-	public static function mask_token( string $token ): string {
-		return '' === $token ? '' : self::MASK_PREFIX . substr( md5( $token ), 0, 12 );
-	}
-
-	/**
-	 * Whether a value is a mask rather than a real token.
-	 *
-	 * @param string $value The value to test.
-	 *
-	 * @return bool
-	 */
-	public static function is_masked( string $value ): bool {
-		return str_starts_with( $value, self::MASK_PREFIX );
-	}
-
-	public const OPTION_KEY = 'notifypress_settings';
+	public const OPTION_KEY      = 'notifypress_settings';
+	public const DEFAULT_APP_URL = 'https://app.notifypress.com';
 
 	/**
 	 * Get the full settings array, merged with defaults.
@@ -87,45 +52,7 @@ class SettingsRepository {
 	public static function ensure_defaults(): void {
 		// array_merge, not array_replace_recursive — see update() for why
 		// list-type settings need a full replace.
-		self::persist( self::upgrade( array_merge( self::defaults(), self::raw() ) ) );
-	}
-
-	/**
-	 * Bring a stored settings array up to the current schema.
-	 *
-	 * Runs on every load (from ensure_defaults()) and is a no-op once the old
-	 * keys are gone, so each upgrade removes itself.
-	 *
-	 * @param array $settings The settings array, defaults already merged in.
-	 *
-	 * @return array
-	 */
-	private static function upgrade( array $settings ): array {
-		// postNotificationAllTypes used to mean "every public post type,
-		// including ones registered later". That mode is gone: the post type
-		// list is now the only source of truth. Sites that were on "all types"
-		// land on the current default rather than an empty list, which would
-		// silently stop them notifying altogether.
-		if ( array_key_exists( 'postNotificationAllTypes', $settings ) ) {
-			if ( ! empty( $settings['postNotificationAllTypes'] ) ) {
-				$settings['postNotificationPostTypes'] = self::default_post_types();
-			}
-
-			unset( $settings['postNotificationAllTypes'] );
-		}
-
-		return $settings;
-	}
-
-	/**
-	 * The post types that notify on a fresh install: blog posts only. Pages
-	 * and custom post types are opt-in — publishing a page or a
-	 * plugin-registered record is rarely news a subscriber asked for.
-	 *
-	 * @return string[]
-	 */
-	private static function default_post_types(): array {
-		return array_values( array_intersect( array( 'post' ), PostTypeOptions::selectable_names() ) );
+		self::persist( array_merge( self::defaults(), self::raw() ) );
 	}
 
 	/**
@@ -149,10 +76,11 @@ class SettingsRepository {
 			$next['connectedSite']    = array();
 		}
 
-		$next['apiKey']          = $next['apiToken'];
-		$next['siteName']        = $next['connectedSite']['site_name'] ?? $next['siteName'];
-		$next['siteUrl']         = $next['connectedSite']['site_url'] ?? $next['siteUrl'];
-		$next['removePoweredBy'] = (bool) ( $next['connectedSite']['remove_powered_by'] ?? $next['removePoweredBy'] );
+		$next['apiKey']            = $next['apiToken'];
+		$next['siteName']          = $next['connectedSite']['site_name'] ?? $next['siteName'];
+		$next['siteUrl']           = $next['connectedSite']['site_url'] ?? $next['siteUrl'];
+		$next['enableGeolocation'] = (bool) ( $next['connectedSite']['enable_geolocation'] ?? $next['enableGeolocation'] );
+		$next['removePoweredBy']   = (bool) ( $next['connectedSite']['remove_powered_by'] ?? $next['removePoweredBy'] );
 
 		// The /manifest.json rewrite rule is only added when pwaEnabled is
 		// true (see PWA::__construct()), so toggling it requires a flush for
@@ -182,6 +110,7 @@ class SettingsRepository {
 	private static function defaults(): array {
 		return array(
 			'enabled'                            => true,
+			'appUrl'                             => self::DEFAULT_APP_URL,
 			'apiToken'                           => '',
 			'apiKey'                             => '',
 			'siteKey'                            => '',
@@ -189,6 +118,7 @@ class SettingsRepository {
 			'connectedSite'                      => array(),
 			'siteName'                           => get_bloginfo( 'name' ),
 			'siteUrl'                            => home_url(),
+			'enableGeolocation'                  => true,
 			'removePoweredBy'                    => false,
 			'welcomeNotificationEnabled'         => true,
 			'welcomeNotificationTitle'           => __( 'Welcome!', 'notifypress' ),
@@ -196,7 +126,8 @@ class SettingsRepository {
 			'welcomeNotificationIcon'            => '',
 			'welcomeNotificationUrl'             => home_url(),
 			'postNotificationEnabled'            => true,
-			'postNotificationPostTypes'          => self::default_post_types(),
+			'postNotificationAllTypes'           => true,
+			'postNotificationPostTypes'          => array(),
 			'wcOrderNotificationEnabled'         => true,
 			'wcAbandonedCartNotificationEnabled' => true,
 			'pwaEnabled'                         => false,
@@ -216,36 +147,31 @@ class SettingsRepository {
 
 		if ( ! empty( $params['connectedSite'] ) && is_array( $params['connectedSite'] ) ) {
 			$connected_site = array(
-				'id'                => isset( $params['connectedSite']['id'] ) ? (int) $params['connectedSite']['id'] : 0,
-				'site_name'         => sanitize_text_field( $params['connectedSite']['site_name'] ?? '' ),
-				'site_url'          => esc_url_raw( $params['connectedSite']['site_url'] ?? '' ),
-				'remove_powered_by' => rest_sanitize_boolean( $params['connectedSite']['remove_powered_by'] ?? false ),
+				'id'                 => isset( $params['connectedSite']['id'] ) ? (int) $params['connectedSite']['id'] : 0,
+				'site_name'          => sanitize_text_field( $params['connectedSite']['site_name'] ?? '' ),
+				'site_url'           => esc_url_raw( $params['connectedSite']['site_url'] ?? '' ),
+				'enable_geolocation' => rest_sanitize_boolean( $params['connectedSite']['enable_geolocation'] ?? false ),
+				'remove_powered_by'  => rest_sanitize_boolean( $params['connectedSite']['remove_powered_by'] ?? false ),
 			);
 		}
 
 		$api_token = sanitize_text_field( $params['apiToken'] ?? $params['apiKey'] ?? '' );
 		$site_key  = sanitize_text_field( $params['siteKey'] ?? '' );
+		$app_url   = esc_url_raw( $params['appUrl'] ?? self::DEFAULT_APP_URL );
 
-		// The settings screen only ever holds a mask, so receiving one back
-		// means the admin did not retype the token. Writing the mask through
-		// would replace a working credential with its own fingerprint and
-		// disconnect the site.
-		if ( self::is_masked( $api_token ) ) {
-			$api_token = (string) ( self::all()['apiToken'] ?? '' );
-		}
-
-		// Only allow post types the picker actually offers — drops stale slugs
-		// left over from a since-deactivated plugin/theme.
+		// Only allow post types that are actually public right now — drops
+		// stale slugs left over from a since-deactivated plugin/theme.
 		$requested_post_types         = is_array( $params['postNotificationPostTypes'] ?? null ) ? $params['postNotificationPostTypes'] : array();
 		$post_notification_post_types = array_values(
 			array_intersect(
 				array_unique( array_map( 'sanitize_key', $requested_post_types ) ),
-				PostTypeOptions::selectable_names()
+				PostTypeOptions::public_names()
 			)
 		);
 
 		return array(
 			'enabled'                            => rest_sanitize_boolean( $params['enabled'] ?? true ),
+			'appUrl'                             => untrailingslashit( $app_url ? $app_url : self::DEFAULT_APP_URL ),
 			'apiToken'                           => $api_token,
 			'apiKey'                             => $api_token,
 			'siteKey'                            => $site_key,
@@ -253,6 +179,7 @@ class SettingsRepository {
 			'connectedSite'                      => $connected_site,
 			'siteName'                           => sanitize_text_field( $params['siteName'] ?? get_bloginfo( 'name' ) ),
 			'siteUrl'                            => esc_url_raw( $params['siteUrl'] ?? home_url() ),
+			'enableGeolocation'                  => rest_sanitize_boolean( $params['enableGeolocation'] ?? true ),
 			'removePoweredBy'                    => rest_sanitize_boolean( $params['removePoweredBy'] ?? false ),
 			'welcomeNotificationEnabled'         => rest_sanitize_boolean( $params['welcomeNotificationEnabled'] ?? true ),
 			'welcomeNotificationTitle'           => sanitize_text_field( $params['welcomeNotificationTitle'] ?? __( 'Welcome!', 'notifypress' ) ),
@@ -260,6 +187,7 @@ class SettingsRepository {
 			'welcomeNotificationIcon'            => esc_url_raw( $params['welcomeNotificationIcon'] ?? '' ),
 			'welcomeNotificationUrl'             => esc_url_raw( $params['welcomeNotificationUrl'] ?? home_url() ),
 			'postNotificationEnabled'            => rest_sanitize_boolean( $params['postNotificationEnabled'] ?? true ),
+			'postNotificationAllTypes'           => rest_sanitize_boolean( $params['postNotificationAllTypes'] ?? true ),
 			'postNotificationPostTypes'          => $post_notification_post_types,
 			'wcOrderNotificationEnabled'         => rest_sanitize_boolean( $params['wcOrderNotificationEnabled'] ?? true ),
 			'wcAbandonedCartNotificationEnabled' => rest_sanitize_boolean( $params['wcAbandonedCartNotificationEnabled'] ?? true ),

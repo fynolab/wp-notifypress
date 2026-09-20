@@ -13,9 +13,7 @@
 .DS_Store
 
 # Ignore build directories and tmp folders
-# Source maps are emitted by dev-mode builds only; the shipped bundles are
-# committed, their maps are not.
-/assets/*-dist/*.map
+/assets/build/*.map
 /misc/tmp
 /node_modules
 /coverage
@@ -30,6 +28,3 @@ psysh_history
 
 # Local-only credentials, never commit
 docs/credentials.md
-
-# Local development reference only
-/screenshots

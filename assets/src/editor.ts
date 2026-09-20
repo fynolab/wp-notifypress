@@ -1,2 +1,1 @@
-import './editor/style.scss';
-import './editor/notification-panel';
+import './editor/trigger-notification';

@@ -13,13 +13,7 @@ class ComposerStaticInit81c0ee3979f1191c81d347afb3de791c
     public static $prefixLengthsPsr4 = array (
         'P' =>
         array (
-            'Psr\\Http\\Message\\' => 17,
-            'Psr\\Http\\Client\\' => 16,
             'PHPCSStandards\\Composer\\Plugin\\Installers\\PHPCodeSniffer\\' => 57,
-        ),
-        'N' =>
-        array (
-            'NotifyPress\\' => 12,
         ),
         'F' =>
         array (
@@ -28,22 +22,9 @@ class ComposerStaticInit81c0ee3979f1191c81d347afb3de791c
     );
 
     public static $prefixDirsPsr4 = array (
-        'Psr\\Http\\Message\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/psr/http-factory/src',
-            1 => __DIR__ . '/..' . '/psr/http-message/src',
-        ),
-        'Psr\\Http\\Client\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/psr/http-client/src',
-        ),
         'PHPCSStandards\\Composer\\Plugin\\Installers\\PHPCodeSniffer\\' =>
         array (
             0 => __DIR__ . '/..' . '/dealerdirect/phpcodesniffer-composer-installer/src',
-        ),
-        'NotifyPress\\' =>
-        array (
-            0 => __DIR__ . '/..' . '/notifypress/sdk/src',
         ),
         'Fynolab\\NotifyPress\\' =>
         array (

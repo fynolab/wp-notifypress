@@ -23,14 +23,14 @@ pair that everything else depends on.
 
 Single options page (`Settings` service, REST-backed at `notifypress/v1/settings`) controlling:
 
-- Connection (`apiToken`/`apiKey`, `siteKey`, `connectedSite`) — the app URL is **not** a setting;
-  it is the `Api::APP_URL` constant (see Architecture → App URL)
+- Connection (`apiToken`/`apiKey`, `siteKey`, `appUrl`, `connectedSite`)
 - Global on/off (`enabled`)
 - Welcome notification content and toggle: `welcomeNotificationEnabled`,
   `welcomeNotificationTitle`, `welcomeNotificationMessage`, `welcomeNotificationIcon`,
   `welcomeNotificationUrl`
-- Per-source toggles: `postNotificationEnabled` (plus `postNotificationPostTypes`, the post types
-  it applies to), `wcOrderNotificationEnabled`, `wcAbandonedCartNotificationEnabled`
+- Per-source toggles: `postNotificationEnabled` (plus `postNotificationAllTypes`/
+  `postNotificationPostTypes` to scope it to specific public post types), `wcOrderNotificationEnabled`,
+  `wcAbandonedCartNotificationEnabled`
 - Geolocation and "remove powered by" flags (mirrored from the connected site on the app side)
 - `pwaEnabled`
 
@@ -39,77 +39,45 @@ re-sanitized on every save.
 
 ## Subscription Widget (public site)
 
-The whole public-side experience — opt-in prompt, recent-notifications panel, FCM registration —
-is loaded from the Laravel app (`{app}/widget.js?site_key=...`, enqueued by
-`Assets::enqueue_widget()` as an async script). The plugin implements none of it and sits outside
-the request path: the widget calls the app's public API (`/api/v1/public/sites/{public_key}/...`)
-directly.
+The actual opt-in prompt + FCM registration UI is loaded from the Laravel app
+(`{appUrl}/widget.js?site_key=...`, enqueued by `Assets::enqueue_widget()`) — this plugin doesn't
+implement that UI itself. What the plugin does provide:
 
-What the plugin contributes:
-
-- **Enqueueing the widget** — only when the `enabled` setting is on and a `siteKey` is stored.
-- **The service worker** — `/service-worker.js`, served from the bundled file via a rewrite rule,
-  which is what FCM registers against.
-- **The settings that shape it** — prompt copy/style/timing, geolocation, "remove powered by",
-  and the welcome notification all live on the app's site record; the settings screen writes them
-  with `PUT {app}/api/v1/sites/current`, and the app applies them when it builds `widget.js` (and
-  when a subscriber is created).
+- **Subscribe/unsubscribe relay** — `wp_ajax(_nopriv)_notifypress_update_subscription` takes the
+  widget's subscription token and forwards it to `{appUrl}/api/v1/subscribers`, nonce-verified.
+- **Welcome notification** — the moment a visitor's subscription is activated,
+  `WelcomeNotification::send()` pushes a one-off notification to that subscriber only, built from
+  the configurable `welcomeNotificationTitle`/`Message`/`Icon`/`Url` settings (with a sensible
+  fallback message if left blank), sent via the same shared `Notifier` path as every other
+  notification source. Gated by `welcomeNotificationEnabled` — see the **Settings → Welcome
+  Message** tab.
+- **Recent notifications feed** — `wp_ajax(_nopriv)_notifypress_get_recent_notifications` proxies
+  `{appUrl}/api/v1/notifications?status=sent&limit=3`, cached 2 minutes per API token
+  (`set_transient`) so the public-facing feed doesn't hit the app API on every page load.
 
 ## Automatic Notifications (Observer pattern)
 
 Each of these is a `Service` that wires a WordPress/plugin event to a push notification via
-`Notifier::notify_subscriber(s)` → `{app}/api/v1/notifications/send`. Gated individually by a
+`Notifier::notify_subscriber(s)` → `{appUrl}/api/v1/notifications/send`. Gated individually by a
 `Settings` toggle where noted.
 
 - **New Post** (`NewPost`) — on `transition_post_status` reaching `publish` for a public post
-  type, notifies all subscribers with the post's notification title/message + permalink. Gated by
-  `postNotificationEnabled`, then by the post type: Settings → WordPress Events lists every public
-  post type (custom ones included, attachments excluded) with a switch each, and
-  `postNotificationPostTypes` is the resulting list — the only source of truth, so a post type
-  registered later by some other plugin stays silent until it is switched on. **Only `post` is on
-  by default**; pages and custom post types are opt-in. Choices come from a
-  `GET /notifypress/v1/post-types` REST endpoint, and the list is validated against
-  `PostTypeOptions::selectable_names()`. `SettingsRepository::ensure_defaults()` is hooked to
-  `init` at priority 20, so custom post types are registered before any of that is computed. What gets sent — and whether this particular post sends at all — comes from the
-  post's own meta, edited in the block editor panel (see below) and resolved by
-  `NewPost\PostNotification`. It also exposes a test-send AJAX action
-  (`notifypress_send_test_notification`) that delivers to one subscriber only.
-- **WooCommerce order placed** (`WC\OrderNotifications`) — on
-  `woocommerce_checkout_order_processed` and `woocommerce_store_api_checkout_order_processed`
-  (classic and block checkout; each fires exactly once, while the shopper is still the current
-  visitor), confirms the order **to the shopper who placed it** and to nobody else, with the
-  order number + view-order link. Gated by `wcOrderNotificationEnabled`. A shopper with no
-  subscriber token is not notified, and no broadcast fallback exists — the link is a My Account
-  page only that customer can open, so there is nobody else it could sensibly go to. The token
-  is stamped onto the order (`_notifypress_subscriber_token`) as it sends, and a
-  `_notifypress_order_notified` marker makes a repeat call a no-op.
-- **WooCommerce subscriber token bridge** (`WC\TokenBridge`) — see below. Both features above
-  depend on it.
+  type, notifies all subscribers with the post title + permalink. Gated by
+  `postNotificationEnabled`. By default fires for every public post type (including custom post
+  types); toggling **Limit to specific post types** in Settings → WordPress Events restricts it
+  to an explicit list (`postNotificationAllTypes: false` + `postNotificationPostTypes`, sourced
+  from a `GET /notifypress/v1/post-types` REST endpoint listing the site's current public post
+  types). Also exposes a manual "send now" AJAX action (`notifypress_trigger_notification`) used
+  by the Gutenberg sidebar (see below) — that manual trigger is unaffected by either setting,
+  since it's an explicit per-post action.
+- **WooCommerce order placed** (`WC\OrderNotifications`) — on `woocommerce_order_status_changed`,
+  notifies all subscribers with the order ID + view-order link. Gated by
+  `wcOrderNotificationEnabled`.
 - **WooCommerce abandoned cart** (`WC\AbandonedCart\*`) — see below.
 
 Both WooCommerce features are entirely inactive on sites without the WooCommerce plugin —
 `WC::register()` is a no-op unless `WC::is_active()`. The Settings → WooCommerce tab is hidden
 accordingly (driven by a `wooCommerceActive` flag computed live, not stored).
-
-## Subscriber Token Bridge
-
-`WC\TokenBridge` is what makes any "notify this one shopper" feature possible. The widget keeps
-the subscriber token in `localStorage` under `notifypress-SubscriptionToken`, which PHP cannot
-read; `SubscriberToken::for_current_visitor()` reads it from user meta (logged in) or the
-WooCommerce session (guest). **Until this class existed nothing ever wrote to either**, so both
-`OrderNotifications` and the abandoned-cart reminder resolved an empty token and silently sent
-nothing — the reminder had never fired in production.
-
-An inline script is attached to the widget's own handle (so it is absent when the widget is,
-and there is then no token to mirror). It reads the token, skips the request when it matches
-what it already synced this session (`sessionStorage['notifypress-TokenSynced']`), and otherwise
-POSTs it to `notifypress_store_subscription_token`, retrying a few times to cover the async
-widget not having written the token yet on a first visit. The handler checks a nonce, bounds
-the token to 20–512 chars of `[A-Za-z0-9_:.-]`, and writes it to user meta and/or the WC session.
-
-The storage keys live on `Services\SubscriberToken` — previously they were private constants
-inside `CartTracker`, so a second consumer had to redeclare them. `uninstall.php` deletes the
-user-meta key and must stay in step with `SubscriberToken::USER_META`.
 
 ## Abandoned Cart Reminders
 
@@ -127,33 +95,14 @@ diagram):
    `wcAbandonedCartNotificationEnabled` setting, so toggling it off in Settings actually stops the
    cron rather than just skipping inside the handler.
 
-## Block Editor Panel
+## Gutenberg Editor Panel
 
-`editor.ts` (`assets/editor-dist`) adds a **NotifyPress** panel to the block editor's document
-sidebar (`editor/notification-panel.tsx`), below Publish/Visibility, where the author composes the
-push notification the post will send:
-
-- **Send Push Notification** — per-post opt-out (`_notifypress_send`). Global settings still win:
-  a post opted in individually is not sent if post notifications are off site-wide or its post
-  type is excluded, and the panel says so inline.
-- **Notification title / message** (`_notifypress_title`, `_notifypress_message`) — blank means
-  "use the post title / excerpt". Both are capped at the app's own limits (50 / 100 characters)
-  and shown with a live character count.
-- **Notification preview** — the copy as subscribers will see it, framed as the editing browser's
-  own notification chrome (browser name, title, message, site host).
-- **Test notification** — posts to `notifypress_send_test_notification`, which delivers to a
-  single subscriber: whoever this browser is, identified by the
-  `notifypress-SubscriptionToken` the widget wrote to `localStorage`. Without that token the
-  action refuses rather than falling back to a send-to-everyone.
-
-Defaults, truncation, and the "does this post send?" decision live in
-`NewPost\PostNotification` on the PHP side and are mirrored in `editor/post-notification.ts`, so
-the preview matches what publishing actually sends. The meta keys are registered with
-`show_in_rest` (and `custom-fields` support added where a post type lacks it) so the editor saves
-them with the post — no separate save step.
-
-The panel is loaded for anyone who can open the block editor, so its bootstrap carries only site
-identity, field limits, and the two global switches — never the API token/key.
+`editor.ts` (`assets/editor-dist`) adds a sidebar panel to the block editor
+(`editor/trigger-notification.tsx`) letting any user who can edit the post trigger a "new post
+published" notification manually via the `notifypress_trigger_notification` AJAX action —
+independent of whether the automatic publish-time notification already fired. Loaded for anyone
+who can open the block editor, so it only receives a nonce/REST URL, never the API
+token/key.
 
 ## PWA (Progressive Web App) Support
 

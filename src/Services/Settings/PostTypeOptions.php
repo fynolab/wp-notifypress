@@ -27,18 +27,6 @@ class PostTypeOptions {
 	}
 
 	/**
-	 * Slugs of the post types a user can actually pick in Settings →
-	 * WordPress Events — i.e. choices() without the labels. The single
-	 * definition of "notifiable post type": what the picker lists, what the
-	 * settings default to, and what a saved list is validated against.
-	 *
-	 * @return string[]
-	 */
-	public static function selectable_names(): array {
-		return array_column( self::choices(), 'name' );
-	}
-
-	/**
 	 * Public post types as {name, label} choices, for the settings UI.
 	 * Attachments are excluded — "new attachment published" isn't a
 	 * meaningful notification event.
