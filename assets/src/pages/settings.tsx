@@ -54,6 +54,7 @@ interface PromptFormData {
     prompt_cancel_text: string;
     prompt_style: string;
     prompt_accent_color: string;
+    prompt_position: string;
     prompt_delay_seconds: number;
     prompt_hide_days: number;
 }
@@ -66,6 +67,7 @@ const promptFormFromSite = ( site: ConnectedSite ): PromptFormData => ( {
     prompt_cancel_text: site.prompt_cancel_text || '',
     prompt_style: site.prompt_style || 'card',
     prompt_accent_color: site.prompt_accent_color || '#3858e9',
+    prompt_position: site.prompt_position || 'bottom-left',
     prompt_delay_seconds: site.prompt_delay_seconds ?? 0,
     prompt_hide_days: site.prompt_hide_days ?? 7,
 } );
@@ -323,6 +325,7 @@ export default function SettingsPage() {
                                   prompt_style: promptForm.prompt_style,
                                   prompt_accent_color:
                                       promptForm.prompt_accent_color,
+                                  prompt_position: promptForm.prompt_position,
                                   prompt_delay_seconds:
                                       promptForm.prompt_delay_seconds,
                                   prompt_hide_days: promptForm.prompt_hide_days,
@@ -1182,6 +1185,74 @@ export default function SettingsPage() {
                                                             promptForm.prompt_accent_color
                                                         }
                                                     </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label className="text-sm">
+                                                    Bell Position
+                                                </Label>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Which corner of the page the
+                                                    notification bell sits in.
+                                                </p>
+                                                <div className="grid grid-cols-2 gap-3 mt-2 max-w-xs">
+                                                    { [
+                                                        {
+                                                            value: 'bottom-left',
+                                                            label: 'Left',
+                                                        },
+                                                        {
+                                                            value: 'bottom-right',
+                                                            label: 'Right',
+                                                        },
+                                                    ].map(
+                                                        ( {
+                                                            value,
+                                                            label,
+                                                        } ) => (
+                                                            <button
+                                                                key={ value }
+                                                                type="button"
+                                                                onClick={ () =>
+                                                                    setPromptForm(
+                                                                        {
+                                                                            ...promptForm,
+                                                                            prompt_position:
+                                                                                value,
+                                                                        }
+                                                                    )
+                                                                }
+                                                                className={ `rounded-xl border-2 p-3 text-center transition-all ${
+                                                                    promptForm.prompt_position ===
+                                                                    value
+                                                                        ? 'border-primary shadow-sm'
+                                                                        : 'border-border hover:border-primary/40'
+                                                                }` }
+                                                            >
+                                                                <div
+                                                                    className={ `relative h-14 rounded-md border bg-muted/40 dark:bg-muted/20 flex items-end p-1.5 ${
+                                                                        value ===
+                                                                        'bottom-right'
+                                                                            ? 'justify-end'
+                                                                            : 'justify-start'
+                                                                    }` }
+                                                                >
+                                                                    <span
+                                                                        className="w-4 h-4 rounded-full"
+                                                                        style={ {
+                                                                            background:
+                                                                                promptForm.prompt_accent_color ||
+                                                                                '#3858e9',
+                                                                        } }
+                                                                    />
+                                                                </div>
+                                                                <p className="text-xs font-semibold text-foreground mt-2">
+                                                                    { label }
+                                                                </p>
+                                                            </button>
+                                                        )
+                                                    ) }
                                                 </div>
                                             </div>
                                         </div>
