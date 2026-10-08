@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from '@wordpress/element';
 import {
     ReactFlow,
     ReactFlowProvider,
+    useReactFlow,
     useNodesState,
     useEdgesState,
     Controls,
@@ -41,7 +42,7 @@ interface CanvasProps {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const nodeBase =
-    'rounded-lg border bg-background shadow-sm px-4 py-3 min-w-[190px] text-sm';
+    'rounded-lg border bg-background shadow-sm px-4 py-3 w-[220px] text-sm';
 
 // ── Node components ───────────────────────────────────────────────────────────
 
@@ -50,7 +51,7 @@ function TriggerNode( { data }: { data: { label: string } } ) {
         <div className={ `${ nodeBase } border-primary/50 bg-primary/5` }>
             <div className="flex items-center gap-2 font-medium text-primary">
                 <Zap className="h-4 w-4" />
-                <span>{ data.label }</span>
+                <span className="truncate">{ data.label }</span>
             </div>
             <Handle type="source" position={ Position.Bottom } className="!bg-primary" />
         </div>
@@ -103,7 +104,7 @@ function AddTagNode( { data }: { data: { tagName?: string } } ) {
                 <span>Add Tag</span>
             </div>
             { data.tagName ? (
-                <p className="mt-1 text-xs text-muted-foreground">{ data.tagName }</p>
+                <p className="mt-1 truncate text-xs text-muted-foreground">{ data.tagName }</p>
             ) : null }
             <Handle type="source" position={ Position.Bottom } />
         </div>
@@ -320,7 +321,17 @@ export function ConfigPanel( {
 
 let stepCounter = 0;
 const TRIGGER_ID = 'trigger-node';
-const NODE_WIDTH = 190;
+// fitView centres the flow in whatever width the canvas has, so node x
+// positions only have to line up with each other, not with the container.
+// maxZoom stops a short flow from being blown up to fill the space.
+const FIT_VIEW_OPTIONS = { padding: 0.2, maxZoom: 1 };
+
+// The flow is a single vertical chain: the trigger sits in the same column as
+// the steps, so its x follows the first step's (templates store 0; automations
+// saved before fitView was used store wherever the canvas centre was then).
+function chainX( localSteps: AutomationStep[] ): number {
+    return localSteps[ 0 ]?.position_x ?? 0;
+}
 
 export const STEP_TYPES: Array< { value: AutomationStepType; label: string } > = [
     { value: 'wait', label: 'Wait' },
@@ -362,16 +373,11 @@ function Canvas( {
     readOnly = false,
     highlightedNodeId,
 }: CanvasProps ) {
-    const getCenterX = useCallback( (): number => {
-        const el = document.querySelector< HTMLElement >( '.react-flow__renderer' );
-        return Math.round( ( ( el?.clientWidth ?? 700 ) - NODE_WIDTH ) / 2 );
-    }, [] );
-
     const buildNodes = ( localSteps: AutomationStep[] ): Node[] => {
         const nodes: Node[] = [ {
             id: TRIGGER_ID,
             type: 'trigger',
-            position: { x: 0, y: 40 },
+            position: { x: chainX( localSteps ), y: 40 },
             data: { label: triggerLabel },
             deletable: false,
         } ];
@@ -392,17 +398,11 @@ function Canvas( {
             return { id: `e-${ sourceId }-${ s.nodeId }`, source: sourceId, target: s.nodeId!, animated: true };
         } );
 
+    const { fitView } = useReactFlow();
     const [ nodes, setNodes, onNodesChange ] = useNodesState( buildNodes( steps ) );
     const [ edges, setEdges, onEdgesChange ] = useEdgesState( buildEdges( steps ) );
     const [ selectedNodeId, setSelectedNodeId ] = useState< string | null >( null );
     const localStepsRef = useRef< AutomationStep[] >( steps );
-
-    useEffect( () => {
-        const cx = getCenterX();
-        setNodes( ( ns ) => ns.map( ( n ) =>
-            n.id === TRIGGER_ID ? { ...n, position: { x: cx, y: 40 } } : n,
-        ) );
-    }, [ getCenterX, setNodes ] );
 
     // Sync trigger node label when triggerLabel prop changes.
     useEffect( () => {
@@ -413,15 +413,18 @@ function Canvas( {
         ) );
     }, [ triggerLabel, setNodes ] );
 
+    const highlightClass = ( nodeId: string ): string | undefined =>
+        nodeId === highlightedNodeId
+            ? 'ring-2 ring-primary ring-offset-2 rounded-lg'
+            : undefined;
+
     // Ring-highlight the node matching highlightedNodeId (wizard mode).
     useEffect( () => {
         setNodes( ( ns ) => ns.map( ( n ) => ( {
             ...n,
-            className:
-                n.id === highlightedNodeId
-                    ? 'ring-2 ring-primary ring-offset-2 rounded-lg'
-                    : undefined,
+            className: highlightClass( n.id ),
         } ) ) );
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ highlightedNodeId, setNodes ] );
 
     // Rebuild nodes/edges when the steps prop is replaced from outside
@@ -432,10 +435,10 @@ function Canvas( {
         }
 
         localStepsRef.current = steps;
-        setNodes( buildNodes( steps ).map( ( n ) =>
-            n.id === TRIGGER_ID ? { ...n, position: { x: getCenterX(), y: 40 } } : n,
-        ) );
+        // Keep the wizard's ring: a config edit rebuilds the nodes without moving the highlight.
+        setNodes( buildNodes( steps ).map( ( n ) => ( { ...n, className: highlightClass( n.id ) } ) ) );
         setEdges( buildEdges( steps ) );
+        fitView( FIT_VIEW_OPTIONS );
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ steps ] );
 
@@ -449,10 +452,11 @@ function Canvas( {
     const addStep = ( type: AutomationStepType ) => {
         const nodeId = `step-${ ++stepCounter }`;
         const yOffset = 160 + localStepsRef.current.length * 140;
+        const x = localStepsRef.current[ localStepsRef.current.length - 1 ]?.position_x ?? 0;
         const newStep: AutomationStep = {
             type,
             config: defaultConfig( type ),
-            position_x: getCenterX(),
+            position_x: x,
             position_y: yOffset,
             parent_step_id: null,
             branch: null,
@@ -468,7 +472,7 @@ function Canvas( {
         setNodes( ( ns ) => [ ...ns, {
             id: nodeId,
             type,
-            position: { x: getCenterX(), y: yOffset },
+            position: { x, y: yOffset },
             data: nodeData( newStep, notifications, tags ),
         } ] );
         setEdges( ( es ) => [ ...es, {
@@ -527,7 +531,8 @@ function Canvas( {
                     nodeTypes={ nodeTypes }
                     onNodeClick={ onNodeClick }
                     onNodeDragStop={ onNodeDragStop }
-                    defaultViewport={ { x: 0, y: 0, zoom: 1 } }
+                    fitView
+                    fitViewOptions={ FIT_VIEW_OPTIONS }
                     nodesDraggable={ ! readOnly }
                     nodesConnectable={ ! readOnly }
                     elementsSelectable={ ! readOnly }
