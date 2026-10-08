@@ -2,6 +2,11 @@ import { useEffect, useState } from '@wordpress/element';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+
+// Pausing takes everyone currently in the automation out, and they are not picked up again
+// on reactivation, so both Pause buttons ask first.
+const PAUSE_CONFIRMATION =
+    'Pause this automation? No new subscribers will be enrolled, and anyone already in it is removed and gets nothing more from it. They are not picked up again if you activate it later.';
 import {
     ArrowLeft,
     Copy,
@@ -182,6 +187,14 @@ function AutomationsList( { settings }: { settings: NotifyPressSettings } ) {
                 ? a.name.toLowerCase().includes( search.trim().toLowerCase() )
                 : true
         );
+
+    const handlePause = ( id: number ) => {
+        if ( ! window.confirm( PAUSE_CONFIRMATION ) ) {
+            return;
+        }
+
+        pauseMutation.mutate( id );
+    };
 
     const handleStop = ( id: number ) => {
         if (
@@ -377,7 +390,7 @@ function AutomationsList( { settings }: { settings: NotifyPressSettings } ) {
                                                         size="icon"
                                                         className="h-8 w-8"
                                                         onClick={ () =>
-                                                            pauseMutation.mutate( automation.id )
+                                                            handlePause( automation.id )
                                                         }
                                                         title="Pause"
                                                     >
@@ -629,7 +642,11 @@ export function AutomationForm( {
                             <Button
                                 type="button"
                                 className={ ui.secondaryButton }
-                                onClick={ () => pauseMutation.mutate() }
+                                onClick={ () => {
+                                    if ( window.confirm( PAUSE_CONFIRMATION ) ) {
+                                        pauseMutation.mutate();
+                                    }
+                                } }
                                 disabled={ pauseMutation.isPending }
                             >
                                 <Pause className="h-4 w-4" /> Pause
