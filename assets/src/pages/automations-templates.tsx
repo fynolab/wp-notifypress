@@ -164,13 +164,13 @@ function TemplatePreviewModal( {
                 }
             } }
         >
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-6xl">
                 { template ? (
                     <>
                         <DialogHeader>
                             <DialogTitle>{ template.name }</DialogTitle>
                         </DialogHeader>
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
                             <div className="space-y-4 md:col-span-1">
                                 <p className="text-sm text-muted-foreground">
                                     { template.description }
@@ -185,7 +185,7 @@ function TemplatePreviewModal( {
                                     <PrerequisiteBanner variant="custom-event" />
                                 ) : null }
                             </div>
-                            <div className="h-80 rounded-lg border md:col-span-2">
+                            <div className="h-[60vh] min-h-80 max-h-[40rem] overflow-hidden rounded-lg border md:col-span-3">
                                 <AutomationCanvas
                                     steps={ steps }
                                     onChange={ () => {} }
