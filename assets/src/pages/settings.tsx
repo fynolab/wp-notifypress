@@ -1246,13 +1246,30 @@ export default function SettingsPage() {
                                                                     }` }
                                                                 >
                                                                     <span
-                                                                        className="w-4 h-4 rounded-full"
+                                                                        className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-sm"
                                                                         style={ {
                                                                             background:
                                                                                 promptForm.prompt_accent_color ||
                                                                                 '#3858e9',
                                                                         } }
-                                                                    />
+                                                                    >
+                                                                        { /* Same paths as the widget's bell in the app's PublicWidgetController. */ }
+                                                                        <svg
+                                                                            viewBox="0 0 24 24"
+                                                                            fill="none"
+                                                                            stroke="currentColor"
+                                                                            strokeWidth={
+                                                                                2
+                                                                            }
+                                                                            strokeLinecap="round"
+                                                                            strokeLinejoin="round"
+                                                                            className="w-3.5 h-3.5"
+                                                                            aria-hidden="true"
+                                                                        >
+                                                                            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" />
+                                                                            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                                                                        </svg>
+                                                                    </span>
                                                                 </div>
                                                                 <p className="text-xs font-semibold text-foreground mt-2">
                                                                     { label }
