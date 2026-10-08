@@ -1,6 +1,7 @@
 import { useEffect, useState } from '@wordpress/element';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
     ArrowLeft,
     Copy,
@@ -129,6 +130,9 @@ function AutomationsList( { settings }: { settings: NotifyPressSettings } ) {
         mutationFn: ( id: number ) =>
             laravelRequest( settings, `/automations/${ id }/activate`, { method: 'POST' } ),
         onSuccess: invalidate,
+        // The app refuses an automation that cannot run yet (no steps, or a Send step
+        // without a message); say why instead of leaving the click with no effect.
+        onError: ( err: Error ) => toast.error( err.message ),
     } );
 
     const pauseMutation = useMutation( {
