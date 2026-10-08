@@ -65,6 +65,7 @@ export interface ConnectedSite {
     prompt_cancel_text?: string | null;
     prompt_style?: string;
     prompt_accent_color?: string;
+    prompt_position?: string;
     prompt_delay_seconds?: number;
     prompt_hide_days?: number;
 }
