@@ -18,7 +18,7 @@ import type { ReactNode } from 'react';
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { getApiToken, getSettings, hasApiToken } from '../lib/settings';
-import { laravelRequest } from '../lib/api';
+import { isUnauthorizedError, laravelRequest } from '../lib/api';
 import useLiveActivity from '../lib/use-live-activity';
 import LiveActivityPanel from '../components/live-activity-panel';
 import { formatNumber } from '../lib/format';
@@ -612,7 +612,10 @@ export default function DashboardPage() {
     const { dashboardQuery } = useDashboardData();
     const { liveSends, markCancelling } = useLiveActivity();
 
-    if ( dashboardQuery.isError ) {
+    if (
+        dashboardQuery.isError &&
+        ! isUnauthorizedError( dashboardQuery.error )
+    ) {
         return (
             <StateView
                 title="Dashboard unavailable"
