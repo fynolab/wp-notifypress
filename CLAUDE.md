@@ -30,9 +30,16 @@ pnpm run typecheck        # tsc --noEmit
 pnpm run format           # JS/CSS via wp-scripts
 pnpm run format:php       # phpcbf via composer
 
-# Package
-pnpm run plugin-zip
+# Release
+pnpm version:bump 1.1.2   # sets package.json, plugin header Version, readme Stable tag
+pnpm version:check        # fails if those three disagree
+pnpm run plugin-zip       # runs version:check, then builds notifypress-<version>.zip
 ```
+
+`package.json` is the source of truth for the version. Add a `= x.y.z =` changelog entry to
+`readme.txt` for each release (both commands warn when it is missing). Only the zip file is
+versioned: it must still unzip to `notifypress/`, or WordPress installs it as a separate plugin
+instead of updating this one.
 
 Any change to `assets/src/` requires rebuilding **both** bundles (`pnpm run build`):
 - `assets/main-dist` — wp-admin React SPA
