@@ -11,6 +11,10 @@
 
 	<config name="testVersion" value="8.1-"/>
 
+	<!-- Show a progress dot per file and colorize the report. -->
+	<arg value="p"/>
+	<arg name="colors"/>
+
 	<!-- installed_paths cannot be set here: PHPCS applies a ruleset's config
 	     directives only after resolving its rule refs, so the WordPress
 	     standard would still be unregistered by the time it is needed. The
