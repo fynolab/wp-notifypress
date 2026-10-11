@@ -38,6 +38,11 @@ class Notifier extends AbstractNotifier implements Interfaces\Notifier {
 	 * @return bool Whether the app accepted the notification.
 	 */
 	public static function notify_subscriber( string $subscriber_token, array $payload ): bool {
+		// Without a target, send() would address the whole audience.
+		if ( '' === trim( $subscriber_token ) ) {
+			return false;
+		}
+
 		return self::send( array_merge( $payload, array( 'subscriber_token' => $subscriber_token ) ) );
 	}
 }

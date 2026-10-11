@@ -102,11 +102,17 @@ class OrderNotifications implements ObserverInterface {
 		$order->update_meta_data( self::TOKEN_META, $subscriber_token );
 		$order->save();
 
+		// Guests can't open the My Account order page, so link them to the
+		// order-received page, which is authorized by the order key.
+		$target_url = $order->get_customer_id()
+			? $order->get_view_order_url()
+			: $order->get_checkout_order_received_url();
+
 		$payload = array(
 			'title'      => __( 'Thanks for your order', 'notifypress' ),
 			/* translators: %s: order number. */
 			'message'    => sprintf( __( 'Order %s is confirmed. Tap to track it.', 'notifypress' ), $order->get_order_number() ),
-			'target_url' => $order->get_view_order_url(),
+			'target_url' => $target_url,
 		);
 
 		if ( ! Notifier::notify_subscriber( $subscriber_token, $payload ) ) {
