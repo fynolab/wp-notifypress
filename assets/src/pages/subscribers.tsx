@@ -21,7 +21,7 @@ import {
     X,
 } from 'lucide-react';
 import { getApiToken, getSettings, hasApiToken } from '../lib/settings';
-import { laravelRequest } from '../lib/api';
+import { isUnauthorizedError, laravelRequest } from '../lib/api';
 import { formatNumber } from '../lib/format';
 import { ui } from '../lib/admin-ui';
 import type {
@@ -227,7 +227,10 @@ export default function SubscribersPage() {
     const prevCursor = subscribersQuery.data?.prev_cursor || '';
     const nextCursor = subscribersQuery.data?.next_cursor || '';
 
-    if (subscribersQuery.isError) {
+    if (
+        subscribersQuery.isError &&
+        !isUnauthorizedError(subscribersQuery.error)
+    ) {
         return (
             <section className={ui.cardPadded}>
                 <h3 className="text-lg font-semibold text-foreground">

@@ -24,7 +24,11 @@ import {
 } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
 import { DatePicker } from '../components/ui/date-picker';
-import { laravelFetch, laravelRequest } from '../lib/api';
+import {
+    isUnauthorizedError,
+    laravelFetch,
+    laravelRequest,
+} from '../lib/api';
 import { BILLING_URL } from '../lib/app';
 import { getApiToken, getSettings, hasApiToken } from '../lib/settings';
 import type {
@@ -400,7 +404,10 @@ export default function ReportsPage() {
         );
     }
 
-    if ( reportsMetaQuery.isError ) {
+    if (
+        reportsMetaQuery.isError &&
+        ! isUnauthorizedError( reportsMetaQuery.error )
+    ) {
         return (
             <div className="container mx-auto px-4 py-8">
                 <Card>
