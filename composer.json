@@ -3,10 +3,7 @@
     "autoload": {
         "psr-4": {
             "Fynolab\\NotifyPress\\": "src/"
-        },
-        "files": [
-            "src/Helpers.php"
-        ]
+        }
     },
     "repositories": [
         {

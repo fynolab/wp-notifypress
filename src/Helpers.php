@@ -9,14 +9,10 @@ declare( strict_types=1 );
 
 namespace Fynolab\NotifyPress\Helpers;
 
-// This file is loaded by Composer's `files` autoloader, so it runs on every
-// request — including CLI ones that have no WordPress at all. Bailing out on a
-// missing ABSPATH would then take down any Composer-proxied binary the moment
-// it loads the autoloader, which is what silently reduced `composer phpcs` to a
-// no-op. The guard only needs to stop this file being requested over HTTP.
-if ( ! defined( 'ABSPATH' ) && 'cli' !== PHP_SAPI ) {
-	exit;
-}
+// Loaded by notifypress.php, not by Composer's "files" autoload: Composer's
+// bin proxies (phpcs, phpcbf) load the autoloader outside WordPress, where
+// this guard would exit and silently turn linting into a no-op.
+defined( 'ABSPATH' ) || exit;
 
 /**
  * Log the message.

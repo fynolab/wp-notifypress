@@ -22,7 +22,9 @@ class App {
 	private function __construct() {
 		register_activation_hook( NOTIFYPRESS_PLUGIN_FILE, array( $this, 'on_plugin_active' ) );
 		add_action( 'activated_plugin', array( $this, 'maybe_redirect_to_setup_after_activation' ), 10, 2 );
-		add_action( 'plugins_loaded', array( $this, 'register_services' ) );
+		// Not plugins_loaded: services read settings, whose defaults are
+		// translated, and WordPress 6.7+ warns when translations load before init.
+		add_action( 'init', array( $this, 'register_services' ), 0 );
 	}
 
 	/**
