@@ -12,7 +12,11 @@ import {
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getPostTypes, getSettings, updateSettings } from '../lib/settings';
-import { laravelRequest, validateConnection } from '../lib/api';
+import {
+    isUnauthorizedError,
+    laravelRequest,
+    validateConnection,
+} from '../lib/api';
 import { ui } from '../lib/admin-ui';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
@@ -427,7 +431,13 @@ export default function SettingsPage() {
         } );
     };
 
-    const status = displayForm.connectionStatus || 'disconnected';
+    // The saved connectionStatus only records that the site was connected
+    // once. If the app now rejects the token (revoked, rotated, or mistyped),
+    // the live /sites/current check wins.
+    const tokenRejected = isUnauthorizedError( currentSiteQuery.error );
+    const status = tokenRejected
+        ? 'invalid'
+        : displayForm.connectionStatus || 'disconnected';
     const connectUrl = `${
         displayForm.appUrl || 'https://app.notifypress.com'
     }/connect?${ new URLSearchParams( {
@@ -539,6 +549,11 @@ export default function SettingsPage() {
                                         Connected
                                     </Badge>
                                 ) : null }
+                                { status === 'invalid' ? (
+                                    <Badge variant="destructive">
+                                        Invalid token
+                                    </Badge>
+                                ) : null }
                             </div>
                             { status === 'connected' ? (
                                 <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/30 p-5 md:flex-row md:items-center md:justify-between">
@@ -616,11 +631,14 @@ export default function SettingsPage() {
                                 <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/30 p-5 md:flex-row md:items-center md:justify-between">
                                     <div>
                                         <strong className="text-sm font-semibold text-foreground">
-                                            Connect without copying an API key
+                                            { status === 'invalid'
+                                                ? 'The API token is no longer valid'
+                                                : 'Connect without copying an API key' }
                                         </strong>
                                         <p className="mt-1 text-sm text-muted-foreground">
-                                            Sign in to NotifyPress and this
-                                            site will be linked automatically.
+                                            { status === 'invalid'
+                                                ? 'NotifyPress rejected the saved token. Reconnect this site or paste a new API token below.'
+                                                : 'Sign in to NotifyPress and this site will be linked automatically.' }
                                         </p>
                                     </div>
                                     <Button
@@ -634,7 +652,9 @@ export default function SettingsPage() {
                                             target="_blank"
                                             rel="noreferrer"
                                         >
-                                            Connect to NotifyPress App
+                                            { status === 'invalid'
+                                                ? 'Reconnect to NotifyPress App'
+                                                : 'Connect to NotifyPress App' }
                                         </a>
                                     </Button>
                                 </div>
