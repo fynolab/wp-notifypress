@@ -22,7 +22,7 @@
         }
     },
     "scripts": {
-        "phpcs": "vendor/bin/phpcs",
-        "phpcbf": "phpcbf"
+        "phpcs": "@php vendor/bin/phpcs --runtime-set installed_paths vendor/wp-coding-standards/wpcs,vendor/phpcsstandards/phpcsutils,vendor/phpcsstandards/phpcsextra",
+        "phpcbf": "@php vendor/bin/phpcbf --runtime-set installed_paths vendor/wp-coding-standards/wpcs,vendor/phpcsstandards/phpcsutils,vendor/phpcsstandards/phpcsextra"
     }
 }
