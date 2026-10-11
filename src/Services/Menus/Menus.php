@@ -178,7 +178,12 @@ class Menus implements Service {
 	}
 
 	/**
-	 * Redirect to the setup wizard immediately after activation, once.
+	 * Redirect to the setup wizard once, on the first admin page load after
+	 * activation.
+	 *
+	 * The flag is cleared before redirecting, so the wizard never blocks the
+	 * rest of wp-admin: an admin who leaves it can browse Plugins, Posts and
+	 * so on, and finish setup later from the NotifyPress menu.
 	 *
 	 * @return void
 	 */
@@ -191,12 +196,19 @@ class Menus implements Service {
 			return;
 		}
 
+		delete_option( Installer::SETUP_REDIRECT_OPTION );
+
 		if ( Settings::get( 'setupCompleted', false ) ) {
-			delete_option( Installer::SETUP_REDIRECT_OPTION );
 			return;
 		}
 
+		// Already on the NotifyPress screen, which shows the wizard itself.
 		if ( self::SLUG === filter_input( INPUT_GET, 'page', FILTER_SANITIZE_FULL_SPECIAL_CHARS ) ) {
+			return;
+		}
+
+		// Activated together with other plugins: stay on the Plugins screen.
+		if ( isset( $_GET['activate-multi'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- presence check only; set by WordPress core on bulk activation.
 			return;
 		}
 

@@ -14,8 +14,13 @@ TanStack Query).
 
 ## Guided Setup
 
-On first activation (`App::maybe_redirect_to_setup_after_activation`), the admin is redirected
-straight to `#/setup` unless `setupCompleted` is already true. The wizard (`pages/setup.js`)
+On the first admin page load after activation (`Menus::maybe_redirect_to_setup`, on
+`admin_init`), the admin is redirected to `#/setup` **once**, unless `setupCompleted` is already
+true or several plugins were bulk-activated (`activate-multi`). The flag is cleared before the
+redirect, so the wizard never blocks the rest of wp-admin: an admin who leaves it can use
+Plugins, Posts and so on, and finish setup later from the NotifyPress menu (the plugin's own
+screens still route to `#/setup` until it is complete). Don't redirect from `activated_plugin`:
+exiting there cuts bulk activation and `wp plugin activate` short. The wizard (`pages/setup.js`)
 walks through connecting the site to a NotifyPress account and obtaining the `apiToken`/`siteKey`
 pair that everything else depends on.
 

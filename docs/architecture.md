@@ -30,9 +30,10 @@ calls `App::run()`.
 `App` (`src/App.php`):
 - Registers the activation hook → `Installer::run()` (currently just flags a setup-redirect
   option).
-- On `activated_plugin`, redirects a non-network, non-AJAX activation straight to
-  `admin.php?page=notifypress#/setup` unless `setupCompleted` is already true.
-- On `plugins_loaded`, iterates a list of service classes (filterable via
+- The one-time redirect to `#/setup` happens on the next `admin_init` (see
+  `Menus::maybe_redirect_to_setup` and docs/features.md → Guided Setup), not on
+  `activated_plugin`.
+- On `init` (priority 0), iterates a list of service classes (filterable via
   `notifypress_register_services`) and calls each one's static `register()`.
 
 Services are self-contained feature modules under `src/Services/<Name>/`, each implementing
