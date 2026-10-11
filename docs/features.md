@@ -100,12 +100,17 @@ WooCommerce session (guest). **Until this class existed nothing ever wrote to ei
 `OrderNotifications` and the abandoned-cart reminder resolved an empty token and silently sent
 nothing — the reminder had never fired in production.
 
-An inline script is attached to the widget's own handle (so it is absent when the widget is,
-and there is then no token to mirror). It reads the token, skips the request when it matches
+A static script, `assets/token-bridge.js`, is enqueued only when the widget is (so it is absent
+when the widget is, and there is then no token to mirror); its config is printed before it as
+`window.notifypressTokenBridge`. It is a file rather than a PHP heredoc because Plugin Check
+rejects heredocs. It reads the token, skips the request when it matches
 what it already synced this session (`sessionStorage['notifypress-TokenSynced']`), and otherwise
 POSTs it to `notifypress_store_subscription_token`, retrying a few times to cover the async
 widget not having written the token yet on a first visit. The handler checks a nonce, bounds
-the token to 20–512 chars of `[A-Za-z0-9_:.-]`, and writes it to user meta and/or the WC session.
+the token to 20–512 chars of `[A-Za-z0-9_:.-]`, and writes it to user meta and/or the WC session. A
+guest with an empty cart has no WC session cookie yet, so the handler starts one first
+(`set_customer_session_cookie( true )`); without it the value is never saved. Verified against
+a running WooCommerce: the token lands in the guest's `woocommerce_sessions` row.
 
 The storage keys live on `Services\SubscriberToken` — previously they were private constants
 inside `CartTracker`, so a second consumer had to redeclare them. `uninstall.php` deletes the

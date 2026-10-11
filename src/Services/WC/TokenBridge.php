@@ -44,6 +44,13 @@ class TokenBridge implements ObserverInterface {
 	private const NONCE_ACTION = 'notifypress-store-token';
 
 	/**
+	 * Script handle for the token sync script.
+	 *
+	 * @var string
+	 */
+	private const SCRIPT_HANDLE = 'notifypress-token-bridge';
+
+	/**
 	 * Longest token we will store.
 	 *
 	 * FCM registration tokens run to a couple of hundred characters; this is
@@ -75,121 +82,43 @@ class TokenBridge implements ObserverInterface {
 	}
 
 	/**
-	 * Print the script that copies the token out of localStorage.
+	 * Enqueue the script that copies the token out of localStorage.
 	 *
-	 * Attached to the widget's handle rather than enqueued on its own: the
-	 * widget is what writes the token, so if it is not on the page there is
-	 * nothing to mirror and wp_add_inline_script correctly does nothing.
+	 * Only alongside the widget: the widget is what writes the token, so if it
+	 * is not on the page there is nothing to mirror.
+	 *
+	 * The script retries a few times because the widget is loaded async and
+	 * may not have written the token yet on a first visit, or the visitor may
+	 * subscribe part-way through this pageview. It stops as soon as the token
+	 * it sees matches the one it last synced, so a repeat visitor makes no
+	 * request.
 	 *
 	 * @return void
 	 */
 	public function enqueue_sync_script(): void {
-		if ( is_admin() ) {
+		if ( is_admin() || ! wp_script_is( Assets::WIDGET_HANDLE, 'enqueued' ) ) {
 			return;
 		}
 
-		$config = wp_json_encode(
-			array(
-				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-				'action'  => self::ACTION,
-				'nonce'   => wp_create_nonce( self::NONCE_ACTION ),
-			)
+		$config = array(
+			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+			'action'  => self::ACTION,
+			'nonce'   => wp_create_nonce( self::NONCE_ACTION ),
 		);
 
-		wp_add_inline_script( Assets::WIDGET_HANDLE, $this->sync_script( (string) $config ), 'after' );
-	}
+		wp_enqueue_script(
+			self::SCRIPT_HANDLE,
+			ASSETS_URL . 'token-bridge.js',
+			array(),
+			(string) filemtime( ASSETS_DIR . 'token-bridge.js' ),
+			true
+		);
 
-	/**
-	 * The inline sync script.
-	 *
-	 * Retries a few times because the widget is loaded async and may not have
-	 * written the token yet on a first visit, or the visitor may subscribe
-	 * part-way through this pageview. It stops as soon as the token it sees
-	 * matches the one it last synced, so a repeat visitor makes no request.
-	 *
-	 * @param string $config JSON-encoded runtime config.
-	 *
-	 * @return string
-	 */
-	private function sync_script( string $config ): string {
-		return <<<JS
-( function () {
-	const config = {$config};
-	const TOKEN_KEY = 'notifypress-SubscriptionToken';
-	const SYNCED_KEY = 'notifypress-TokenSynced';
-	const RETRIES = 5;
-	const RETRY_DELAY = 2000;
-
-	let attempts = 0;
-
-	function readToken() {
-		try {
-			return window.localStorage.getItem( TOKEN_KEY ) || '';
-		} catch ( error ) {
-			return '';
-		}
-	}
-
-	function readSynced() {
-		try {
-			return window.sessionStorage.getItem( SYNCED_KEY ) || '';
-		} catch ( error ) {
-			return '';
-		}
-	}
-
-	function markSynced( token ) {
-		try {
-			window.sessionStorage.setItem( SYNCED_KEY, token );
-		} catch ( error ) {
-			// Private browsing with storage disabled: the token still reached
-			// the server, we just cannot remember that for the next pageview.
-		}
-	}
-
-	function sync() {
-		attempts += 1;
-
-		const token = readToken();
-
-		if ( ! token ) {
-			if ( attempts < RETRIES ) {
-				window.setTimeout( sync, RETRY_DELAY );
-			}
-
-			return;
-		}
-
-		if ( token === readSynced() ) {
-			return;
-		}
-
-		const body = new window.FormData();
-
-		body.append( 'action', config.action );
-		body.append( 'nonce', config.nonce );
-		body.append( 'token', token );
-
-		window.fetch( config.ajaxUrl, {
-			method: 'POST',
-			credentials: 'same-origin',
-			body: body,
-		} ).then( function ( response ) {
-			if ( response.ok ) {
-				markSynced( token );
-			}
-		} ).catch( function () {
-			// Offline or blocked: the next pageview tries again.
-		} );
-	}
-
-	if ( 'loading' === document.readyState ) {
-		document.addEventListener( 'DOMContentLoaded', sync );
-	} else {
-		sync();
-	}
-}() );
-JS;
+		wp_add_inline_script(
+			self::SCRIPT_HANDLE,
+			'window.notifypressTokenBridge = ' . wp_json_encode( $config ) . ';',
+			'before'
+		);
 	}
 
 	/**
@@ -217,6 +146,12 @@ JS;
 		// Stored for guests, and also for logged-in customers, so a shopper
 		// who signs in mid-checkout is covered by whichever is read first.
 		if ( function_exists( 'WC' ) && WC()->session ) {
+			// A guest with an empty cart has no session cookie yet. Without
+			// one, the value set below is never saved and the token is lost.
+			if ( ! WC()->session->has_session() ) {
+				WC()->session->set_customer_session_cookie( true );
+			}
+
 			WC()->session->set( SubscriberToken::SESSION, $token );
 		}
 
