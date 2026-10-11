@@ -36,7 +36,7 @@ import {
     ChartTooltipContent,
     type ChartConfig,
 } from '../components/ui/chart';
-import { laravelRequest } from '../lib/api';
+import { isUnauthorizedError, laravelRequest } from '../lib/api';
 import { formatNumber } from '../lib/format';
 import { getApiToken, getSettings, hasApiToken } from '../lib/settings';
 import type { AnalyticsData, LaravelResource, NotifyPressSettings } from '../types';
@@ -169,7 +169,10 @@ export default function AnalyticsPage() {
         );
     }
 
-    if (analyticsQuery.isError) {
+    if (
+        analyticsQuery.isError &&
+        !isUnauthorizedError(analyticsQuery.error)
+    ) {
         return (
             <div className="container mx-auto px-4 py-8">
                 <Card>

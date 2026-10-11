@@ -11,6 +11,23 @@ interface LaravelRequestOptions {
     subscriptionToken?: string;
 }
 
+export class LaravelRequestError extends Error {
+    status: number;
+
+    constructor( message: string, status: number ) {
+        super( message );
+        this.name = 'LaravelRequestError';
+        this.status = status;
+    }
+}
+
+/**
+ * True when the app rejected the API token (401). Pages treat this like
+ * "no data yet" and render their empty state instead of an error view.
+ */
+export const isUnauthorizedError = ( error: unknown ) =>
+    error instanceof LaravelRequestError && 401 === error.status;
+
 const toQueryString = ( params?: Record< string, QueryValue > ) => {
     const search = new URLSearchParams();
 
@@ -131,8 +148,9 @@ export async function laravelRequest< T = unknown >(
     const payload = isJson ? await response.json() : null;
 
     if ( ! response.ok ) {
-        throw new Error(
-            payload?.message || payload?.error || 'Request failed.'
+        throw new LaravelRequestError(
+            payload?.message || payload?.error || 'Request failed.',
+            response.status
         );
     }
 
