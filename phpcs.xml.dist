@@ -11,6 +11,10 @@
 
 	<config name="testVersion" value="8.1-"/>
 
+	<!-- Show a progress dot per file and colorize the report. -->
+	<arg value="p"/>
+	<arg name="colors"/>
+
 	<rule ref="WordPress">
 		<!-- src/ is PSR-4 autoloaded (Fynolab\NotifyPress\ => src/), so files
 		     must be named after their class (e.g. App.php), not the
