@@ -8,35 +8,67 @@ Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Send web push notifications to your website visitors. Supports WooCommerce and custom post types.
+Web push notifications for WordPress and WooCommerce. Send campaigns, automate follow-ups and track every click from your WordPress dashboard.
 
 == Description ==
 
-NotifyPress is a powerful WordPress plugin that enables you to send web push notifications to your website visitors. Keep your audience engaged with timely updates about new posts, products, orders, and more.
+NotifyPress turns your website visitors into an audience you can reach any time. Visitors subscribe with one click, and you send them browser push notifications about new posts, products, sales and orders. No email address and no app install needed.
 
-**Key Features:**
+Everything runs inside your WordPress admin: send campaigns, watch the numbers come in, and let automations follow up with new subscribers for you.
 
-* Send push notifications for new blog posts
-* WooCommerce integration: order confirmations and abandoned cart reminders, sent only to the customer they concern
-* Customizable notification templates
-* Subscriber management
-* Audience segmentation
-* Real-time notification delivery
-* Progressive Web App (PWA) support
-* Mobile-friendly notifications
-* No app installation required
+= Campaigns =
 
-**What is Web Push?**
+* Send a notification now or schedule it for later.
+* Notify subscribers automatically when you publish a post, page or any public custom post type.
+* Write a custom title and message per post from the block editor sidebar, with a live preview.
+* See delivery status, views and clicks for every notification.
 
-Web push notifications are messages that appear on your visitors' devices even when they're not actively browsing your website. Users can opt-in to receive these notifications and stay updated with your latest content.
+= Opt-in prompt =
 
-**How It Works:**
+* Choose a Minimal, Card or Banner prompt and match it to your brand color.
+* Set the prompt text, buttons, icon and bell position.
+* Control when the prompt appears and how long to wait before showing it again.
+* Greet new subscribers with an optional welcome notification.
 
-1. Install and activate the plugin
-2. Sign up for a free NotifyPress account at https://app.notifypress.com
-3. Click "Connect to NotifyPress App" in the plugin settings, or paste an API token
-4. Your visitors can subscribe to notifications
-5. Send notifications automatically or manually
+= WooCommerce =
+
+* Send order confirmations to the customer who placed the order.
+* Remind subscribers about an abandoned cart one hour later.
+* Both are sent only to the customer they concern, and both can be turned off.
+
+= Subscribers and segments =
+
+* Browse subscribers with their city, country, browser, device and timezone.
+* Build segments by country and other rules to target the right audience. (Paid plans)
+
+= Automations =
+
+* Start from a pre-built template such as a welcome message or re-engagement series.
+* Build workflows on a visual canvas with wait, send notification, add tag and webhook steps.
+* Track how many subscribers are active, finished or suspended in each workflow.
+* Automations are available on paid plans.
+
+= Analytics and reports =
+
+* Dashboard with notifications sent, subscriber totals, click rate and top countries.
+* Charts for monthly sends, subscriber growth, browser breakdown and subscriber activity.
+* Download PDF reports for campaign performance, subscriber growth and a monthly summary. (Paid plans)
+
+= Also included =
+
+* Optional Progressive Web App (PWA) support.
+* Works on desktop and mobile browsers that support the Web Push API.
+
+**Free and paid plans**
+
+The plugin is free. It connects to the NotifyPress service, which has a free plan for getting started and paid plans that raise subscriber limits and unlock segments, automations and PDF reports. See https://notifypress.com/#pricing for details.
+
+**How It Works**
+
+1. Install and activate the plugin.
+2. Run the setup wizard and connect a free NotifyPress account.
+3. Visitors see the opt-in prompt and subscribe with one click.
+4. Send campaigns, or let new posts, WooCommerce events and automations send for you.
 
 **Privacy**
 
@@ -57,16 +89,10 @@ NotifyPress stores subscribers and delivers notifications.
 * When you publish a post (if enabled), or a subscribed WooCommerce customer places an order or abandons their cart (if enabled), the plugin sends the notification title, message, link and, for WooCommerce, that customer's subscription token to the NotifyPress API.
 * On every front-end page, the plugin loads the NotifyPress widget script from app.notifypress.com, which shows the opt-in prompt. The service worker the plugin serves at /service-worker.js is bundled with the plugin; when a notification is shown or clicked, it reports the view or click to app.notifypress.com along with the visitor's browser and device type.
 * When a visitor accepts the browser's notification prompt, the widget sends NotifyPress their push subscription token, IP address, city and country, browser, device and timezone.
+* To deliver notifications, the widget loads Google's push messaging library from www.gstatic.com when a visitor opts in. Google terms: https://policies.google.com/terms · Privacy: https://policies.google.com/privacy
 
 Terms of service: https://notifypress.com/terms-of-service
 Privacy policy: https://notifypress.com/privacy-policy
-
-**Google Firebase Cloud Messaging (FCM)**
-
-NotifyPress delivers notifications through Firebase Cloud Messaging. The widget loads the Firebase SDK from www.gstatic.com in the visitor's browser, and the browser registers with Firebase to receive a push subscription token when the visitor opts in.
-
-Terms of service: https://firebase.google.com/terms
-Privacy policy: https://policies.google.com/privacy
 
 == Source code ==
 
@@ -93,7 +119,7 @@ Yes. The plugin connects your site to the NotifyPress service, which stores subs
 
 = Is this plugin free? =
 
-Yes, the plugin is free to use. NotifyPress offers both free and premium plans based on your notification volume.
+Yes, the plugin is free to use. The NotifyPress service has a free plan, and paid plans raise subscriber limits and unlock segments, automations and PDF reports.
 
 = Does this work on mobile devices? =
 
