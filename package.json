@@ -19,6 +19,7 @@
     "plugin-zip": "pnpm run version:check && composer install --no-dev && pnpm run build && wp-scripts plugin-zip && node bin/version.mjs rename-zip && composer install",
     "version:check": "node bin/version.mjs check",
     "version:bump": "node bin/version.mjs bump",
+    "svn:deploy": "bash bin/svn-deploy.sh",
     "test:e2e": "wp-scripts test-e2e",
     "test:unit": "wp-scripts test-unit-js",
     "dev": "pnpm run app",
