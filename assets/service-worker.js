@@ -15,81 +15,81 @@
 const NOTIFYPRESS_API_URL = 'https://app.notifypress.com/api/v1';
 
 self.addEventListener( 'install', () => {
-	self.skipWaiting();
+    self.skipWaiting();
 } );
 
 self.addEventListener( 'activate', ( event ) => {
-	event.waitUntil( self.clients.claim() );
+    event.waitUntil( self.clients.claim() );
 } );
 
 self.addEventListener( 'push', ( event ) => {
-	const payload = readPayload( event );
+    const payload = readPayload( event );
 
-	if ( ! payload ) {
-		return;
-	}
+    if ( ! payload ) {
+        return;
+    }
 
-	const notification = payload.notification || {};
-	const data = payload.data || {};
-	const title = notification.title || '';
+    const notification = payload.notification || {};
+    const data = payload.data || {};
+    const title = notification.title || '';
 
-	// Kept on the notification itself, so a click on an older notification
-	// still reports and opens that notification rather than the latest one.
-	const details = {
-		notificationId: data.notificationId || '',
-		targetUrl: data.targetUrl || '',
-	};
+    // Kept on the notification itself, so a click on an older notification
+    // still reports and opens that notification rather than the latest one.
+    const details = {
+        notificationId: data.notificationId || '',
+        targetUrl: data.targetUrl || '',
+    };
 
-	event.waitUntil(
-		Promise.all( [
-			self.registration.showNotification( title, {
-				body: notification.body,
-				icon: data.icon,
-				image: data.image,
-				requireInteraction: true,
-				data: details,
-			} ),
-			track( details.notificationId, 'track-view', { viewed: true } ),
-			notifyOpenPages( {
-				title,
-				body: notification.body,
-				targetUrl: details.targetUrl,
-				notificationId: details.notificationId,
-			} ),
-		] )
-	);
+    event.waitUntil(
+        Promise.all( [
+            self.registration.showNotification( title, {
+                body: notification.body,
+                icon: data.icon,
+                image: data.image,
+                requireInteraction: true,
+                data: details,
+            } ),
+            track( details.notificationId, 'track-view', { viewed: true } ),
+            notifyOpenPages( {
+                title,
+                body: notification.body,
+                targetUrl: details.targetUrl,
+                notificationId: details.notificationId,
+            } ),
+        ] )
+    );
 } );
 
 self.addEventListener( 'notificationclick', ( event ) => {
-	const details = event.notification.data || {};
+    const details = event.notification.data || {};
 
-	event.notification.close();
+    event.notification.close();
 
-	event.waitUntil(
-		Promise.all( [
-			track( details.notificationId, 'click', { clicked: true } ),
-			openTarget( details.targetUrl ),
-		] )
-	);
+    event.waitUntil(
+        Promise.all( [
+            track( details.notificationId, 'click', { clicked: true } ),
+            openTarget( details.targetUrl ),
+        ] )
+    );
 } );
 
 /**
  * Parse the push payload, or return null when it is missing or not JSON.
  *
- * @param {PushEvent} event The push event.
+ * @param {Object} event The push event.
  *
  * @return {Object|null} The FCM message, with notification and data keys.
  */
 function readPayload( event ) {
-	if ( ! event.data ) {
-		return null;
-	}
+    if ( ! event.data ) {
+        return null;
+    }
 
-	try {
-		return event.data.json();
-	} catch ( error ) {
-		return null;
-	}
+    try {
+        return event.data.json();
+    } catch ( error ) {
+        return null;
+    }
 }
 
 /**
@@ -103,27 +103,27 @@ function readPayload( event ) {
  * @return {Promise<void>} Settles once the request finishes.
  */
 function track( notificationId, endpoint, body ) {
-	if ( ! notificationId ) {
-		return Promise.resolve();
-	}
+    if ( ! notificationId ) {
+        return Promise.resolve();
+    }
 
-	const url = `${ NOTIFYPRESS_API_URL }/notifications/${ encodeURIComponent(
-		notificationId
-	) }/${ endpoint }`;
+    const url = `${ NOTIFYPRESS_API_URL }/notifications/${ encodeURIComponent(
+        notificationId
+    ) }/${ endpoint }`;
 
-	return fetch( url, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify( {
-			...body,
-			browser: getBrowserName(),
-			device: getDeviceType(),
-		} ),
-	} )
-		.then( () => {} )
-		.catch( () => {} );
+    return fetch( url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify( {
+            ...body,
+            browser: getBrowserName(),
+            device: getDeviceType(),
+        } ),
+    } )
+        .then( () => {} )
+        .catch( () => {} );
 }
 
 /**
@@ -134,13 +134,13 @@ function track( notificationId, endpoint, body ) {
  * @return {Promise<void>} Settles once every page has been sent the message.
  */
 function notifyOpenPages( message ) {
-	return self.clients
-		.matchAll( { includeUncontrolled: true } )
-		.then( ( windowClients ) => {
-			windowClients.forEach( ( client ) => {
-				client.postMessage( message );
-			} );
-		} );
+    return self.clients
+        .matchAll( { includeUncontrolled: true } )
+        .then( ( windowClients ) => {
+            windowClients.forEach( ( client ) => {
+                client.postMessage( message );
+            } );
+        } );
 }
 
 /**
@@ -151,23 +151,23 @@ function notifyOpenPages( message ) {
  * @return {Promise<void>} Settles once the tab is focused or opened.
  */
 function openTarget( targetUrl ) {
-	if ( ! targetUrl ) {
-		return Promise.resolve();
-	}
+    if ( ! targetUrl ) {
+        return Promise.resolve();
+    }
 
-	return self.clients
-		.matchAll( { type: 'window', includeUncontrolled: true } )
-		.then( ( windowClients ) => {
-			const match = windowClients.find( ( client ) => {
-				return client.url === targetUrl;
-			} );
+    return self.clients
+        .matchAll( { type: 'window', includeUncontrolled: true } )
+        .then( ( windowClients ) => {
+            const match = windowClients.find( ( client ) => {
+                return client.url === targetUrl;
+            } );
 
-			if ( match ) {
-				return match.focus();
-			}
+            if ( match ) {
+                return match.focus();
+            }
 
-			return self.clients.openWindow( targetUrl );
-		} );
+            return self.clients.openWindow( targetUrl );
+        } );
 }
 
 /**
@@ -176,25 +176,25 @@ function openTarget( targetUrl ) {
  * @return {string} The browser name, e.g. "Chrome" or "Opera".
  */
 function getBrowserName() {
-	const userAgent = self.navigator.userAgent;
-	const match =
-		userAgent.match(
-			/(opera|opr|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i
-		) || [];
+    const userAgent = self.navigator.userAgent;
+    const match =
+        userAgent.match(
+            /(opera|opr|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i
+        ) || [];
 
-	if ( /trident/i.test( match[ 1 ] ) ) {
-		return 'IE';
-	}
+    if ( /trident/i.test( match[ 1 ] ) ) {
+        return 'IE';
+    }
 
-	if ( 'Chrome' === match[ 1 ] && /\b(OPR|OPERA)\/(\d+)/.test( userAgent ) ) {
-		return 'Opera';
-	}
+    if ( 'Chrome' === match[ 1 ] && /\b(OPR|OPERA)\/(\d+)/.test( userAgent ) ) {
+        return 'Opera';
+    }
 
-	if ( match[ 1 ] ) {
-		return match[ 1 ];
-	}
+    if ( match[ 1 ] ) {
+        return match[ 1 ];
+    }
 
-	return self.navigator.appName || 'Unknown';
+    return self.navigator.appName || 'Unknown';
 }
 
 /**
@@ -203,15 +203,15 @@ function getBrowserName() {
  * @return {string} "Mobile", "Tablet" or "Desktop".
  */
 function getDeviceType() {
-	const userAgent = self.navigator.userAgent;
+    const userAgent = self.navigator.userAgent;
 
-	if ( /Mobi|Android|iPhone|iPod/i.test( userAgent ) ) {
-		return 'Mobile';
-	}
+    if ( /Mobi|Android|iPhone|iPod/i.test( userAgent ) ) {
+        return 'Mobile';
+    }
 
-	if ( /Tablet|iPad/i.test( userAgent ) ) {
-		return 'Tablet';
-	}
+    if ( /Tablet|iPad/i.test( userAgent ) ) {
+        return 'Tablet';
+    }
 
-	return 'Desktop';
+    return 'Desktop';
 }
