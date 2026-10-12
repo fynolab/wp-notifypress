@@ -43,7 +43,7 @@ import { format } from 'date-fns';
 import { cn } from '../components/utils';
 import useLiveActivity from '../lib/use-live-activity';
 import LiveActivityPanel from '../components/live-activity-panel';
-import defaultBellIcon from '../../images/default-icon.png';
+import defaultBellIcon from '../../images/notification-icon.png';
 import ChromeMac from '../components/notifications/previews/ChromeMac';
 import ChromeWindows from '../components/notifications/previews/ChromeWindows';
 import FirefoxMac from '../components/notifications/previews/FirefoxMac';

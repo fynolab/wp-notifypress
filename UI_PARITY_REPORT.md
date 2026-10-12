@@ -50,7 +50,7 @@ transient counters/spinners, and live data drift between the two captures.
 | Reports | 0.00% | ✅ |
 
 ### Editor details
-- Default icon: copied app `public/images/favicon.png` → `assets/images/default-icon.png`
+- Default icon: copied app `public/images/notification-icon.png` → `assets/images/notification-icon.png`
   (plugin was showing the N logo).
 - Preview cards: fixed broken `new URL(...)` svg resolution → webpack import of the
   shared `bell.svg` (byte-identical to the app's).
