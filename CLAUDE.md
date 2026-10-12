@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Plugin repo only. Laravel app lives at `/Users/saimon/Documents/www/app.notifypress.com` — separate repo. When a change touches both, keep behavior aligned.
 
+**IMPORTANT:** Write all plugin code in WordPress coding standards from the start (WPCS for PHP, `@wordpress/scripts` ESLint/Prettier/Stylelint for JS, TS and SCSS). Run `pnpm lint:js`, `pnpm lint:css` and `pnpm lint:php` before finishing; all must pass with zero errors. UI ported from the Laravel app uses a different style (Prettier 2-space, shadcn defaults): convert it while porting, never as a later cleanup. To auto-fix one file, put the file before the flag (`wp-scripts lint-js <file> --fix`): with the flag first, `--fix` swallows the path and rewrites the whole plugin.
+
 ## Commands
 
 ```bash
