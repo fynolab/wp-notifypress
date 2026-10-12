@@ -49,13 +49,13 @@ Web push notifications are messages that appear on your visitors' devices even w
 
 This plugin is the WordPress side of the NotifyPress web push service. It does not work without a NotifyPress account, and it connects to the services below only after you connect the site in the plugin settings.
 
-**NotifyPress (app.notifypress.com, cdn.notifypress.com)**
+**NotifyPress (app.notifypress.com)**
 
 NotifyPress stores subscribers and delivers notifications.
 
 * In the WordPress admin, the plugin's dashboard pages load your stats, subscribers, campaigns and reports from the NotifyPress API. Requests go through your own site, which adds your API token on the server, so the token is never sent to the browser.
 * When you publish a post (if enabled), or a subscribed WooCommerce customer places an order or abandons their cart (if enabled), the plugin sends the notification title, message, link and, for WooCommerce, that customer's subscription token to the NotifyPress API.
-* On every front-end page, the plugin loads the NotifyPress widget script from app.notifypress.com, which shows the opt-in prompt. The service worker served at /service-worker.js loads its code from cdn.notifypress.com.
+* On every front-end page, the plugin loads the NotifyPress widget script from app.notifypress.com, which shows the opt-in prompt. The service worker the plugin serves at /service-worker.js is bundled with the plugin; when a notification is shown or clicked, it reports the view or click to app.notifypress.com along with the visitor's browser and device type.
 * When a visitor accepts the browser's notification prompt, the widget sends NotifyPress their push subscription token, IP address, city and country, browser, device and timezone.
 
 Terms of service: https://notifypress.com/terms-of-service
