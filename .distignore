@@ -17,6 +17,7 @@ tests
 bin
 .git
 .github
+.wordpress-org
 vendor/bin
 vendor/squizlabs
 vendor/wp-coding-standards
