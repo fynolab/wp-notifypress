@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "A web push notification plugin for WordPress.",
   "main": "index.js",
-  "packageManager": "pnpm@10.11.0",
+  "packageManager": "pnpm@12.11.2",
   "scripts": {
     "app": "wp-scripts start assets/src/main.js --output-path=assets/main-dist",
     "app:build": "wp-scripts build assets/src/main.js --output-path=assets/main-dist",
