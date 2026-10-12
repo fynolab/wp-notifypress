@@ -138,16 +138,35 @@ body.toplevel_page_notifypress {
   }
 }
 
-#notifypress * {
+// Radix Dialog/AlertDialog content portals to document.body, outside
+// #notifypress, so every scoped reset below has to name it too. Without it,
+// dialogs fall back to WP admin's 13px/1.4 text, content-box sizing, native
+// grey button chrome, invisible `.border` utilities and h2/p margins.
+$np-dialog: "body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'])[data-state]";
+
+// Same text defaults #notifypress gets (the app's body: 16px/1.5,
+// text-foreground, antialiased). Zero specificity so utilities still win.
+:where(#{$np-dialog}) {
+  color: hsl(var(--foreground));
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#notifypress *,
+:where(#{$np-dialog}),
+:where(#{$np-dialog}) * {
   box-sizing: border-box;
 }
 
 // Preflight's border reset, at zero specificity: without it `.border`
 // utilities set border-width on elements whose UA border-style is `none`,
 // so no border renders and layout is 1px shorter than the SaaS app.
-:where(#notifypress) *,
-:where(#notifypress) ::before,
-:where(#notifypress) ::after,
+:where(#{$np-dialog}),
+:where(#notifypress, #{$np-dialog}) *,
+:where(#notifypress, #{$np-dialog}) ::before,
+:where(#notifypress, #{$np-dialog}) ::after,
 :where(body.toplevel_page_notifypress [data-radix-popper-content-wrapper]) * {
   border-color: hsl(var(--border));
   border-style: solid;
@@ -169,50 +188,50 @@ body.toplevel_page_notifypress {
 // font-size) that Tailwind-designed layouts copied from the SaaS app
 // don't expect — rows grow taller than the app's. Zero them at zero
 // specificity so utilities still win.
-:where(#notifypress) :is(h1, h2, h3, h4, h5, h6) {
+:where(#notifypress, #{$np-dialog}) :is(h1, h2, h3, h4, h5, h6) {
   font-size: inherit;
   font-weight: inherit;
   margin: 0;
 }
 
-:where(#notifypress) :is(p, blockquote, figure, dl, dd, hr) {
+:where(#notifypress, #{$np-dialog}) :is(p, blockquote, figure, dl, dd, hr) {
   margin: 0;
 }
 
-:where(#notifypress) :is(ol, ul, menu) {
+:where(#notifypress, #{$np-dialog}) :is(ol, ul, menu) {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-:where(#notifypress) table {
+:where(#notifypress, #{$np-dialog}) table {
   border-collapse: collapse;
   border-color: inherit;
   text-indent: 0;
 }
 
 // UA stylesheet gives th/td `padding: 1px`; the app's preflight zeroes it.
-:where(#notifypress) :is(th, td) {
+:where(#notifypress, #{$np-dialog}) :is(th, td) {
   padding: 0;
 }
 
-:where(#notifypress) hr {
+:where(#notifypress, #{$np-dialog}) hr {
   border-top-width: 1px;
   color: inherit;
   height: 0;
 }
 
-:where(#notifypress) :is(img, svg, video, canvas) {
+:where(#notifypress, #{$np-dialog}) :is(img, svg, video, canvas) {
   display: block;
   vertical-align: middle;
 }
 
-:where(#notifypress) :is(img, video) {
+:where(#notifypress, #{$np-dialog}) :is(img, video) {
   height: auto;
   max-width: 100%;
 }
 
-:where(#notifypress) button,
+:where(#notifypress, #{$np-dialog}) button,
 :where(body.toplevel_page_notifypress [data-radix-popper-content-wrapper]) button {
   appearance: none;
   -webkit-appearance: none;
@@ -232,9 +251,9 @@ body.toplevel_page_notifypress {
   text-align: inherit;
 }
 
-:where(#notifypress) input,
-:where(#notifypress) textarea,
-:where(#notifypress) select,
+:where(#notifypress, #{$np-dialog}) input,
+:where(#notifypress, #{$np-dialog}) textarea,
+:where(#notifypress, #{$np-dialog}) select,
 :where(body.toplevel_page_notifypress [data-radix-popper-content-wrapper]) input {
   appearance: none;
   -webkit-appearance: none;
@@ -311,19 +330,20 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
   }
 }
 
-#notifypress a {
+#notifypress a,
+:where(#{$np-dialog}) a {
   text-decoration: none;
 }
 
 // Match the app's preflight: anchors inherit text color (WP admin paints
 // them blue). Zero-class specificity so Tailwind color utilities still win.
-:where(#notifypress) a {
+:where(#notifypress, #{$np-dialog}) a {
   color: inherit;
 }
 
 // WP admin forms.css sets `label { vertical-align: middle }`, nudging every
 // inline label ~1px off the app's baseline alignment.
-:where(#notifypress) label {
+:where(#notifypress, #{$np-dialog}) label {
   vertical-align: baseline;
 }
 
