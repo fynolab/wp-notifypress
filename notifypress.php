@@ -2,7 +2,7 @@
 /**
  * Plugin Name: NotifyPress
  * Plugin URI: https://notifypress.com
- * Description: A web push notification plugin for WordPress.
+ * Description: Send web push notifications to your visitors with campaigns, automations, segments and analytics, right from WordPress.
  * Version: 1.0.0
  * Text Domain: notifypress
  * Author: Fynolab
