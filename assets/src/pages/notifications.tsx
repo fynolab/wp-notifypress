@@ -16,7 +16,6 @@ import {
     Calendar as CalendarIcon,
     CalendarClock,
     BarChart,
-    Check,
     CheckCircle,
     ChevronDown,
     ChevronLeft,
@@ -26,7 +25,6 @@ import {
     Clock,
     Edit3,
     Eye,
-    Image,
     ListFilter,
     Loader2,
     MousePointerClick,
@@ -123,59 +121,6 @@ import type {
     Segment,
 } from '../types';
 
-interface WpMediaAttachment {
-    id: number;
-    url: string;
-    alt?: string;
-    title?: string;
-}
-
-interface WpMediaFrame {
-    open: () => void;
-    on: ( event: 'select', callback: () => void ) => WpMediaFrame;
-    state: () => {
-        get: ( key: 'selection' ) => {
-            first: () => { toJSON: () => WpMediaAttachment };
-        };
-    };
-}
-
-interface WindowWithWpMedia {
-    wp?: {
-        media?: ( options?: {
-            title?: string;
-            button?: { text?: string };
-            library?: { type?: string };
-            multiple?: boolean;
-        } ) => WpMediaFrame;
-    };
-}
-
-function openMediaLibrary(
-    onSelect: ( attachment: WpMediaAttachment ) => void
-) {
-    const wpMedia = ( window as unknown as WindowWithWpMedia ).wp?.media;
-
-    if ( ! wpMedia ) {
-        return;
-    }
-
-    const frame = wpMedia( {
-        title: 'Select image',
-        button: { text: 'Use this image' },
-        library: { type: 'image' },
-        multiple: false,
-    } );
-
-    frame.on( 'select', () => {
-        const attachment = frame.state().get( 'selection' ).first().toJSON();
-
-        onSelect( attachment );
-    } );
-
-    frame.open();
-}
-
 interface NotificationFormData {
     title: string;
     message: string;
@@ -218,131 +163,6 @@ const defaultForm: NotificationFormData = {
     icon: null,
     image: null,
 };
-
-const steps = [
-    { key: 'compose', label: 'Create Notification', icon: Image },
-    { key: 'audience', label: 'Select Audience', icon: Users },
-    { key: 'send', label: 'Send Notification', icon: Send },
-];
-
-function StepHeader( { currentStep }: { currentStep: string } ) {
-    const currentIndex = steps.findIndex(
-        ( step ) => step.key === currentStep
-    );
-
-    return (
-        <div className="flex gap-4 border-b border-border">
-            { steps.map( ( step, index ) => {
-                const Icon = step.icon;
-                const isActive = step.key === currentStep;
-                const isDone = index < currentIndex;
-
-                return (
-                    <div
-                        className={ `flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold ${
-                            isActive
-                                ? 'border-primary text-foreground'
-                                : 'border-transparent text-muted-foreground'
-                        }` }
-                        key={ step.key }
-                    >
-                        <div
-                            className={ `grid h-7 w-7 place-items-center rounded-md ${
-                                isActive || isDone
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'bg-muted text-muted-foreground'
-                            }` }
-                        >
-                            { isDone ? (
-                                <Check size={ 16 } />
-                            ) : (
-                                <Icon size={ 16 } />
-                            ) }
-                        </div>
-                        <span>{ step.label }</span>
-                    </div>
-                );
-            } ) }
-        </div>
-    );
-}
-
-function NotificationPreview( {
-    form,
-    lastUsedIcon,
-}: {
-    form: NotificationFormData;
-    lastUsedIcon?: string;
-} ) {
-    const [ iconPreviewUrl, setIconPreviewUrl ] = useState( '' );
-
-    useEffect( () => {
-        if ( ! form.icon ) {
-            setIconPreviewUrl( '' );
-            return undefined;
-        }
-
-        const nextPreview = URL.createObjectURL( form.icon );
-        setIconPreviewUrl( nextPreview );
-
-        return () => {
-            URL.revokeObjectURL( nextPreview );
-        };
-    }, [ form.icon ] );
-
-    const previewIcon =
-        iconPreviewUrl ||
-        ( form.last_used_icon ? lastUsedIcon : '' ) ||
-        form.icon_url ||
-        '';
-    const previewTitle = form.title || 'Notification title';
-    const previewMessage =
-        form.message || 'Your notification message will appear here.';
-
-    return (
-        <aside className={ ui.cardPadded }>
-            <div className="border-b-2 border-primary pb-4">
-                <span className={ ui.kicker }>Preview</span>
-                <h3 className="mt-1 text-lg font-bold text-foreground">
-                    Notification previews
-                </h3>
-            </div>
-
-            <div className="mt-5 grid gap-5">
-                <ChromeMac
-                    cardTitle="Mac OS - Chrome"
-                    title={ previewTitle }
-                    message={ previewMessage }
-                    icon={ previewIcon || undefined }
-                />
-                <FirefoxMac
-                    cardTitle="Mac OS - Firefox"
-                    title={ previewTitle }
-                    message={ previewMessage }
-                    icon={ previewIcon || undefined }
-                />
-                <SafariMac
-                    cardTitle="Mac OS - Safari"
-                    title={ previewTitle }
-                    message={ previewMessage }
-                    icon={ previewIcon || undefined }
-                />
-                <ChromeWindows
-                    cardTitle="Windows OS - Chrome"
-                    title={ previewTitle }
-                    message={ previewMessage }
-                    icon={ previewIcon || undefined }
-                />
-                <FirefoxWindows
-                    cardTitle="Windows OS - Firefox"
-                    title={ previewTitle }
-                    message={ previewMessage }
-                    icon={ previewIcon || undefined }
-                />
-            </div>
-        </aside>
-    );
-}
 
 function NoticeMessage( {
     message,
@@ -404,12 +224,13 @@ function normalizeAnalytics(
             0
         );
     const clicks = toCount( analytics.clicks ?? notification.clicks );
-    const clickThroughRate =
-        analytics.click_through_rate !== undefined
-            ? toCount( analytics.click_through_rate )
-            : views && clicks
-            ? Math.round( ( clicks / views ) * 100 )
-            : 0;
+    let clickThroughRate = 0;
+
+    if ( analytics.click_through_rate !== undefined ) {
+        clickThroughRate = toCount( analytics.click_through_rate );
+    } else if ( views && clicks ) {
+        clickThroughRate = Math.round( ( clicks / views ) * 100 );
+    }
 
     return {
         views,
@@ -421,12 +242,13 @@ function normalizeAnalytics(
 }
 
 function notificationDate( notification: Notification ): string {
-    const value =
-        notification.status === 'sent'
-            ? notification.sent_at || notification.created_at
-            : notification.status === 'scheduled'
-            ? notification.scheduled_at
-            : notification.created_at;
+    let value = notification.created_at;
+
+    if ( notification.status === 'sent' ) {
+        value = notification.sent_at || notification.created_at;
+    } else if ( notification.status === 'scheduled' ) {
+        value = notification.scheduled_at;
+    }
 
     if ( ! value ) {
         return '—';
@@ -453,14 +275,12 @@ function sendViaLabel( createdBy?: string ) {
 }
 
 function SendViaIcon( { createdBy }: { createdBy?: string } ) {
-    const Icon =
-        createdBy === 'mobile'
-            ? Smartphone
-            : createdBy === 'wordpress'
-            ? WordPress
-            : createdBy === 'web'
-            ? Globe
-            : Server;
+    const icons: Record< string, typeof Server > = {
+        mobile: Smartphone,
+        wordpress: WordPress,
+        web: Globe,
+    };
+    const Icon = icons[ createdBy || '' ] || Server;
 
     return (
         <span className="flex items-center font-medium">
@@ -2171,246 +1991,245 @@ export default function NotificationsPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border [&_tr:last-child]:border-0">
-                            { loading ? (
-                                renderSkeletonRows()
-                            ) : rows.length ? (
-                                rows.map( ( notification ) => {
-                                    const analytics =
-                                        normalizeAnalytics( notification );
-                                    const hasAnalytics = analytics.views > 0;
-                                    const isExpanded =
-                                        String( expandedRow ) ===
-                                        String( notification.id );
+                            { loading ? renderSkeletonRows() : null }
+                            { ! loading && rows.length > 0
+                                ? rows.map( ( notification ) => {
+                                      const analytics =
+                                          normalizeAnalytics( notification );
+                                      const hasAnalytics = analytics.views > 0;
+                                      const isExpanded =
+                                          String( expandedRow ) ===
+                                          String( notification.id );
+                                      const ExpandIcon = isExpanded
+                                          ? ChevronUp
+                                          : ChevronDown;
 
-                                    return (
-                                        <Fragment key={ notification.id }>
-                                            <tr
-                                                className={ `border-b hover:bg-muted/50 transition-colors ${
-                                                    hasAnalytics
-                                                        ? 'cursor-pointer'
-                                                        : ''
-                                                }` }
-                                                onClick={ () =>
-                                                    hasAnalytics
-                                                        ? toggleRow(
-                                                              notification.id
-                                                          )
-                                                        : undefined
-                                                }
-                                            >
-                                                <td
-                                                    className={ `${ ui.td } pr-0` }
-                                                >
-                                                    { hasAnalytics ? (
-                                                        isExpanded ? (
-                                                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                                                        ) : (
-                                                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                                        )
-                                                    ) : (
-                                                        <span className="block h-4 w-4" />
-                                                    ) }
-                                                </td>
-                                                <td
-                                                    className={ `${ ui.td } font-medium max-w-[180px] truncate` }
-                                                >
-                                                    <span className="truncate">
-                                                        { notification.title }
-                                                    </span>
-                                                </td>
-                                                <td
-                                                    className={ `${ ui.td } text-muted-foreground max-w-[220px] truncate` }
-                                                >
-                                                    { notification.message }
-                                                </td>
-                                                <td
-                                                    className={ `${ ui.td } w-[120px]` }
-                                                >
-                                                    <SendViaIcon
-                                                        createdBy={
-                                                            notification.created_by
-                                                        }
-                                                    />
-                                                </td>
-                                                <td
-                                                    className={ `${ ui.td } w-[130px]` }
-                                                >
-                                                    <NotificationStatusBadge
-                                                        status={
-                                                            notification.status
-                                                        }
-                                                    />
-                                                </td>
-                                                <td
-                                                    className={ `${ ui.td } w-[140px]` }
-                                                >
-                                                    { hasAnalytics ? (
-                                                        <div className="flex items-center gap-3 text-sm">
-                                                            <span className="flex items-center gap-1 text-muted-foreground">
-                                                                <Eye className="h-3.5 w-3.5" />
-                                                                { analytics.views.toLocaleString() }
-                                                            </span>
-                                                            <span className="flex items-center gap-1 text-muted-foreground">
-                                                                <MousePointerClick className="h-3.5 w-3.5" />
-                                                                { analytics.clicks.toLocaleString() }
-                                                            </span>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-xs text-muted-foreground/60">
-                                                            —
-                                                        </span>
-                                                    ) }
-                                                </td>
-                                                <td
-                                                    className={ `${ ui.td } text-sm text-muted-foreground whitespace-nowrap` }
-                                                >
-                                                    { notificationDate(
-                                                        notification
-                                                    ) }
-                                                </td>
-                                                <td
-                                                    className={ ui.td }
-                                                    onClick={ ( event ) =>
-                                                        event.stopPropagation()
-                                                    }
-                                                >
-                                                    <div className="flex items-center gap-1">
-                                                        <button
-                                                            type="button"
-                                                            onClick={ () =>
-                                                                navigate(
-                                                                    `/notifications/${ notification.id }/edit`
-                                                                )
-                                                            }
-                                                            className={ `flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted transition-colors ${
-                                                                [
-                                                                    'sent',
-                                                                    'sending',
-                                                                ].includes(
-                                                                    notification.status ||
-                                                                        ''
-                                                                )
-                                                                    ? 'pointer-events-none opacity-30'
-                                                                    : ''
-                                                            }` }
-                                                        >
-                                                            <Edit3 className="h-4 w-4" />
-                                                            <span className="sr-only">
-                                                                Edit
-                                                            </span>
-                                                        </button>
-                                                        { [
-                                                            'scheduled',
-                                                            'recurring',
-                                                            'sending',
-                                                        ].includes(
-                                                            notification.status ||
-                                                                ''
-                                                        ) ? (
-                                                            <AlertDialog>
-                                                                <TooltipProvider>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger
-                                                                            asChild
-                                                                        >
-                                                                            <AlertDialogTrigger
-                                                                                asChild
-                                                                            >
-                                                                                <Button
-                                                                                    className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted transition-colors text-destructive"
-                                                                                    variant="ghost"
-                                                                                    disabled={
-                                                                                        cancelMutation.isPending
-                                                                                    }
-                                                                                    type="button"
-                                                                                >
-                                                                                    <Ban className="h-4 w-4" />
-                                                                                    <span className="sr-only">
-                                                                                        Cancel
-                                                                                    </span>
-                                                                                </Button>
-                                                                            </AlertDialogTrigger>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent>
-                                                                            Cancel
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                </TooltipProvider>
-                                                                <AlertDialogContent>
-                                                                    <AlertDialogHeader>
-                                                                        <AlertDialogTitle>
-                                                                            { notification.status ===
-                                                                            'sending'
-                                                                                ? 'Cancel this send?'
-                                                                                : `Cancel this ${ notification.status } send?` }
-                                                                        </AlertDialogTitle>
-                                                                        <AlertDialogDescription>
-                                                                            { notification.status ===
-                                                                            'recurring'
-                                                                                ? 'This will stop the recurring schedule. The notification will move back to Pending and can be re-scheduled later.'
-                                                                                : null }
-                                                                            { notification.status ===
-                                                                            'sending'
-                                                                                ? 'This will stop delivery to remaining subscribers. Messages already queued may still be delivered.'
-                                                                                : null }
-                                                                            { notification.status ===
-                                                                            'scheduled'
-                                                                                ? 'This will cancel the scheduled send. The notification will move back to Pending.'
-                                                                                : null }
-                                                                        </AlertDialogDescription>
-                                                                    </AlertDialogHeader>
-                                                                    <AlertDialogFooter>
-                                                                        <AlertDialogCancel>
-                                                                            Keep
-                                                                            sending
-                                                                        </AlertDialogCancel>
-                                                                        <AlertDialogAction
-                                                                            onClick={ () =>
-                                                                                cancelMutation.mutate(
-                                                                                    notification.id
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            Cancel
-                                                                            send
-                                                                        </AlertDialogAction>
-                                                                    </AlertDialogFooter>
-                                                                </AlertDialogContent>
-                                                            </AlertDialog>
-                                                        ) : null }
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            { isExpanded && hasAnalytics ? (
-                                                <tr>
-                                                    <td
-                                                        className="p-0"
-                                                        colSpan={ 8 }
-                                                    >
-                                                        <div className="p-4 bg-muted/50 border-t border-b">
-                                                            <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-4">
-                                                                <BarChart className="h-4 w-4" />
-                                                                <span>
-                                                                    Analytics
-                                                                </span>
-                                                            </div>
-                                                            { renderAnalytics(
-                                                                analytics
-                                                            ) }
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ) : null }
-                                        </Fragment>
-                                    );
-                                } )
-                            ) : (
+                                      return (
+                                          <Fragment key={ notification.id }>
+                                              <tr
+                                                  className={ `border-b hover:bg-muted/50 transition-colors ${
+                                                      hasAnalytics
+                                                          ? 'cursor-pointer'
+                                                          : ''
+                                                  }` }
+                                                  onClick={ () =>
+                                                      hasAnalytics
+                                                          ? toggleRow(
+                                                                notification.id
+                                                            )
+                                                          : undefined
+                                                  }
+                                              >
+                                                  <td
+                                                      className={ `${ ui.td } pr-0` }
+                                                  >
+                                                      { hasAnalytics ? (
+                                                          <ExpandIcon className="h-4 w-4 text-muted-foreground" />
+                                                      ) : (
+                                                          <span className="block h-4 w-4" />
+                                                      ) }
+                                                  </td>
+                                                  <td
+                                                      className={ `${ ui.td } font-medium max-w-[180px] truncate` }
+                                                  >
+                                                      <span className="truncate">
+                                                          { notification.title }
+                                                      </span>
+                                                  </td>
+                                                  <td
+                                                      className={ `${ ui.td } text-muted-foreground max-w-[220px] truncate` }
+                                                  >
+                                                      { notification.message }
+                                                  </td>
+                                                  <td
+                                                      className={ `${ ui.td } w-[120px]` }
+                                                  >
+                                                      <SendViaIcon
+                                                          createdBy={
+                                                              notification.created_by
+                                                          }
+                                                      />
+                                                  </td>
+                                                  <td
+                                                      className={ `${ ui.td } w-[130px]` }
+                                                  >
+                                                      <NotificationStatusBadge
+                                                          status={
+                                                              notification.status
+                                                          }
+                                                      />
+                                                  </td>
+                                                  <td
+                                                      className={ `${ ui.td } w-[140px]` }
+                                                  >
+                                                      { hasAnalytics ? (
+                                                          <div className="flex items-center gap-3 text-sm">
+                                                              <span className="flex items-center gap-1 text-muted-foreground">
+                                                                  <Eye className="h-3.5 w-3.5" />
+                                                                  { analytics.views.toLocaleString() }
+                                                              </span>
+                                                              <span className="flex items-center gap-1 text-muted-foreground">
+                                                                  <MousePointerClick className="h-3.5 w-3.5" />
+                                                                  { analytics.clicks.toLocaleString() }
+                                                              </span>
+                                                          </div>
+                                                      ) : (
+                                                          <span className="text-xs text-muted-foreground/60">
+                                                              —
+                                                          </span>
+                                                      ) }
+                                                  </td>
+                                                  <td
+                                                      className={ `${ ui.td } text-sm text-muted-foreground whitespace-nowrap` }
+                                                  >
+                                                      { notificationDate(
+                                                          notification
+                                                      ) }
+                                                  </td>
+                                                  <td
+                                                      className={ ui.td }
+                                                      onClick={ ( event ) =>
+                                                          event.stopPropagation()
+                                                      }
+                                                  >
+                                                      <div className="flex items-center gap-1">
+                                                          <button
+                                                              type="button"
+                                                              onClick={ () =>
+                                                                  navigate(
+                                                                      `/notifications/${ notification.id }/edit`
+                                                                  )
+                                                              }
+                                                              className={ `flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted transition-colors ${
+                                                                  [
+                                                                      'sent',
+                                                                      'sending',
+                                                                  ].includes(
+                                                                      notification.status ||
+                                                                          ''
+                                                                  )
+                                                                      ? 'pointer-events-none opacity-30'
+                                                                      : ''
+                                                              }` }
+                                                          >
+                                                              <Edit3 className="h-4 w-4" />
+                                                              <span className="sr-only">
+                                                                  Edit
+                                                              </span>
+                                                          </button>
+                                                          { [
+                                                              'scheduled',
+                                                              'recurring',
+                                                              'sending',
+                                                          ].includes(
+                                                              notification.status ||
+                                                                  ''
+                                                          ) ? (
+                                                              <AlertDialog>
+                                                                  <TooltipProvider>
+                                                                      <Tooltip>
+                                                                          <TooltipTrigger
+                                                                              asChild
+                                                                          >
+                                                                              <AlertDialogTrigger
+                                                                                  asChild
+                                                                              >
+                                                                                  <Button
+                                                                                      className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted transition-colors text-destructive"
+                                                                                      variant="ghost"
+                                                                                      disabled={
+                                                                                          cancelMutation.isPending
+                                                                                      }
+                                                                                      type="button"
+                                                                                  >
+                                                                                      <Ban className="h-4 w-4" />
+                                                                                      <span className="sr-only">
+                                                                                          Cancel
+                                                                                      </span>
+                                                                                  </Button>
+                                                                              </AlertDialogTrigger>
+                                                                          </TooltipTrigger>
+                                                                          <TooltipContent>
+                                                                              Cancel
+                                                                          </TooltipContent>
+                                                                      </Tooltip>
+                                                                  </TooltipProvider>
+                                                                  <AlertDialogContent>
+                                                                      <AlertDialogHeader>
+                                                                          <AlertDialogTitle>
+                                                                              { notification.status ===
+                                                                              'sending'
+                                                                                  ? 'Cancel this send?'
+                                                                                  : `Cancel this ${ notification.status } send?` }
+                                                                          </AlertDialogTitle>
+                                                                          <AlertDialogDescription>
+                                                                              { notification.status ===
+                                                                              'recurring'
+                                                                                  ? 'This will stop the recurring schedule. The notification will move back to Pending and can be re-scheduled later.'
+                                                                                  : null }
+                                                                              { notification.status ===
+                                                                              'sending'
+                                                                                  ? 'This will stop delivery to remaining subscribers. Messages already queued may still be delivered.'
+                                                                                  : null }
+                                                                              { notification.status ===
+                                                                              'scheduled'
+                                                                                  ? 'This will cancel the scheduled send. The notification will move back to Pending.'
+                                                                                  : null }
+                                                                          </AlertDialogDescription>
+                                                                      </AlertDialogHeader>
+                                                                      <AlertDialogFooter>
+                                                                          <AlertDialogCancel>
+                                                                              Keep
+                                                                              sending
+                                                                          </AlertDialogCancel>
+                                                                          <AlertDialogAction
+                                                                              onClick={ () =>
+                                                                                  cancelMutation.mutate(
+                                                                                      notification.id
+                                                                                  )
+                                                                              }
+                                                                          >
+                                                                              Cancel
+                                                                              send
+                                                                          </AlertDialogAction>
+                                                                      </AlertDialogFooter>
+                                                                  </AlertDialogContent>
+                                                              </AlertDialog>
+                                                          ) : null }
+                                                      </div>
+                                                  </td>
+                                              </tr>
+                                              { isExpanded && hasAnalytics ? (
+                                                  <tr>
+                                                      <td
+                                                          className="p-0"
+                                                          colSpan={ 8 }
+                                                      >
+                                                          <div className="p-4 bg-muted/50 border-t border-b">
+                                                              <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-4">
+                                                                  <BarChart className="h-4 w-4" />
+                                                                  <span>
+                                                                      Analytics
+                                                                  </span>
+                                                              </div>
+                                                              { renderAnalytics(
+                                                                  analytics
+                                                              ) }
+                                                          </div>
+                                                      </td>
+                                                  </tr>
+                                              ) : null }
+                                          </Fragment>
+                                      );
+                                  } )
+                                : null }
+                            { ! loading && rows.length === 0 ? (
                                 <tr>
                                     <td colSpan={ 8 } className={ ui.emptyTd }>
                                         No notifications yet.
                                     </td>
                                 </tr>
-                            ) }
+                            ) : null }
                         </tbody>
                     </table>
                 </div>

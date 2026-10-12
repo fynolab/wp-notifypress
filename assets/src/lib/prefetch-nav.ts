@@ -7,52 +7,52 @@ import type { NotifyPressSettings } from '../types';
 // uses, so a hover-warmed cache entry is actually hit on navigation instead
 // of triggering a second request.
 function prefetchEntries( settings: NotifyPressSettings ) {
-	const token = getApiToken( settings );
+    const token = getApiToken( settings );
 
-	return {
-		'/dashboard': () =>
-			queryClient.prefetchQuery( {
-				queryKey: [ 'np-dashboard', token ],
-				queryFn: () => laravelRequest( settings, '/dashboard' ),
-			} ),
-		'/subscribers': () => {
-			queryClient.prefetchQuery( {
-				queryKey: [ 'np-subscribers', token, '' ],
-				queryFn: () =>
-					laravelRequest( settings, '/subscribers', { query: {} } ),
-			} );
-			queryClient.prefetchQuery( {
-				queryKey: [ 'np-tags', token ],
-				queryFn: () => laravelRequest( settings, '/tags' ),
-			} );
-		},
-		'/segments': () =>
-			queryClient.prefetchQuery( {
-				queryKey: [ 'np-segments', token ],
-				queryFn: () => laravelRequest( settings, '/segments' ),
-			} ),
-		'/notifications': () =>
-			queryClient.prefetchQuery( {
-				queryKey: [ 'np-notifications', token, '', 'all' ],
-				queryFn: () =>
-					laravelRequest( settings, '/notifications', { query: {} } ),
-			} ),
-		'/automations': () =>
-			queryClient.prefetchQuery( {
-				queryKey: [ 'np-automations', token ],
-				queryFn: () => laravelRequest( settings, '/automations' ),
-			} ),
-		'/analytics': () =>
-			queryClient.prefetchQuery( {
-				queryKey: [ 'np-analytics', token ],
-				queryFn: () => laravelRequest( settings, '/analytics' ),
-			} ),
-		'/reports': () =>
-			queryClient.prefetchQuery( {
-				queryKey: [ 'np-reports-meta', token ],
-				queryFn: () => laravelRequest( settings, '/reports/meta' ),
-			} ),
-	} as Record< string, () => void >;
+    return {
+        '/dashboard': () =>
+            queryClient.prefetchQuery( {
+                queryKey: [ 'np-dashboard', token ],
+                queryFn: () => laravelRequest( settings, '/dashboard' ),
+            } ),
+        '/subscribers': () => {
+            queryClient.prefetchQuery( {
+                queryKey: [ 'np-subscribers', token, '' ],
+                queryFn: () =>
+                    laravelRequest( settings, '/subscribers', { query: {} } ),
+            } );
+            queryClient.prefetchQuery( {
+                queryKey: [ 'np-tags', token ],
+                queryFn: () => laravelRequest( settings, '/tags' ),
+            } );
+        },
+        '/segments': () =>
+            queryClient.prefetchQuery( {
+                queryKey: [ 'np-segments', token ],
+                queryFn: () => laravelRequest( settings, '/segments' ),
+            } ),
+        '/notifications': () =>
+            queryClient.prefetchQuery( {
+                queryKey: [ 'np-notifications', token, '', 'all' ],
+                queryFn: () =>
+                    laravelRequest( settings, '/notifications', { query: {} } ),
+            } ),
+        '/automations': () =>
+            queryClient.prefetchQuery( {
+                queryKey: [ 'np-automations', token ],
+                queryFn: () => laravelRequest( settings, '/automations' ),
+            } ),
+        '/analytics': () =>
+            queryClient.prefetchQuery( {
+                queryKey: [ 'np-analytics', token ],
+                queryFn: () => laravelRequest( settings, '/analytics' ),
+            } ),
+        '/reports': () =>
+            queryClient.prefetchQuery( {
+                queryKey: [ 'np-reports-meta', token ],
+                queryFn: () => laravelRequest( settings, '/reports/meta' ),
+            } ),
+    } as Record< string, () => void >;
 }
 
 let attached = false;
@@ -66,34 +66,34 @@ let attached = false;
  * using `<Link>`.
  */
 export function attachHoverPrefetch(): void {
-	if ( attached || typeof document === 'undefined' ) {
-		return;
-	}
+    if ( attached || typeof document === 'undefined' ) {
+        return;
+    }
 
-	const menu = document.getElementById( 'toplevel_page_notifypress' );
+    const menu = document.getElementById( 'toplevel_page_notifypress' );
 
-	if ( ! menu ) {
-		return;
-	}
+    if ( ! menu ) {
+        return;
+    }
 
-	attached = true;
+    attached = true;
 
-	const links = menu.querySelectorAll< HTMLAnchorElement >( '.wp-submenu a' );
+    const links = menu.querySelectorAll< HTMLAnchorElement >( '.wp-submenu a' );
 
-	links.forEach( ( link ) => {
-		const route = link.hash.replace( /^#/, '' );
+    links.forEach( ( link ) => {
+        const route = link.hash.replace( /^#/, '' );
 
-		const prefetch = () => {
-			const settings = getBootstrapSettings();
+        const prefetch = () => {
+            const settings = getBootstrapSettings();
 
-			if ( ! hasApiToken( settings ) ) {
-				return;
-			}
+            if ( ! hasApiToken( settings ) ) {
+                return;
+            }
 
-			prefetchEntries( settings )[ route ]?.();
-		};
+            prefetchEntries( settings )[ route ]?.();
+        };
 
-		link.addEventListener( 'mouseenter', prefetch, { passive: true } );
-		link.addEventListener( 'focus', prefetch, { passive: true } );
-	} );
+        link.addEventListener( 'mouseenter', prefetch, { passive: true } );
+        link.addEventListener( 'focus', prefetch, { passive: true } );
+    } );
 }

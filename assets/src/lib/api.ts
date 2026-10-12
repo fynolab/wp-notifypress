@@ -1,5 +1,9 @@
 import { isMaskedToken } from './settings';
-import type { Announcement, ConnectedSite, NotifyPressSettings } from '../types';
+import type {
+    Announcement,
+    ConnectedSite,
+    NotifyPressSettings,
+} from '../types';
 
 type QueryValue = string | number | boolean | null | undefined;
 interface LaravelRequestOptions {
@@ -23,6 +27,7 @@ export class LaravelRequestError extends Error {
 /**
  * True when the app rejected the API token (401). Pages treat this like
  * "no data yet" and render their empty state instead of an error view.
+ * @param error
  */
 export const isUnauthorizedError = ( error: unknown ) =>
     error instanceof LaravelRequestError && 401 === error.status;
@@ -84,6 +89,9 @@ export const markAllAnnouncementsRead = ( settings?: NotifyPressSettings ) =>
  * pasting a token that has not been saved yet, there is nothing on the server
  * to authenticate with, so that one token is forwarded for that request. Every
  * other time the settings carry only a mask, and nothing is sent.
+ * @param settings
+ * @param path
+ * @param options
  */
 function buildLaravelFetch(
     settings: NotifyPressSettings | undefined,
@@ -97,7 +105,10 @@ function buildLaravelFetch(
         throw new Error( 'NotifyPress REST endpoint unavailable.' );
     }
 
-    const query = toQueryString( { ...( options.query || {} ), np_path: path } );
+    const query = toQueryString( {
+        ...( options.query || {} ),
+        np_path: path,
+    } );
     const url = `${ restUrl.replace( /\/$/, '' ) }/proxy${ query }`;
     const headers: Record< string, string > = {
         Accept: 'application/json',
@@ -107,10 +118,7 @@ function buildLaravelFetch(
     const subscriptionToken =
         options.subscriptionToken || getSubscriptionToken();
 
-    if (
-        subscriptionToken &&
-        ! headers[ 'notifypress-subscription-token' ]
-    ) {
+    if ( subscriptionToken && ! headers[ 'notifypress-subscription-token' ] ) {
         headers[ 'notifypress-subscription-token' ] = subscriptionToken;
     }
 

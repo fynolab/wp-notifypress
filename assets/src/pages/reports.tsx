@@ -24,11 +24,7 @@ import {
 } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
 import { DatePicker } from '../components/ui/date-picker';
-import {
-    isUnauthorizedError,
-    laravelFetch,
-    laravelRequest,
-} from '../lib/api';
+import { isUnauthorizedError, laravelFetch, laravelRequest } from '../lib/api';
 import { BILLING_URL } from '../lib/app';
 import { getApiToken, getSettings, hasApiToken } from '../lib/settings';
 import type {
@@ -170,7 +166,9 @@ function parseDownloadQuery(
 
     try {
         const url = new URL( pdfUrl );
-        const siteId = Number( url.searchParams.get( 'site_id' ) || fallback.site_id );
+        const siteId = Number(
+            url.searchParams.get( 'site_id' ) || fallback.site_id
+        );
 
         return {
             report_type:
@@ -185,10 +183,7 @@ function parseDownloadQuery(
     }
 }
 
-function filenameFromHeaders(
-    headers: Headers,
-    fallback: string
-): string {
+function filenameFromHeaders( headers: Headers, fallback: string ): string {
     const disposition = headers.get( 'content-disposition' ) || '';
     const match = disposition.match( /filename="?([^"]+)"?/i );
 
@@ -270,7 +265,10 @@ export default function ReportsPage() {
         queryKey: [ 'np-reports-meta', token ],
         enabled: hasToken,
         queryFn: () =>
-            laravelRequest< ReportsMeta >( settingsQuery.data, '/reports/meta' ),
+            laravelRequest< ReportsMeta >(
+                settingsQuery.data,
+                '/reports/meta'
+            ),
     } );
 
     const [ startDate, setStartDate ] = useState(
@@ -289,11 +287,14 @@ export default function ReportsPage() {
     );
     const [ notice, setNotice ] = useState< NoticeState >( null );
 
-    const isLoading = settingsQuery.isLoading || ( hasToken && reportsMetaQuery.isLoading );
+    const isLoading =
+        settingsQuery.isLoading || ( hasToken && reportsMetaQuery.isLoading );
     const meta = reportsMetaQuery.data;
     const hasSites = meta?.hasSites ?? false;
     const isPaidUser = meta?.isPaidUser ?? false;
-    const isDateRangeValid = Boolean( startDate && endDate && startDate <= endDate );
+    const isDateRangeValid = Boolean(
+        startDate && endDate && startDate <= endDate
+    );
 
     const progressValue = progressValues[ reportPhase ];
     const phaseLabel = phaseCopy[ reportPhase ];
@@ -306,7 +307,12 @@ export default function ReportsPage() {
             start_date: startDate,
             end_date: endDate,
         };
-    }, [ activeReport?.key, endDate, settingsQuery.data?.connectedSite?.id, startDate ] );
+    }, [
+        activeReport?.key,
+        endDate,
+        settingsQuery.data?.connectedSite?.id,
+        startDate,
+    ] );
 
     async function handleDownload( report: ReportType ) {
         if (
@@ -358,11 +364,7 @@ export default function ReportsPage() {
 
             setReportPhase( 'ready' );
             setDownloadingKey( null );
-            closeModal(
-                setReportModalOpen,
-                setActiveReport,
-                setReportPhase
-            );
+            closeModal( setReportModalOpen, setActiveReport, setReportPhase );
         } catch ( error ) {
             const message =
                 error instanceof Error
@@ -375,11 +377,7 @@ export default function ReportsPage() {
             } );
             setDownloadingKey( null );
             setReportPhase( 'failed' );
-            closeModal(
-                setReportModalOpen,
-                setActiveReport,
-                setReportPhase
-            );
+            closeModal( setReportModalOpen, setActiveReport, setReportPhase );
         }
     }
 
@@ -416,9 +414,9 @@ export default function ReportsPage() {
                             Reports unavailable
                         </p>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            {reportsMetaQuery.error instanceof Error
+                            { reportsMetaQuery.error instanceof Error
                                 ? reportsMetaQuery.error.message
-                                : 'Unable to load reports for this site.'}
+                                : 'Unable to load reports for this site.' }
                         </p>
                     </CardContent>
                 </Card>
@@ -431,8 +429,8 @@ export default function ReportsPage() {
             <div>
                 <h1 className="text-2xl font-bold text-foreground">Reports</h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Generate and download PDF reports for your push
-                    notification performance.
+                    Generate and download PDF reports for your push notification
+                    performance.
                 </p>
             </div>
 
@@ -477,18 +475,20 @@ export default function ReportsPage() {
                 <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
                     <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-amber-700">
-                        You don't have any sites yet. Add a site first to
+                        You don&apos;t have any sites yet. Add a site first to
                         generate reports.
                     </p>
                 </div>
             ) : null }
 
-            <div className={ ! isPaidUser ? 'pointer-events-none select-none' : '' }>
+            <div
+                className={
+                    ! isPaidUser ? 'pointer-events-none select-none' : ''
+                }
+            >
                 <Card className={ ! isPaidUser ? 'opacity-50' : '' }>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-base">
-                            Date Range
-                        </CardTitle>
+                        <CardTitle className="text-base">Date Range</CardTitle>
                         <CardDescription>
                             Select the period you want to include in your
                             reports.
@@ -679,7 +679,9 @@ export default function ReportsPage() {
 
                 <div
                     className={ `grid grid-cols-1 md:grid-cols-3 gap-5 ${
-                        ! isPaidUser ? 'blur-sm pointer-events-none select-none' : ''
+                        ! isPaidUser
+                            ? 'blur-sm pointer-events-none select-none'
+                            : ''
                     }` }
                 >
                     { REPORTS.map( ( report ) => {

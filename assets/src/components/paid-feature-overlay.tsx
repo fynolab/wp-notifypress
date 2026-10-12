@@ -14,11 +14,11 @@ type Props = {
  * resources/js/Components/PaidFeatureOverlay.tsx (same markup/classes, verified compatible
  * with this plugin's Tailwind config). Paid users see `children` unmodified.
  *
- * @param {Object}              props             Component props.
- * @param {boolean}             props.isPaidUser  Whether the connected site's plan unlocks this feature.
- * @param {string}              props.featureName Feature name shown in the upgrade copy, e.g. "Segments".
- * @param {string}              props.description Explanation of what the upgrade unlocks.
- * @param {ReactNode}           props.children    The gated content, blurred and non-interactive for free users.
+ * @param {Object}    props             Component props.
+ * @param {boolean}   props.isPaidUser  Whether the connected site's plan unlocks this feature.
+ * @param {string}    props.featureName Feature name shown in the upgrade copy, e.g. "Segments".
+ * @param {string}    props.description Explanation of what the upgrade unlocks.
+ * @param {ReactNode} props.children    The gated content, blurred and non-interactive for free users.
  * @return {JSX.Element} The gated content, or an upgrade banner + blurred/locked content for free users.
  */
 export default function PaidFeatureOverlay( {

@@ -40,6 +40,7 @@ import {
     CardHeader,
     CardTitle,
 } from '../components/ui/card';
+import { useConfirm } from '../components/confirm-dialog';
 import { Input } from '../components/ui/input';
 import {
     Table,
@@ -59,22 +60,26 @@ import {
 const paginationLinkClass =
     'flex items-center text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700 cursor-pointer';
 
-const fetchSubscribers = (settings: NotifyPressSettings, cursor: string) =>
-    laravelRequest<LaravelCollection<Subscriber>>(settings, '/subscribers', {
-        query: cursor ? { cursor } : {},
-    });
+const fetchSubscribers = ( settings: NotifyPressSettings, cursor: string ) =>
+    laravelRequest< LaravelCollection< Subscriber > >(
+        settings,
+        '/subscribers',
+        {
+            query: cursor ? { cursor } : {},
+        }
+    );
 
-const fetchTags = (settings: NotifyPressSettings) =>
-    laravelRequest<{ data: SubscriberTag[] }>(settings, '/tags');
+const fetchTags = ( settings: NotifyPressSettings ) =>
+    laravelRequest< { data: SubscriberTag[] } >( settings, '/tags' );
 
-function DeviceIcon({ device }: { device?: string }) {
-    const normalized = (device || '').toLowerCase();
+function DeviceIcon( { device }: { device?: string } ) {
+    const normalized = ( device || '' ).toLowerCase();
 
-    if (normalized.includes('mobile') || normalized.includes('phone')) {
+    if ( normalized.includes( 'mobile' ) || normalized.includes( 'phone' ) ) {
         return <Smartphone className="h-3.5 w-3.5" />;
     }
 
-    if (normalized.includes('tablet')) {
+    if ( normalized.includes( 'tablet' ) ) {
         return <Tablet className="h-3.5 w-3.5" />;
     }
 
@@ -84,127 +89,137 @@ function DeviceIcon({ device }: { device?: string }) {
 // Matches the app's server-side `d M Y` cast (e.g. "29 Jun 2026"). The API
 // sends ISO8601 in the app's timezone, so format the date portion as-is
 // instead of converting to the browser's timezone.
-function formatRegisteredDate(value?: string | null) {
-    if (!value) {
+function formatRegisteredDate( value?: string | null ) {
+    if ( ! value ) {
         return '—';
     }
 
-    const datePart = value.includes('T') ? value.slice(0, 10) : value;
-    const date = new Date(`${datePart}T00:00:00`);
+    const datePart = value.includes( 'T' ) ? value.slice( 0, 10 ) : value;
+    const date = new Date( `${ datePart }T00:00:00` );
 
-    if (Number.isNaN(date.getTime())) {
+    if ( Number.isNaN( date.getTime() ) ) {
         return value;
     }
 
-    return new Intl.DateTimeFormat('en-GB', {
+    return new Intl.DateTimeFormat( 'en-GB', {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
-    }).format(date);
+    } ).format( date );
 }
 
 function SubscriberSkeletonRows() {
     return (
         <>
-            {Array.from({ length: 5 }).map((_, index) => (
-                <TableRow key={index} className="animate-pulse">
-                    {Array.from({ length: 10 }).map((__, cellIndex) => (
-                        <TableCell key={cellIndex}>
+            { Array.from( { length: 5 } ).map( ( _, index ) => (
+                <TableRow key={ index } className="animate-pulse">
+                    { Array.from( { length: 10 } ).map( ( __, cellIndex ) => (
+                        <TableCell key={ cellIndex }>
                             <div
-                                className={`h-4 rounded bg-muted ${
+                                className={ `h-4 rounded bg-muted ${
                                     cellIndex === 0 ? 'w-20' : 'w-24'
-                                }`}
+                                }` }
                             />
                         </TableCell>
-                    ))}
+                    ) ) }
                 </TableRow>
-            ))}
+            ) ) }
         </>
     );
 }
 
 export default function SubscribersPage() {
-    const [cursor, setCursor] = useState('');
-    const [search, setSearch] = useState('');
+    const [ confirm, confirmDialog ] = useConfirm();
+    const [ cursor, setCursor ] = useState( '' );
+    const [ search, setSearch ] = useState( '' );
     const queryClient = useQueryClient();
 
-    const settingsQuery = useQuery({
-        queryKey: ['np-settings'],
+    const settingsQuery = useQuery( {
+        queryKey: [ 'np-settings' ],
         queryFn: getSettings,
-    });
+    } );
 
     const settings = settingsQuery.data;
-    const hasToken = hasApiToken(settings);
-    const token = getApiToken(settings);
+    const hasToken = hasApiToken( settings );
+    const token = getApiToken( settings );
 
-    const subscribersQuery = useQuery({
-        queryKey: ['np-subscribers', token, cursor],
+    const subscribersQuery = useQuery( {
+        queryKey: [ 'np-subscribers', token, cursor ],
         enabled: hasToken,
-        queryFn: () => fetchSubscribers(settings as NotifyPressSettings, cursor),
+        queryFn: () =>
+            fetchSubscribers( settings as NotifyPressSettings, cursor ),
         placeholderData: keepPreviousData,
         staleTime: 30000,
-    });
+    } );
 
-    const tagsQuery = useQuery({
-        queryKey: ['np-tags', token],
+    const tagsQuery = useQuery( {
+        queryKey: [ 'np-tags', token ],
         enabled: hasToken,
-        queryFn: () => fetchTags(settings as NotifyPressSettings),
-    });
+        queryFn: () => fetchTags( settings as NotifyPressSettings ),
+    } );
     const availableTags = tagsQuery.data?.data || [];
 
-    const [addTagFor, setAddTagFor] = useState<Subscriber['id'] | null>(null);
-    const [selectedTag, setSelectedTag] = useState<Record<string, string>>({});
+    const [ addTagFor, setAddTagFor ] = useState< Subscriber[ 'id' ] | null >(
+        null
+    );
+    const [ selectedTag, setSelectedTag ] = useState<
+        Record< string, string >
+    >( {} );
 
-    const deleteMutation = useMutation({
-        mutationFn: (id: Subscriber['id']) =>
-            laravelRequest(settings, `/subscribers/${id}`, {
+    const deleteMutation = useMutation( {
+        mutationFn: ( id: Subscriber[ 'id' ] ) =>
+            laravelRequest( settings, `/subscribers/${ id }`, {
                 method: 'DELETE',
-            }),
+            } ),
         onSuccess: () =>
-            queryClient.invalidateQueries({ queryKey: ['np-subscribers'] }),
-    });
+            queryClient.invalidateQueries( { queryKey: [ 'np-subscribers' ] } ),
+    } );
 
-    const addTagMutation = useMutation({
-        mutationFn: ({
+    const addTagMutation = useMutation( {
+        mutationFn: ( {
             subscriberToken,
             tagId,
         }: {
             subscriberToken: string;
             tagId: number;
-        }) =>
-            laravelRequest(settings, `/subscribers/${subscriberToken}/tags`, {
-                method: 'POST',
-                body: { tag_id: tagId },
-            }),
-        onSuccess: () =>
-            queryClient.invalidateQueries({ queryKey: ['np-subscribers'] }),
-    });
-
-    const removeTagMutation = useMutation({
-        mutationFn: ({
-            subscriberToken,
-            tagId,
-        }: {
-            subscriberToken: string;
-            tagId: number;
-        }) =>
+        } ) =>
             laravelRequest(
                 settings,
-                `/subscribers/${subscriberToken}/tags/${tagId}`,
-                { method: 'DELETE' },
+                `/subscribers/${ subscriberToken }/tags`,
+                {
+                    method: 'POST',
+                    body: { tag_id: tagId },
+                }
             ),
         onSuccess: () =>
-            queryClient.invalidateQueries({ queryKey: ['np-subscribers'] }),
-    });
+            queryClient.invalidateQueries( { queryKey: [ 'np-subscribers' ] } ),
+    } );
+
+    const removeTagMutation = useMutation( {
+        mutationFn: ( {
+            subscriberToken,
+            tagId,
+        }: {
+            subscriberToken: string;
+            tagId: number;
+        } ) =>
+            laravelRequest(
+                settings,
+                `/subscribers/${ subscriberToken }/tags/${ tagId }`,
+                { method: 'DELETE' }
+            ),
+        onSuccess: () =>
+            queryClient.invalidateQueries( { queryKey: [ 'np-subscribers' ] } ),
+    } );
 
     const rows = useMemo(
         () => subscribersQuery.data?.data || [],
-        [subscribersQuery.data],
+        [ subscribersQuery.data ]
     );
     const filtered = useMemo(
         () =>
             search
-                ? rows.filter((row) => {
+                ? rows.filter( ( row ) => {
                       const haystack = [
                           row.city,
                           row.country,
@@ -213,40 +228,46 @@ export default function SubscribersPage() {
                           row.ip,
                           row.timezone,
                       ]
-                          .join(' ')
+                          .join( ' ' )
                           .toLowerCase();
 
-                      return haystack.includes(search.toLowerCase());
-                  })
+                      return haystack.includes( search.toLowerCase() );
+                  } )
                 : rows,
-        [rows, search],
+        [ rows, search ]
     );
 
     const total = subscribersQuery.data?.total || rows.length || 0;
-    const loading = subscribersQuery.isFetching && !subscribersQuery.data;
+    const loading = subscribersQuery.isFetching && ! subscribersQuery.data;
     const prevCursor = subscribersQuery.data?.prev_cursor || '';
     const nextCursor = subscribersQuery.data?.next_cursor || '';
 
     if (
         subscribersQuery.isError &&
-        !isUnauthorizedError(subscribersQuery.error)
+        ! isUnauthorizedError( subscribersQuery.error )
     ) {
         return (
-            <section className={ui.cardPadded}>
+            <section className={ ui.cardPadded }>
                 <h3 className="text-lg font-semibold text-foreground">
                     Subscribers unavailable
                 </h3>
                 <p className="mt-2 text-sm text-muted-foreground">
-                    {subscribersQuery.error instanceof Error
+                    { subscribersQuery.error instanceof Error
                         ? subscribersQuery.error.message
-                        : 'Unable to load subscribers.'}
+                        : 'Unable to load subscribers.' }
                 </p>
             </section>
         );
     }
 
+    const showEmptyState = rows.length === 0 && ! loading;
+    const showNoMatches =
+        ! showEmptyState && filtered.length === 0 && ! loading;
+    const showTable = ! showEmptyState && ! showNoMatches;
+
     return (
         <div className="container mx-auto px-4 py-8 space-y-8">
+            { confirmDialog }
             <Card>
                 <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4">
                     <div>
@@ -256,33 +277,33 @@ export default function SubscribersPage() {
                         <CardDescription className="flex items-center gap-3 mt-1">
                             <span className="flex items-center gap-1">
                                 <Users className="h-3.5 w-3.5" />
-                                {formatNumber(total)} total
+                                { formatNumber( total ) } total
                             </span>
                             <span className="text-muted-foreground/40">·</span>
                             <span className="flex items-center gap-1">
                                 <span>
-                                    Showing {rows.length} on this page
+                                    Showing { rows.length } on this page
                                 </span>
                             </span>
                         </CardDescription>
                     </div>
-                    {rows.length > 0 ? (
+                    { rows.length > 0 ? (
                         <div className="relative w-full sm:w-64">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search by city, country, browser…"
                                 className="pl-9"
-                                value={search}
-                                onChange={(event) =>
-                                    setSearch(event.target.value)
+                                value={ search }
+                                onChange={ ( event ) =>
+                                    setSearch( event.target.value )
                                 }
                             />
                         </div>
-                    ) : null}
+                    ) : null }
                 </CardHeader>
 
                 <CardContent className="p-0">
-                    {rows.length === 0 && !loading ? (
+                    { showEmptyState ? (
                         <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
                             <div className="rounded-full bg-muted p-4">
                                 <Users className="h-10 w-10 text-muted-foreground" />
@@ -291,18 +312,20 @@ export default function SubscribersPage() {
                                 No subscribers yet
                             </h3>
                             <p className="text-sm text-muted-foreground max-w-xs">
-                                Once visitors subscribe to push notifications
-                                on your site, they'll appear here.
+                                Once visitors subscribe to push notifications on
+                                your site, they&apos;ll appear here.
                             </p>
                         </div>
-                    ) : filtered.length === 0 && !loading ? (
+                    ) : null }
+                    { showNoMatches ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center gap-2">
                             <Search className="h-8 w-8 text-muted-foreground" />
                             <p className="text-sm text-muted-foreground">
                                 No subscribers match your search.
                             </p>
                         </div>
-                    ) : (
+                    ) : null }
+                    { showTable ? (
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader className="bg-muted/50">
@@ -322,15 +345,15 @@ export default function SubscribersPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody className="divide-y divide-border [&_tr:last-child]:border-0">
-                                    {loading ? (
+                                    { loading ? (
                                         <SubscriberSkeletonRows />
                                     ) : (
-                                        filtered.map((subscriber) => (
+                                        filtered.map( ( subscriber ) => (
                                             <TableRow
-                                                key={subscriber.id}
+                                                key={ subscriber.id }
                                                 className="group hover:bg-muted/40 transition-colors"
                                             >
-                                                {/* Token */}
+                                                { /* Token */ }
                                                 <TableCell>
                                                     <TooltipProvider>
                                                         <Tooltip>
@@ -339,9 +362,9 @@ export default function SubscribersPage() {
                                                             >
                                                                 <span className="font-mono text-xs text-muted-foreground cursor-default">
                                                                     •••••
-                                                                    {subscriber.token?.slice(
-                                                                        -5,
-                                                                    )}
+                                                                    { subscriber.token?.slice(
+                                                                        -5
+                                                                    ) }
                                                                 </span>
                                                             </TooltipTrigger>
                                                             <TooltipContent side="top">
@@ -355,34 +378,36 @@ export default function SubscribersPage() {
                                                     </TooltipProvider>
                                                 </TableCell>
 
-                                                {/* Location */}
+                                                { /* Location */ }
                                                 <TableCell>
                                                     <div className="flex items-center gap-1.5">
                                                         <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                                         <span className="text-sm">
-                                                            {[
+                                                            { [
                                                                 subscriber.city,
                                                                 subscriber.country,
                                                             ]
-                                                                .filter(Boolean)
-                                                                .join(', ') ||
-                                                                '—'}
+                                                                .filter(
+                                                                    Boolean
+                                                                )
+                                                                .join( ', ' ) ||
+                                                                '—' }
                                                         </span>
                                                     </div>
                                                 </TableCell>
 
-                                                {/* Browser */}
+                                                { /* Browser */ }
                                                 <TableCell>
                                                     <Badge
                                                         variant="secondary"
                                                         className="font-normal"
                                                     >
-                                                        {subscriber.browser ||
-                                                            '—'}
+                                                        { subscriber.browser ||
+                                                            '—' }
                                                     </Badge>
                                                 </TableCell>
 
-                                                {/* Device */}
+                                                { /* Device */ }
                                                 <TableCell>
                                                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                                                         <DeviceIcon
@@ -391,56 +416,57 @@ export default function SubscribersPage() {
                                                             }
                                                         />
                                                         <span className="capitalize">
-                                                            {subscriber.device ||
-                                                                '—'}
+                                                            { subscriber.device ||
+                                                                '—' }
                                                         </span>
                                                     </div>
                                                 </TableCell>
 
-                                                {/* Timezone */}
+                                                { /* Timezone */ }
                                                 <TableCell className="text-sm text-muted-foreground">
-                                                    {subscriber.timezone || '—'}
+                                                    { subscriber.timezone ||
+                                                        '—' }
                                                 </TableCell>
 
-                                                {/* IP */}
+                                                { /* IP */ }
                                                 <TableCell className="font-mono text-xs text-muted-foreground">
-                                                    {subscriber.ip || '—'}
+                                                    { subscriber.ip || '—' }
                                                 </TableCell>
 
-                                                {/* Tags */}
+                                                { /* Tags */ }
                                                 <TableCell>
                                                     <div className="flex flex-wrap items-center gap-1 min-w-[120px]">
-                                                        {(
+                                                        { (
                                                             subscriber.tags ||
                                                             []
-                                                        ).map((t) => (
+                                                        ).map( ( t ) => (
                                                             <span
-                                                                key={t.id}
+                                                                key={ t.id }
                                                                 className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
                                                             >
                                                                 <TagIcon className="h-2.5 w-2.5" />
-                                                                {t.name}
+                                                                { t.name }
                                                                 <button
                                                                     type="button"
                                                                     className="ml-0.5 hover:text-destructive cursor-pointer"
-                                                                    onClick={() =>
+                                                                    onClick={ () =>
                                                                         removeTagMutation.mutate(
                                                                             {
                                                                                 subscriberToken:
                                                                                     String(
-                                                                                        subscriber.token,
+                                                                                        subscriber.token
                                                                                     ),
                                                                                 tagId: t.id,
-                                                                            },
+                                                                            }
                                                                         )
                                                                     }
-                                                                    title={`Remove tag ${t.name}`}
+                                                                    title={ `Remove tag ${ t.name }` }
                                                                 >
                                                                     <X className="h-2.5 w-2.5" />
                                                                 </button>
                                                             </span>
-                                                        ))}
-                                                        {addTagFor ===
+                                                        ) ) }
+                                                        { addTagFor ===
                                                         subscriber.id ? (
                                                             <div className="flex items-center gap-1 mt-1">
                                                                 <select
@@ -448,25 +474,25 @@ export default function SubscribersPage() {
                                                                     value={
                                                                         selectedTag[
                                                                             String(
-                                                                                subscriber.id,
+                                                                                subscriber.id
                                                                             )
                                                                         ] || ''
                                                                     }
-                                                                    onChange={(
-                                                                        event,
+                                                                    onChange={ (
+                                                                        event
                                                                     ) =>
                                                                         setSelectedTag(
                                                                             (
-                                                                                prev,
-                                                                            ) => ({
+                                                                                prev
+                                                                            ) => ( {
                                                                                 ...prev,
-                                                                                [String(
-                                                                                    subscriber.id,
-                                                                                )]:
+                                                                                [ String(
+                                                                                    subscriber.id
+                                                                                ) ]:
                                                                                     event
                                                                                         .target
                                                                                         .value,
-                                                                            }),
+                                                                            } )
                                                                         )
                                                                     }
                                                                 >
@@ -474,40 +500,40 @@ export default function SubscribersPage() {
                                                                         Pick
                                                                         tag…
                                                                     </option>
-                                                                    {availableTags
+                                                                    { availableTags
                                                                         .filter(
                                                                             (
-                                                                                t,
+                                                                                t
                                                                             ) =>
-                                                                                !(
+                                                                                ! (
                                                                                     subscriber.tags ||
                                                                                     []
                                                                                 ).some(
                                                                                     (
-                                                                                        st,
+                                                                                        st
                                                                                     ) =>
                                                                                         st.id ===
-                                                                                        t.id,
-                                                                                ),
+                                                                                        t.id
+                                                                                )
                                                                         )
                                                                         .map(
                                                                             (
-                                                                                t,
+                                                                                t
                                                                             ) => (
                                                                                 <option
                                                                                     key={
                                                                                         t.id
                                                                                     }
-                                                                                    value={String(
-                                                                                        t.id,
-                                                                                    )}
+                                                                                    value={ String(
+                                                                                        t.id
+                                                                                    ) }
                                                                                 >
                                                                                     {
                                                                                         t.name
                                                                                     }
                                                                                 </option>
-                                                                            ),
-                                                                        )}
+                                                                            )
+                                                                        ) }
                                                                 </select>
                                                                 <Button
                                                                     type="button"
@@ -515,23 +541,23 @@ export default function SubscribersPage() {
                                                                     variant="ghost"
                                                                     className="h-6 w-6"
                                                                     disabled={
-                                                                        !selectedTag[
+                                                                        ! selectedTag[
                                                                             String(
-                                                                                subscriber.id,
+                                                                                subscriber.id
                                                                             )
                                                                         ]
                                                                     }
                                                                     title="Add"
-                                                                    onClick={() => {
+                                                                    onClick={ () => {
                                                                         const tagId =
                                                                             selectedTag[
                                                                                 String(
-                                                                                    subscriber.id,
+                                                                                    subscriber.id
                                                                                 )
                                                                             ];
 
                                                                         if (
-                                                                            !tagId
+                                                                            ! tagId
                                                                         ) {
                                                                             return;
                                                                         }
@@ -540,21 +566,21 @@ export default function SubscribersPage() {
                                                                             {
                                                                                 subscriberToken:
                                                                                     String(
-                                                                                        subscriber.token,
+                                                                                        subscriber.token
                                                                                     ),
                                                                                 tagId: Number(
-                                                                                    tagId,
+                                                                                    tagId
                                                                                 ),
                                                                             },
                                                                             {
                                                                                 onSuccess:
                                                                                     () => {
                                                                                         setAddTagFor(
-                                                                                            null,
+                                                                                            null
                                                                                         );
                                                                                         setSelectedTag(
                                                                                             (
-                                                                                                prev,
+                                                                                                prev
                                                                                             ) => {
                                                                                                 const next =
                                                                                                     {
@@ -563,17 +589,17 @@ export default function SubscribersPage() {
 
                                                                                                 delete next[
                                                                                                     String(
-                                                                                                        subscriber.id,
+                                                                                                        subscriber.id
                                                                                                     )
                                                                                                 ];
 
                                                                                                 return next;
-                                                                                            },
+                                                                                            }
                                                                                         );
                                                                                     },
-                                                                            },
+                                                                            }
                                                                         );
-                                                                    }}
+                                                                    } }
                                                                 >
                                                                     <TagIcon className="h-3 w-3" />
                                                                 </Button>
@@ -583,36 +609,39 @@ export default function SubscribersPage() {
                                                                     variant="ghost"
                                                                     className="h-6 w-6"
                                                                     title="Cancel"
-                                                                    onClick={() =>
+                                                                    onClick={ () =>
                                                                         setAddTagFor(
-                                                                            null,
+                                                                            null
                                                                         )
                                                                     }
                                                                 >
                                                                     <X className="h-3 w-3" />
                                                                 </Button>
                                                             </div>
-                                                        ) : availableTags.length >
-                                                          0 ? (
+                                                        ) : null }
+                                                        { addTagFor !==
+                                                            subscriber.id &&
+                                                        availableTags.length >
+                                                            0 ? (
                                                             <button
                                                                 type="button"
                                                                 className="inline-flex items-center rounded-full border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:border-foreground cursor-pointer"
-                                                                onClick={() =>
+                                                                onClick={ () =>
                                                                     setAddTagFor(
-                                                                        subscriber.id,
+                                                                        subscriber.id
                                                                     )
                                                                 }
                                                                 title="Add tag"
                                                             >
                                                                 + tag
                                                             </button>
-                                                        ) : null}
+                                                        ) : null }
                                                     </div>
                                                 </TableCell>
 
-                                                {/* Active status */}
+                                                { /* Active status */ }
                                                 <TableCell>
-                                                    {subscriber.active ? (
+                                                    { subscriber.active ? (
                                                         <Badge className="gap-1 bg-emerald-600/10 text-emerald-600 dark:bg-green-900/30 dark:text-green-300 border-0">
                                                             <Wifi className="h-3 w-3" />
                                                             Active
@@ -625,17 +654,17 @@ export default function SubscribersPage() {
                                                             <WifiOff className="h-3 w-3" />
                                                             Inactive
                                                         </Badge>
-                                                    )}
+                                                    ) }
                                                 </TableCell>
 
-                                                {/* Registered at */}
+                                                { /* Registered at */ }
                                                 <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                                                    {formatRegisteredDate(
-                                                        subscriber.created_at,
-                                                    )}
+                                                    { formatRegisteredDate(
+                                                        subscriber.created_at
+                                                    ) }
                                                 </TableCell>
 
-                                                {/* Delete */}
+                                                { /* Delete */ }
                                                 <TableCell>
                                                     <TooltipProvider>
                                                         <Tooltip>
@@ -649,19 +678,30 @@ export default function SubscribersPage() {
                                                                     disabled={
                                                                         deleteMutation.isPending
                                                                     }
-                                                                    onClick={() => {
+                                                                    onClick={ async () => {
+                                                                        const confirmed =
+                                                                            await confirm(
+                                                                                {
+                                                                                    title: 'Delete this subscriber?',
+                                                                                    description:
+                                                                                        'They will stop receiving notifications from this site.',
+                                                                                    confirmLabel:
+                                                                                        'Delete',
+                                                                                    destructive:
+                                                                                        true,
+                                                                                }
+                                                                            );
+
                                                                         if (
-                                                                            !window.confirm(
-                                                                                'Are you sure you want to delete this subscriber?',
-                                                                            )
+                                                                            ! confirmed
                                                                         ) {
                                                                             return;
                                                                         }
 
                                                                         deleteMutation.mutate(
-                                                                            subscriber.id,
+                                                                            subscriber.id
                                                                         );
-                                                                    }}
+                                                                    } }
                                                                 >
                                                                     <Trash2 className="h-4 w-4" />
                                                                 </Button>
@@ -674,40 +714,40 @@ export default function SubscribersPage() {
                                                     </TooltipProvider>
                                                 </TableCell>
                                             </TableRow>
-                                        ))
-                                    )}
+                                        ) )
+                                    ) }
                                 </TableBody>
                             </Table>
                         </div>
-                    )}
+                    ) : null }
                 </CardContent>
 
-                {rows.length > 0 ? (
+                { rows.length > 0 ? (
                     <CardFooter className="justify-end pt-4">
                         <div className="flex overflow-x-auto sm:justify-center">
-                            {prevCursor ? (
+                            { prevCursor ? (
                                 <button
                                     type="button"
-                                    className={paginationLinkClass}
-                                    onClick={() => setCursor(prevCursor)}
+                                    className={ paginationLinkClass }
+                                    onClick={ () => setCursor( prevCursor ) }
                                 >
                                     <ChevronLeft className="h-4 w-4" />
                                     Previous
                                 </button>
-                            ) : null}
-                            {nextCursor ? (
+                            ) : null }
+                            { nextCursor ? (
                                 <button
                                     type="button"
-                                    className={paginationLinkClass}
-                                    onClick={() => setCursor(nextCursor)}
+                                    className={ paginationLinkClass }
+                                    onClick={ () => setCursor( nextCursor ) }
                                 >
                                     Next
                                     <ChevronRight className="h-4 w-4" />
                                 </button>
-                            ) : null}
+                            ) : null }
                         </div>
                     </CardFooter>
-                ) : null}
+                ) : null }
             </Card>
         </div>
     );

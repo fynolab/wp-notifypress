@@ -208,7 +208,9 @@ function StatusTile( { icon: Icon, label, value, tone = 'default' } ) {
 }
 
 function OptionRow( { checked, description, label, onChange, icon: Icon } ) {
-    const id = `np-option-${ label.toLowerCase().replace( /[^a-z0-9]+/g, '-' ) }`;
+    const id = `np-option-${ label
+        .toLowerCase()
+        .replace( /[^a-z0-9]+/g, '-' ) }`;
 
     return (
         <div className="rounded-lg border border-border bg-muted/20 p-4">
@@ -410,7 +412,9 @@ export default function SetupPage() {
                                                 className={ ui.primaryButton }
                                             >
                                                 <a
-                                                    href={ getConnectUrl( form ) }
+                                                    href={ getConnectUrl(
+                                                        form
+                                                    ) }
                                                     rel="noreferrer"
                                                     target="_blank"
                                                 >
