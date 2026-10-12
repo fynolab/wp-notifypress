@@ -419,6 +419,7 @@ const TRIGGER_ID = 'trigger-node';
 // positions only have to line up with each other, not with the container.
 // maxZoom stops a short flow from being blown up to fill the space.
 const FIT_VIEW_OPTIONS = { padding: 0.2, maxZoom: 1 };
+const PRO_OPTIONS = { hideAttribution: true };
 
 // The flow is a single vertical chain: the trigger sits in the same column as
 // the steps, so its x follows the first step's (templates store 0; automations
@@ -709,6 +710,7 @@ function Canvas( {
                     onNodeDragStop={ onNodeDragStop }
                     fitView
                     fitViewOptions={ FIT_VIEW_OPTIONS }
+                    proOptions={ PRO_OPTIONS }
                     nodesDraggable={ ! readOnly }
                     nodesConnectable={ ! readOnly }
                     elementsSelectable={ ! readOnly }
