@@ -1,4 +1,4 @@
-import defaultBellIcon from '../../../../images/bell.svg';
+import defaultBellIcon from '../../../../images/notification-icon.png';
 
 export type NotificationPreviewProps = {
     cardTitle: string;
