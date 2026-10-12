@@ -23,7 +23,7 @@ declare global {
         };
     }
 
-    var notifypress: Window['notifypress'];
+    var notifypress: Window[ 'notifypress' ];
     var ajaxurl: string;
     var wp: {
         data: {

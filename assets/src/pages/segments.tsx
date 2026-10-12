@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from '@wordpress/element';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import PaidFeatureOverlay from '../components/paid-feature-overlay';
+import { useConfirm } from '../components/confirm-dialog';
 import {
     Select,
     SelectContent,
@@ -148,7 +149,9 @@ function StepTabs( {
                             step === item.key
                                 ? 'bg-background text-foreground shadow'
                                 : 'text-muted-foreground hover:text-foreground'
-                        } ${ disabled ? 'pointer-events-none opacity-50' : '' }` }
+                        } ${
+                            disabled ? 'pointer-events-none opacity-50' : ''
+                        }` }
                         disabled={ disabled }
                         key={ item.key }
                         onClick={ () => onChange( item.key ) }
@@ -163,13 +166,7 @@ function StepTabs( {
     );
 }
 
-function RuleHeader( {
-    icon,
-    label,
-}: {
-    icon: ReactNode;
-    label: string;
-} ) {
+function RuleHeader( { icon, label }: { icon: ReactNode; label: string } ) {
     return (
         <div className="mb-4 flex items-center gap-3">
             <span className="grid h-9 w-9 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -210,10 +207,8 @@ function CountrySelect( {
         country.toLowerCase().includes( search.toLowerCase() )
     );
     const selectedLabel = values.length
-        ? values
-              .slice( 0, 3 )
-              .map( titleCase )
-              .join( ', ' ) + ( values.length > 3 ? ` +${ values.length - 3 }` : '' )
+        ? values.slice( 0, 3 ).map( titleCase ).join( ', ' ) +
+          ( values.length > 3 ? ` +${ values.length - 3 }` : '' )
         : 'Select countries...';
 
     const toggle = ( country: string ) => {
@@ -234,7 +229,9 @@ function CountrySelect( {
             >
                 <span
                     className={
-                        values.length ? 'truncate' : 'truncate text-muted-foreground'
+                        values.length
+                            ? 'truncate'
+                            : 'truncate text-muted-foreground'
                     }
                 >
                     { selectedLabel }
@@ -245,7 +242,9 @@ function CountrySelect( {
                 <div className="absolute z-30 mt-2 w-full rounded-md border border-border bg-background p-2 shadow-lg">
                     <input
                         className={ ui.input }
-                        onChange={ ( event ) => setSearch( event.target.value ) }
+                        onChange={ ( event ) =>
+                            setSearch( event.target.value )
+                        }
                         placeholder="Search countries..."
                         value={ search }
                     />
@@ -323,7 +322,10 @@ function RuleChips( { rule }: { rule: SegmentRule } ) {
         chips.push( {
             icon: <Globe2 className="h-3.5 w-3.5" />,
             label:
-                rule.location.values.slice( 0, 2 ).map( titleCase ).join( ', ' ) +
+                rule.location.values
+                    .slice( 0, 2 )
+                    .map( titleCase )
+                    .join( ', ' ) +
                 ( rule.location.values.length > 2
                     ? ` +${ rule.location.values.length - 2 }`
                     : '' ),
@@ -490,8 +492,8 @@ function DeleteDialog( {
                     Delete segment
                 </h3>
                 <p className="mt-2 text-sm text-muted-foreground">
-                    Are you sure you want to delete "{ segment.name }"? This action
-                    cannot be undone.
+                    Are you sure you want to delete &ldquo;{ segment.name }
+                    &rdquo;? This action cannot be undone.
                 </p>
                 <div className="mt-6 flex justify-end gap-2">
                     <Button
@@ -552,6 +554,7 @@ const TAG_TYPE_CLASS: Record< string, string > = {
 
 function TagsTab( { settings }: { settings?: NotifyPressSettings } ) {
     const queryClient = useQueryClient();
+    const [ confirm, confirmDialog ] = useConfirm();
     const [ name, setName ] = useState( '' );
     const [ type, setType ] = useState( 'category' );
 
@@ -585,6 +588,7 @@ function TagsTab( { settings }: { settings?: NotifyPressSettings } ) {
 
     return (
         <div className="grid gap-6">
+            { confirmDialog }
             <Card className={ ui.card }>
                 <CardHeader>
                     <CardTitle className="text-base">Create Tag</CardTitle>
@@ -651,10 +655,7 @@ function TagsTab( { settings }: { settings?: NotifyPressSettings } ) {
                         <tbody>
                             { ! tags.length ? (
                                 <tr>
-                                    <td
-                                        className={ ui.emptyTd }
-                                        colSpan={ 4 }
-                                    >
+                                    <td className={ ui.emptyTd } colSpan={ 4 }>
                                         No tags yet. Create one above.
                                     </td>
                                 </tr>
@@ -694,12 +695,18 @@ function TagsTab( { settings }: { settings?: NotifyPressSettings } ) {
                                             <Button
                                                 aria-label={ `Delete tag ${ tag.name }` }
                                                 className={ `${ ui.ghostButton } text-destructive hover:bg-destructive/10 hover:text-destructive` }
-                                                onClick={ () => {
-                                                    if (
-                                                        window.confirm(
-                                                            `Delete tag "${ tag.name }"? This will remove it from all subscribers.`
-                                                        )
-                                                    ) {
+                                                onClick={ async () => {
+                                                    const confirmed =
+                                                        await confirm( {
+                                                            title: `Delete tag "${ tag.name }"?`,
+                                                            description:
+                                                                'This will remove it from all subscribers.',
+                                                            confirmLabel:
+                                                                'Delete',
+                                                            destructive: true,
+                                                        } );
+
+                                                    if ( confirmed ) {
                                                         deleteMutation.mutate(
                                                             tag.id
                                                         );
@@ -806,9 +813,7 @@ function SegmentForm( {
         mutationFn: () =>
             laravelRequest< LaravelResource< Segment > >(
                 settings,
-                isEdit
-                    ? `/segments/${ createdSegmentId }`
-                    : '/segments',
+                isEdit ? `/segments/${ createdSegmentId }` : '/segments',
                 {
                     method: isEdit ? 'PUT' : 'POST',
                     body: {
@@ -887,7 +892,10 @@ function SegmentForm( {
                             </div>
 
                             <div className="mt-6 grid gap-5">
-                                <label className="grid gap-2">
+                                <label
+                                    htmlFor="np-tag-name"
+                                    className="grid gap-2"
+                                >
                                     <span className={ ui.label }>
                                         Name{ ' ' }
                                         <span className="text-destructive">
@@ -895,6 +903,7 @@ function SegmentForm( {
                                         </span>
                                     </span>
                                     <input
+                                        id="np-tag-name"
                                         className={ ui.input }
                                         onChange={ ( event ) =>
                                             setForm( {
@@ -906,11 +915,15 @@ function SegmentForm( {
                                         value={ form.name }
                                     />
                                 </label>
-                                <label className="grid gap-2">
+                                <label
+                                    htmlFor="np-tag-description"
+                                    className="grid gap-2"
+                                >
                                     <span className={ ui.label }>
                                         Description
                                     </span>
                                     <textarea
+                                        id="np-tag-description"
                                         className={ ui.textarea }
                                         onChange={ ( event ) =>
                                             setForm( {
@@ -923,8 +936,12 @@ function SegmentForm( {
                                     />
                                 </label>
                                 <div className="flex items-center gap-3">
-                                    <label className="relative inline-flex h-8 w-14 cursor-pointer items-center">
+                                    <label
+                                        htmlFor="np-tag-active"
+                                        className="relative inline-flex h-8 w-14 cursor-pointer items-center"
+                                    >
                                         <input
+                                            id="np-tag-active"
                                             checked={ form.is_active }
                                             className="peer sr-only"
                                             onChange={ ( event ) =>
@@ -936,10 +953,9 @@ function SegmentForm( {
                                             }
                                             type="checkbox"
                                         />
-                                        <span
-                                            className="absolute inset-0 rounded-full bg-input transition-colors peer-checked:bg-primary peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring"
-                                        />
+                                        <span className="absolute inset-0 rounded-full bg-input transition-colors peer-checked:bg-primary peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring" />
                                         <span className="absolute left-1 h-6 w-6 rounded-full bg-background shadow transition-transform peer-checked:translate-x-6" />
+                                        <span className="sr-only">Active</span>
                                     </label>
                                     <span className="text-sm font-semibold text-foreground">
                                         { form.is_active
@@ -981,9 +997,7 @@ function SegmentForm( {
                             <div className="mt-8 grid gap-6">
                                 <div>
                                     <RuleHeader
-                                        icon={
-                                            <Globe2 className="h-5 w-5" />
-                                        }
+                                        icon={ <Globe2 className="h-5 w-5" /> }
                                         label="Location"
                                     />
                                     <div className="flex flex-col gap-3 md:flex-row">
@@ -1001,14 +1015,20 @@ function SegmentForm( {
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                { conditions.map( ( condition ) => (
-                                                    <SelectItem
-                                                        key={ condition.value }
-                                                        value={ condition.value }
-                                                    >
-                                                        { condition.label }
-                                                    </SelectItem>
-                                                ) ) }
+                                                { conditions.map(
+                                                    ( condition ) => (
+                                                        <SelectItem
+                                                            key={
+                                                                condition.value
+                                                            }
+                                                            value={
+                                                                condition.value
+                                                            }
+                                                        >
+                                                            { condition.label }
+                                                        </SelectItem>
+                                                    )
+                                                ) }
                                             </SelectContent>
                                         </Select>
                                         <CountrySelect
@@ -1018,9 +1038,7 @@ function SegmentForm( {
                                                     values,
                                                 } )
                                             }
-                                            values={
-                                                form.rule.location.values
-                                            }
+                                            values={ form.rule.location.values }
                                         />
                                     </div>
                                 </div>
@@ -1047,14 +1065,20 @@ function SegmentForm( {
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                { conditions.map( ( condition ) => (
-                                                    <SelectItem
-                                                        key={ condition.value }
-                                                        value={ condition.value }
-                                                    >
-                                                        { condition.label }
-                                                    </SelectItem>
-                                                ) ) }
+                                                { conditions.map(
+                                                    ( condition ) => (
+                                                        <SelectItem
+                                                            key={
+                                                                condition.value
+                                                            }
+                                                            value={
+                                                                condition.value
+                                                            }
+                                                        >
+                                                            { condition.label }
+                                                        </SelectItem>
+                                                    )
+                                                ) }
                                             </SelectContent>
                                         </Select>
                                         <div className="flex flex-wrap gap-3">
@@ -1082,9 +1106,7 @@ function SegmentForm( {
 
                                 <div>
                                     <RuleHeader
-                                        icon={
-                                            <Compass className="h-5 w-5" />
-                                        }
+                                        icon={ <Compass className="h-5 w-5" /> }
                                         label="Browser"
                                     />
                                     <div className="flex flex-col gap-3 md:flex-row md:items-start">
@@ -1102,33 +1124,41 @@ function SegmentForm( {
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                { conditions.map( ( condition ) => (
-                                                    <SelectItem
-                                                        key={ condition.value }
-                                                        value={ condition.value }
-                                                    >
-                                                        { condition.label }
-                                                    </SelectItem>
-                                                ) ) }
+                                                { conditions.map(
+                                                    ( condition ) => (
+                                                        <SelectItem
+                                                            key={
+                                                                condition.value
+                                                            }
+                                                            value={
+                                                                condition.value
+                                                            }
+                                                        >
+                                                            { condition.label }
+                                                        </SelectItem>
+                                                    )
+                                                ) }
                                             </SelectContent>
                                         </Select>
                                         <div className="flex flex-wrap gap-3">
-                                            { browserOptions.map( ( option ) => (
-                                                <SelectableCard
-                                                    active={ form.rule.browser.values.includes(
-                                                        option.value
-                                                    ) }
-                                                    icon={ Chrome }
-                                                    key={ option.value }
-                                                    label={ option.label }
-                                                    onClick={ () =>
-                                                        toggleRuleValue(
-                                                            'browser',
+                                            { browserOptions.map(
+                                                ( option ) => (
+                                                    <SelectableCard
+                                                        active={ form.rule.browser.values.includes(
                                                             option.value
-                                                        )
-                                                    }
-                                                />
-                                            ) ) }
+                                                        ) }
+                                                        icon={ Chrome }
+                                                        key={ option.value }
+                                                        label={ option.label }
+                                                        onClick={ () =>
+                                                            toggleRuleValue(
+                                                                'browser',
+                                                                option.value
+                                                            )
+                                                        }
+                                                    />
+                                                )
+                                            ) }
                                         </div>
                                     </div>
                                 </div>
@@ -1267,192 +1297,214 @@ export default function SegmentsPage() {
             { activeTab === 'tags' ? (
                 <TagsTab settings={ settings } />
             ) : (
-            <PaidFeatureOverlay
-                isPaidUser={ segmentsQuery.data?.isPaidUser ?? true }
-                featureName="Segments"
-                description="Audience segmentation is available on Starter plans and above. Upgrade to target specific groups of subscribers when sending notifications."
-            >
-            <section
-                className={ `overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow transition-opacity duration-500 ${
-                    loading ? 'opacity-75' : 'opacity-100'
-                }` }
-            >
-                <div className="flex flex-col gap-4 border-b border-border p-6 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h3 className={ ui.heading }>Segments</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            { rows.length } segment{ rows.length === 1 ? '' : 's' } -
-                            target specific groups of subscribers
-                        </p>
-                    </div>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        { rows.length ? (
-                            <label className="relative block">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <input
-                                    className="min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 pl-9 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus:outline-none sm:w-72"
-                                    onChange={ ( event ) =>
-                                        setSearch( event.target.value )
-                                    }
-                                    placeholder="Search segments..."
-                                    value={ search }
-                                />
-                            </label>
-                        ) : null }
-                        { hasToken ? (
-                            <Link
-                                to="/segments/new"
-                                className={ ui.primaryButton }
-                            >
-                                <Plus className="h-4 w-4" />
-                                New Segment
-                            </Link>
-                        ) : null }
-                    </div>
-                </div>
-
-                { loading ? (
-                    <div className={ ui.tableScroll }>
-                        <table className={ ui.table }>
-                            <thead>
-                                <tr>
-                                    <th className={ ui.th }>Name</th>
-                                    <th className={ ui.th }>Description</th>
-                                    <th className={ ui.th }>Rules</th>
-                                    <th className={ ui.th }>Status</th>
-                                    <th className={ ui.th }>Created</th>
-                                    <th className={ ui.th } />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <SegmentSkeletonRows />
-                            </tbody>
-                        </table>
-                    </div>
-                ) : ! rows.length ? (
-                    <div className="grid place-items-center px-6 py-20 text-center">
-                        <div className="grid max-w-sm gap-3 justify-items-center">
-                            <span className="grid h-16 w-16 place-items-center rounded-full bg-muted text-muted-foreground">
-                                <Filter className="h-8 w-8" />
-                            </span>
-                            <h4 className="text-lg font-bold text-foreground">
-                                No segments yet
-                            </h4>
-                            <p className="text-sm text-muted-foreground">
-                                { hasToken
-                                    ? 'Create a segment to target a specific group of subscribers when sending notifications.'
-                                    : 'Connect NotifyPress to start creating audience segments for this site.' }
-                            </p>
-                            { hasToken ? (
-                                <Link
-                                    className={ `${ ui.primaryButton } mt-2` }
-                                    to="/segments/new"
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    Create your first segment
-                                </Link>
-                            ) : null }
-                        </div>
-                    </div>
-                ) : filteredRows.length ? (
-                    <div className={ ui.tableScroll }>
-                        <table className={ ui.table }>
-                            <thead>
-                                <tr>
-                                    <th className={ ui.th }>Name</th>
-                                    <th className={ ui.th }>Description</th>
-                                    <th className={ ui.th }>Rules</th>
-                                    <th className={ ui.th }>Status</th>
-                                    <th className={ ui.th }>Created</th>
-                                    <th className={ ui.th } />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                { filteredRows.map( ( segment ) => (
-                                    <tr
-                                        className="group hover:bg-muted/40"
-                                        key={ segment.id }
+                <PaidFeatureOverlay
+                    isPaidUser={ segmentsQuery.data?.isPaidUser ?? true }
+                    featureName="Segments"
+                    description="Audience segmentation is available on Starter plans and above. Upgrade to target specific groups of subscribers when sending notifications."
+                >
+                    <section
+                        className={ `overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow transition-opacity duration-500 ${
+                            loading ? 'opacity-75' : 'opacity-100'
+                        }` }
+                    >
+                        <div className="flex flex-col gap-4 border-b border-border p-6 md:flex-row md:items-center md:justify-between">
+                            <div>
+                                <h3 className={ ui.heading }>Segments</h3>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    { rows.length } segment
+                                    { rows.length === 1 ? '' : 's' } - target
+                                    specific groups of subscribers
+                                </p>
+                            </div>
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                { rows.length ? (
+                                    <label
+                                        htmlFor="np-segment-search"
+                                        className="relative block"
                                     >
-                                        <td className={ ui.td }>
-                                            <strong>{ segment.name }</strong>
-                                        </td>
-                                        <td
-                                            className={ `${ ui.td } max-w-72 text-muted-foreground` }
-                                        >
-                                            { segment.description || '-' }
-                                        </td>
-                                        <td className={ ui.td }>
-                                            <RuleChips
-                                                rule={ normalizeRule(
-                                                    segment.rule
-                                                ) }
-                                            />
-                                        </td>
-                                        <td className={ ui.td }>
-                                            <span
-                                                className={ statusBadgeClass(
-                                                    segment.is_active
-                                                ) }
-                                            >
-                                                { segment.is_active
-                                                    ? 'Active'
-                                                    : 'Inactive' }
-                                            </span>
-                                        </td>
-                                        <td
-                                            className={ `${ ui.td } whitespace-nowrap text-muted-foreground` }
-                                        >
-                                            { segment.created_at || '-' }
-                                        </td>
-                                        <td
-                                            className={ `${ ui.td } text-right` }
-                                        >
-                                            <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                                                <Button
-                                                    aria-label="Edit segment"
-                                                    className={ ui.ghostButton }
-                                                    variant="ghost"
-                                                    onClick={ () =>
-                                                        navigate(
-                                                            `/segments/${ segment.id }/edit`
-                                                        )
-                                                    }
-                                                    type="button"
-                                                >
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    aria-label="Delete segment"
-                                                    className={ `${ ui.ghostButton } text-destructive hover:bg-destructive/10 hover:text-destructive` }
-                                                    variant="ghost"
-                                                    onClick={ () =>
-                                                        setSegmentToDelete(
-                                                            segment
-                                                        )
-                                                    }
-                                                    type="button"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) ) }
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <div className="grid place-items-center px-6 py-16 text-center">
-                        <div className="grid gap-3 justify-items-center">
-                            <Search className="h-8 w-8 text-muted-foreground" />
-                            <p className="text-sm text-muted-foreground">
-                                No segments match your search.
-                            </p>
+                                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                        <input
+                                            id="np-segment-search"
+                                            className="min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 pl-9 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus:outline-none sm:w-72"
+                                            onChange={ ( event ) =>
+                                                setSearch( event.target.value )
+                                            }
+                                            placeholder="Search segments..."
+                                            value={ search }
+                                        />
+                                    </label>
+                                ) : null }
+                                { hasToken ? (
+                                    <Link
+                                        to="/segments/new"
+                                        className={ ui.primaryButton }
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        New Segment
+                                    </Link>
+                                ) : null }
+                            </div>
                         </div>
-                    </div>
-                ) }
-            </section>
-            </PaidFeatureOverlay>
+
+                        { loading ? (
+                            <div className={ ui.tableScroll }>
+                                <table className={ ui.table }>
+                                    <thead>
+                                        <tr>
+                                            <th className={ ui.th }>Name</th>
+                                            <th className={ ui.th }>
+                                                Description
+                                            </th>
+                                            <th className={ ui.th }>Rules</th>
+                                            <th className={ ui.th }>Status</th>
+                                            <th className={ ui.th }>Created</th>
+                                            <th className={ ui.th } />
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <SegmentSkeletonRows />
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : null }
+                        { ! loading && ! rows.length ? (
+                            <div className="grid place-items-center px-6 py-20 text-center">
+                                <div className="grid max-w-sm gap-3 justify-items-center">
+                                    <span className="grid h-16 w-16 place-items-center rounded-full bg-muted text-muted-foreground">
+                                        <Filter className="h-8 w-8" />
+                                    </span>
+                                    <h4 className="text-lg font-bold text-foreground">
+                                        No segments yet
+                                    </h4>
+                                    <p className="text-sm text-muted-foreground">
+                                        { hasToken
+                                            ? 'Create a segment to target a specific group of subscribers when sending notifications.'
+                                            : 'Connect NotifyPress to start creating audience segments for this site.' }
+                                    </p>
+                                    { hasToken ? (
+                                        <Link
+                                            className={ `${ ui.primaryButton } mt-2` }
+                                            to="/segments/new"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                            Create your first segment
+                                        </Link>
+                                    ) : null }
+                                </div>
+                            </div>
+                        ) : null }
+                        { ! loading &&
+                        rows.length > 0 &&
+                        filteredRows.length > 0 ? (
+                            <div className={ ui.tableScroll }>
+                                <table className={ ui.table }>
+                                    <thead>
+                                        <tr>
+                                            <th className={ ui.th }>Name</th>
+                                            <th className={ ui.th }>
+                                                Description
+                                            </th>
+                                            <th className={ ui.th }>Rules</th>
+                                            <th className={ ui.th }>Status</th>
+                                            <th className={ ui.th }>Created</th>
+                                            <th className={ ui.th } />
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        { filteredRows.map( ( segment ) => (
+                                            <tr
+                                                className="group hover:bg-muted/40"
+                                                key={ segment.id }
+                                            >
+                                                <td className={ ui.td }>
+                                                    <strong>
+                                                        { segment.name }
+                                                    </strong>
+                                                </td>
+                                                <td
+                                                    className={ `${ ui.td } max-w-72 text-muted-foreground` }
+                                                >
+                                                    { segment.description ||
+                                                        '-' }
+                                                </td>
+                                                <td className={ ui.td }>
+                                                    <RuleChips
+                                                        rule={ normalizeRule(
+                                                            segment.rule
+                                                        ) }
+                                                    />
+                                                </td>
+                                                <td className={ ui.td }>
+                                                    <span
+                                                        className={ statusBadgeClass(
+                                                            segment.is_active
+                                                        ) }
+                                                    >
+                                                        { segment.is_active
+                                                            ? 'Active'
+                                                            : 'Inactive' }
+                                                    </span>
+                                                </td>
+                                                <td
+                                                    className={ `${ ui.td } whitespace-nowrap text-muted-foreground` }
+                                                >
+                                                    { segment.created_at ||
+                                                        '-' }
+                                                </td>
+                                                <td
+                                                    className={ `${ ui.td } text-right` }
+                                                >
+                                                    <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                                        <Button
+                                                            aria-label="Edit segment"
+                                                            className={
+                                                                ui.ghostButton
+                                                            }
+                                                            variant="ghost"
+                                                            onClick={ () =>
+                                                                navigate(
+                                                                    `/segments/${ segment.id }/edit`
+                                                                )
+                                                            }
+                                                            type="button"
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            aria-label="Delete segment"
+                                                            className={ `${ ui.ghostButton } text-destructive hover:bg-destructive/10 hover:text-destructive` }
+                                                            variant="ghost"
+                                                            onClick={ () =>
+                                                                setSegmentToDelete(
+                                                                    segment
+                                                                )
+                                                            }
+                                                            type="button"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ) ) }
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : null }
+                        { ! loading &&
+                        rows.length > 0 &&
+                        ! filteredRows.length ? (
+                            <div className="grid place-items-center px-6 py-16 text-center">
+                                <div className="grid gap-3 justify-items-center">
+                                    <Search className="h-8 w-8 text-muted-foreground" />
+                                    <p className="text-sm text-muted-foreground">
+                                        No segments match your search.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : null }
+                    </section>
+                </PaidFeatureOverlay>
             ) }
 
             <DeleteDialog

@@ -2,6 +2,7 @@ declare module '@wordpress/element' {
     export {
         createRoot,
         render,
+        useCallback,
         useEffect,
         useLayoutEffect,
         useMemo,
@@ -17,14 +18,18 @@ declare module '@wordpress/api-fetch' {
         data?: unknown;
     }
 
-    export default function apiFetch<T = unknown>(
+    export default function apiFetch< T = unknown >(
         options: ApiFetchOptions
-    ): Promise<T>;
+    ): Promise< T >;
 }
 
 declare module '@wordpress/i18n' {
     export function __( text: string, domain?: string ): string;
-    export function _x( text: string, context: string, domain?: string ): string;
+    export function _x(
+        text: string,
+        context: string,
+        domain?: string
+    ): string;
     export function _n(
         single: string,
         plural: string,
@@ -33,7 +38,7 @@ declare module '@wordpress/i18n' {
     ): string;
     export function sprintf(
         format: string,
-        ...args: Array<string | number>
+        ...args: Array< string | number >
     ): string;
 }
 
@@ -81,7 +86,7 @@ declare module '@wordpress/components' {
 
     interface SelectControlProps extends BaseControlProps {
         onChange?: ( value: string ) => void;
-        options?: Array<{ label: string; value: string }>;
+        options?: Array< { label: string; value: string } >;
         value?: string;
     }
 
@@ -101,15 +106,15 @@ declare module '@wordpress/components' {
         initialOpen?: boolean;
     }
 
-    export const Button: import('react').ComponentType<ButtonProps>;
-    export const CheckboxControl: import('react').ComponentType<CheckboxControlProps>;
-    export const ExternalLink: import('react').ComponentType<ExternalLinkProps>;
-    export const Notice: import('react').ComponentType<NoticeProps>;
-    export const PanelBody: import('react').ComponentType<PanelBodyProps>;
-    export const SelectControl: import('react').ComponentType<SelectControlProps>;
-    export const TextControl: import('react').ComponentType<TextControlProps>;
-    export const TextareaControl: import('react').ComponentType<TextareaControlProps>;
-    export const ToggleControl: import('react').ComponentType<ToggleControlProps>;
+    export const Button: import('react').ComponentType< ButtonProps >;
+    export const CheckboxControl: import('react').ComponentType< CheckboxControlProps >;
+    export const ExternalLink: import('react').ComponentType< ExternalLinkProps >;
+    export const Notice: import('react').ComponentType< NoticeProps >;
+    export const PanelBody: import('react').ComponentType< PanelBodyProps >;
+    export const SelectControl: import('react').ComponentType< SelectControlProps >;
+    export const TextControl: import('react').ComponentType< TextControlProps >;
+    export const TextareaControl: import('react').ComponentType< TextareaControlProps >;
+    export const ToggleControl: import('react').ComponentType< ToggleControlProps >;
 }
 
 declare module '@wordpress/plugins' {
@@ -138,14 +143,12 @@ declare module '@wordpress/edit-post' {
         title?: string;
     }
 
-    export const PluginSidebar: import('react').ComponentType<PluginSidebarProps>;
-    export const PluginDocumentSettingPanel: import('react').ComponentType<PluginDocumentSettingPanelProps>;
+    export const PluginSidebar: import('react').ComponentType< PluginSidebarProps >;
+    export const PluginDocumentSettingPanel: import('react').ComponentType< PluginDocumentSettingPanelProps >;
 }
 
 declare module '@wordpress/editor' {
-    export {
-        PluginDocumentSettingPanel,
-    } from '@wordpress/edit-post';
+    export { PluginDocumentSettingPanel } from '@wordpress/edit-post';
 
     export const store: import('@wordpress/data').StoreDescriptor;
 }
@@ -155,19 +158,19 @@ declare module '@wordpress/notices' {
 }
 
 declare module '@wordpress/core-data' {
-    export function useEntityProp<T = Record<string, unknown>>(
+    export function useEntityProp< T = Record< string, unknown > >(
         kind: string,
         name: string,
         prop: string,
         id?: number | string
-    ): [T | undefined, ( value: T ) => void, T | undefined];
+    ): [ T | undefined, ( value: T ) => void, T | undefined ];
 }
 
 declare module '@wordpress/data' {
     // A store can be addressed by name or by its exported descriptor object.
     export type StoreDescriptor = string | { name: string };
 
-    type Selectors = Record<string, ( ...args: never[] ) => unknown>;
+    type Selectors = Record< string, ( ...args: never[] ) => unknown >;
 
     interface Dispatchers {
         createNotice: (
@@ -178,7 +181,7 @@ declare module '@wordpress/data' {
         [ action: string ]: ( ...args: never[] ) => unknown;
     }
 
-    export function useSelect<T>(
+    export function useSelect< T >(
         callback: ( select: ( store: StoreDescriptor ) => Selectors ) => T,
         deps?: unknown[]
     ): T;

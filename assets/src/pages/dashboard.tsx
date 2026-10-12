@@ -179,7 +179,6 @@ function useAnimatedNumber( target: number, duration = 700 ) {
 
     useEffect( () => {
         const from = previous.current;
-        const start = performance.now();
         const delta = target - from;
         let frame = 0;
 
@@ -189,6 +188,8 @@ function useAnimatedNumber( target: number, duration = 700 ) {
             setDisplay( target );
             return undefined;
         }
+
+        const start = performance.now();
 
         const tick = ( now: number ) => {
             const progress = Math.min( ( now - start ) / duration, 1 );

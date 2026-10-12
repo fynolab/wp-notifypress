@@ -1170,10 +1170,12 @@ export default function SettingsPage() {
                                                         )
                                                     ) }
                                                     <label
+                                                        htmlFor="np-prompt-custom-color"
                                                         className="relative w-7 h-7 rounded-full border-2 border-border cursor-pointer overflow-hidden"
                                                         title="Custom color"
                                                     >
                                                         <input
+                                                            id="np-prompt-custom-color"
                                                             type="color"
                                                             value={
                                                                 promptForm.prompt_accent_color
@@ -1199,6 +1201,9 @@ export default function SettingsPage() {
                                                                         : promptForm.prompt_accent_color,
                                                             } }
                                                         />
+                                                        <span className="sr-only">
+                                                            Custom color
+                                                        </span>
                                                     </label>
                                                     <span className="text-xs text-muted-foreground font-mono">
                                                         {

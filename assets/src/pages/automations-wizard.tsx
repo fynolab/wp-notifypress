@@ -22,7 +22,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '../components/ui/select';
-import AutomationCanvas, { ConfigPanel, STEP_TYPES } from './automations-canvas';
+import AutomationCanvas, {
+    ConfigPanel,
+    STEP_TYPES,
+} from './automations-canvas';
 import { AutomationForm, TRIGGERS } from './automations';
 import type { TemplatesResponse } from './automations-templates';
 import type {
@@ -37,7 +40,9 @@ import type {
 
 let wizardStepCounter = 0;
 
-function seedSteps( template: AutomationTemplate | undefined ): AutomationStep[] {
+function seedSteps(
+    template: AutomationTemplate | undefined
+): AutomationStep[] {
     if ( ! template ) {
         return [];
     }
@@ -138,6 +143,11 @@ function WizardStepper( {
     nextProcessing?: boolean;
 } ) {
     const progress = ( ( stepIndex + 1 ) / totalSteps ) * 100;
+    let nextLabel = 'Next';
+
+    if ( isLastStep ) {
+        nextLabel = nextProcessing ? 'Creating…' : 'Create automation';
+    }
 
     return (
         <div className="flex h-full w-96 flex-shrink-0 flex-col border-r bg-muted/30">
@@ -177,11 +187,7 @@ function WizardStepper( {
                         onClick={ onNext }
                         disabled={ nextProcessing }
                     >
-                        { isLastStep
-                            ? nextProcessing
-                                ? 'Creating…'
-                                : 'Create automation'
-                            : 'Next' }
+                        { nextLabel }
                     </Button>
                 </div>
             </div>
@@ -224,10 +230,9 @@ function Wizard( {
     const messagesQuery = useQuery( {
         queryKey: [ 'np-automation-messages-options', settings.apiToken ],
         queryFn: () =>
-            laravelRequest< { data: Array< { message_id: number; title: string } > } >(
-                settings,
-                '/automations/messages'
-            ),
+            laravelRequest< {
+                data: Array< { message_id: number; title: string } >;
+            } >( settings, '/automations/messages' ),
     } );
 
     const notifications = ( messagesQuery.data?.data ?? [] ).map( ( m ) => ( {
@@ -314,12 +319,11 @@ function Wizard( {
     };
 
     const addStep = ( type: AutomationStepType ) => {
-        const defaults: Record< string, unknown > =
-            type === 'wait'
-                ? { delay_minutes: 1440 }
-                : type === 'webhook'
-                    ? { url: '', headers: {} }
-                    : {};
+        const stepDefaults: Record< string, Record< string, unknown > > = {
+            wait: { delay_minutes: 1440 },
+            webhook: { url: '', headers: {} },
+        };
+        const defaults = stepDefaults[ type ] ?? {};
         const newStep: AutomationStep = {
             type,
             config: defaults,
@@ -348,18 +352,23 @@ function Wizard( {
         setStepIndex( ( i ) => Math.min( totalSteps - 1, i + 1 ) );
     };
 
-    const instructions =
-        stepIndex === 0
-            ? 'Start by naming your automation and setting up your trigger.'
-            : currentStep
-                ? STEP_INSTRUCTIONS[ currentStep.type ] ??
-                  "Fill in this step's configuration."
-                : 'Add another step, or create your automation now.';
+    let instructions = 'Add another step, or create your automation now.';
+
+    if ( stepIndex === 0 ) {
+        instructions =
+            'Start by naming your automation and setting up your trigger.';
+    } else if ( currentStep ) {
+        instructions =
+            STEP_INSTRUCTIONS[ currentStep.type ] ??
+            "Fill in this step's configuration.";
+    }
 
     return (
         <div className="flex h-[calc(100vh-120px)] flex-col">
             { error ? (
-                <div className={ `${ ui.noticeError } mx-4 mt-3 flex-shrink-0` }>
+                <div
+                    className={ `${ ui.noticeError } mx-4 mt-3 flex-shrink-0` }
+                >
                     { error }
                 </div>
             ) : null }
@@ -370,7 +379,9 @@ function Wizard( {
                     totalSteps={ totalSteps }
                     instructions={ instructions }
                     onSkipGuided={ () => setSkippedGuided( true ) }
-                    onPrevious={ () => setStepIndex( ( i ) => Math.max( 0, i - 1 ) ) }
+                    onPrevious={ () =>
+                        setStepIndex( ( i ) => Math.max( 0, i - 1 ) )
+                    }
                     onNext={ handleNext }
                     isLastStep={ isLastStep }
                     nextProcessing={ createMutation.isPending }
@@ -435,7 +446,8 @@ function Wizard( {
                                 </Select>
                             </div>
                         </div>
-                    ) : currentStep ? (
+                    ) : null }
+                    { stepIndex !== 0 && currentStep ? (
                         <div className="space-y-3">
                             <p className="text-sm font-medium">
                                 { STEP_TYPES.find(
@@ -473,7 +485,8 @@ function Wizard( {
                                 Remove this step
                             </Button>
                         </div>
-                    ) : (
+                    ) : null }
+                    { stepIndex !== 0 && ! currentStep ? (
                         <div className="space-y-3">
                             <p className="text-sm font-medium">Add a step</p>
                             <div className="flex flex-wrap gap-2">
@@ -494,7 +507,7 @@ function Wizard( {
                                 finish without adding more steps.
                             </p>
                         </div>
-                    ) }
+                    ) : null }
                 </WizardStepper>
 
                 <main className="flex-1 overflow-hidden">

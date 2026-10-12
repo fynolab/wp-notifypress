@@ -56,10 +56,26 @@ const FirefoxIcon = ( props: SVGProps< SVGSVGElement > ) => {
                     gradientUnits="userSpaceOnUse"
                 >
                     <stop offset={ 0.3 } stopColor="#960e18" />
-                    <stop offset={ 0.351 } stopColor="#b11927" stopOpacity={ 0.74 } />
-                    <stop offset={ 0.435 } stopColor="#db293d" stopOpacity={ 0.343 } />
-                    <stop offset={ 0.497 } stopColor="#f5334b" stopOpacity={ 0.094 } />
-                    <stop offset={ 0.53 } stopColor="#ff3750" stopOpacity={ 0 } />
+                    <stop
+                        offset={ 0.351 }
+                        stopColor="#b11927"
+                        stopOpacity={ 0.74 }
+                    />
+                    <stop
+                        offset={ 0.435 }
+                        stopColor="#db293d"
+                        stopOpacity={ 0.343 }
+                    />
+                    <stop
+                        offset={ 0.497 }
+                        stopColor="#f5334b"
+                        stopOpacity={ 0.094 }
+                    />
+                    <stop
+                        offset={ 0.53 }
+                        stopColor="#ff3750"
+                        stopOpacity={ 0 }
+                    />
                 </radialGradient>
                 <radialGradient
                     id={ ids.d }
@@ -95,10 +111,26 @@ const FirefoxIcon = ( props: SVGProps< SVGSVGElement > ) => {
                     gradientTransform="matrix(.972 -.235 .275 1.138 10090 7834)"
                     gradientUnits="userSpaceOnUse"
                 >
-                    <stop offset={ 0.206 } stopColor="#9059ff" stopOpacity={ 0 } />
-                    <stop offset={ 0.278 } stopColor="#8c4ff3" stopOpacity={ 0.064 } />
-                    <stop offset={ 0.747 } stopColor="#7716a8" stopOpacity={ 0.45 } />
-                    <stop offset={ 0.975 } stopColor="#6e008b" stopOpacity={ 0.6 } />
+                    <stop
+                        offset={ 0.206 }
+                        stopColor="#9059ff"
+                        stopOpacity={ 0 }
+                    />
+                    <stop
+                        offset={ 0.278 }
+                        stopColor="#8c4ff3"
+                        stopOpacity={ 0.064 }
+                    />
+                    <stop
+                        offset={ 0.747 }
+                        stopColor="#7716a8"
+                        stopOpacity={ 0.45 }
+                    />
+                    <stop
+                        offset={ 0.975 }
+                        stopColor="#6e008b"
+                        stopOpacity={ 0.6 }
+                    />
                 </radialGradient>
                 <radialGradient
                     id={ ids.g }
@@ -200,10 +232,26 @@ const FirefoxIcon = ( props: SVGProps< SVGSVGElement > ) => {
                     gradientTransform="translate(-1.3 -.004)"
                     gradientUnits="userSpaceOnUse"
                 >
-                    <stop offset={ 0.167 } stopColor="#fff44f" stopOpacity={ 0.8 } />
-                    <stop offset={ 0.266 } stopColor="#fff44f" stopOpacity={ 0.634 } />
-                    <stop offset={ 0.489 } stopColor="#fff44f" stopOpacity={ 0.217 } />
-                    <stop offset={ 0.6 } stopColor="#fff44f" stopOpacity={ 0 } />
+                    <stop
+                        offset={ 0.167 }
+                        stopColor="#fff44f"
+                        stopOpacity={ 0.8 }
+                    />
+                    <stop
+                        offset={ 0.266 }
+                        stopColor="#fff44f"
+                        stopOpacity={ 0.634 }
+                    />
+                    <stop
+                        offset={ 0.489 }
+                        stopColor="#fff44f"
+                        stopOpacity={ 0.217 }
+                    />
+                    <stop
+                        offset={ 0.6 }
+                        stopColor="#fff44f"
+                        stopOpacity={ 0 }
+                    />
                 </linearGradient>
             </defs>
             <path

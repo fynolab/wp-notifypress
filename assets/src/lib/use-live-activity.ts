@@ -48,6 +48,31 @@ const POLL_INTERVAL_MS = 5000;
 const COMPLETED_LINGER_MS = 3000;
 const CANCELLED_LINGER_MS = 2500;
 
+function toLiveSend(
+    send: LiveActivityApiSend,
+    cancellingIds: Set< string >
+): LiveSend {
+    const id = String( send.id );
+    let stage: LiveSendStage = 'delivering';
+
+    if ( send.progress >= 100 ) {
+        stage = 'completed';
+    } else if ( cancellingIds.has( id ) ) {
+        stage = 'cancelling';
+    }
+
+    return {
+        id,
+        title: send.title,
+        message: send.message,
+        created_by: send.created_by,
+        startedAt: send.started_at,
+        subscriberTotal: send.subscriber_total,
+        pct: send.progress,
+        stage,
+    };
+}
+
 export default function useLiveActivity() {
     const settingsQuery = useQuery( {
         queryKey: [ 'np-settings' ],
@@ -84,30 +109,8 @@ export default function useLiveActivity() {
         Map< string, ReturnType< typeof setTimeout > >
     >( new Map() );
 
-    const toLiveSend = ( send: LiveActivityApiSend ): LiveSend => {
-        const id = String( send.id );
-        let stage: LiveSendStage = 'delivering';
-
-        if ( send.progress >= 100 ) {
-            stage = 'completed';
-        } else if ( cancellingIds.has( id ) ) {
-            stage = 'cancelling';
-        }
-
-        return {
-            id,
-            title: send.title,
-            message: send.message,
-            created_by: send.created_by,
-            startedAt: send.started_at,
-            subscriberTotal: send.subscriber_total,
-            pct: send.progress,
-            stage,
-        };
-    };
-
-    const serverSends: LiveSend[] = ( query.data?.sends || [] ).map(
-        toLiveSend
+    const serverSends: LiveSend[] = ( query.data?.sends || [] ).map( ( send ) =>
+        toLiveSend( send, cancellingIds )
     );
 
     // Detect sends that vanished between polls and keep a terminal row around
@@ -120,7 +123,7 @@ export default function useLiveActivity() {
 
         const current = new Map< string, LiveSend >();
         for ( const apiSend of query.data.sends || [] ) {
-            const send = toLiveSend( apiSend );
+            const send = toLiveSend( apiSend, cancellingIds );
             current.set( send.id, send );
         }
 
@@ -173,11 +176,13 @@ export default function useLiveActivity() {
     }, [ query.data, cancellingIds ] );
 
     useEffect( () => {
+        const timers = lingerTimers.current;
+
         return () => {
-            for ( const timeout of lingerTimers.current.values() ) {
+            for ( const timeout of timers.values() ) {
                 clearTimeout( timeout );
             }
-            lingerTimers.current.clear();
+            timers.clear();
         };
     }, [] );
 

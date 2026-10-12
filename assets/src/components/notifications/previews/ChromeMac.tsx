@@ -21,56 +21,65 @@ const ChromeMac = ( {
     icon,
 }: NotificationProps ): ReactElement => {
     return (
-        <Card className={ cn( classes, 'border-none shadow-none bg-transparent' ) }>
+        <Card
+            className={ cn(
+                classes,
+                'border-none shadow-none bg-transparent'
+            ) }
+        >
             <CardTitle className="font-[500] leading-none mb-3">
                 { cardTitle }
             </CardTitle>
 
-            {/* macOS Tahoe desktop wrapper */}
+            { /* macOS Tahoe desktop wrapper */ }
             <div className="relative max-w-[370px] rounded-2xl overflow-hidden">
-                {/* Neutral macOS Tahoe wallpaper — warm light grey with soft blue tones */}
+                { /* Neutral macOS Tahoe wallpaper — warm light grey with soft blue tones */ }
                 <div
                     className="relative"
-                    style={{
+                    style={ {
                         background:
                             'linear-gradient(135deg, #dfe9f3 0%, #e8edf2 40%, #d6e4ec 70%, #cdd8e3 100%)',
-                    }}
+                    } }
                 >
-                    {/* macOS menu bar */}
+                    { /* macOS menu bar */ }
                     <MacMenuBar />
 
-                    {/* Desktop area */}
+                    { /* Desktop area */ }
                     <div className="px-3 pt-2 pb-3">
-                        {/* Liquid Glass notification card */}
+                        { /* Liquid Glass notification card */ }
                         <div
                             className="relative rounded-2xl overflow-hidden"
-                            style={{
+                            style={ {
                                 background: 'rgba(255,255,255,0.55)',
                                 backdropFilter: 'blur(40px) saturate(180%)',
-                                WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+                                WebkitBackdropFilter:
+                                    'blur(40px) saturate(180%)',
                                 border: '1px solid rgba(255,255,255,0.75)',
                                 boxShadow:
                                     '0 8px 32px rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.9) inset',
-                            }}
+                            } }
                         >
-                            {/* Prismatic specular highlight - the Liquid Glass signature */}
+                            { /* Prismatic specular highlight - the Liquid Glass signature */ }
                             <div
                                 className="absolute inset-x-0 top-0 h-[2px] rounded-t-2xl"
-                                style={{
+                                style={ {
                                     background:
                                         'linear-gradient(90deg, transparent 0%, rgba(120,180,255,0.6) 25%, rgba(255,255,255,0.95) 50%, rgba(255,160,200,0.5) 75%, transparent 100%)',
-                                }}
+                                } }
                             />
 
                             <div className="px-3 pt-3 pb-3">
-                                {/* Content row - icon left, text middle, thumbnail right */}
+                                { /* Content row - icon left, text middle, thumbnail right */ }
                                 <div className="flex items-start gap-2.5">
-                                    {/* Browser icon */}
+                                    { /* Browser icon */ }
                                     <div className="flex items-center justify-center w-6 h-6 flex-shrink-0 mt-0.5">
-                                        <ChromeIcon width={ 24 } height={ 24 } />
+                                        <ChromeIcon
+                                            width={ 24 }
+                                            height={ 24 }
+                                        />
                                     </div>
 
-                                    {/* Text */}
+                                    { /* Text */ }
                                     <div className="flex-1 min-w-0">
                                         <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400">
                                             Chrome • now
@@ -83,13 +92,18 @@ const ChromeMac = ( {
                                         </p>
                                     </div>
 
-                                    {/* Notification thumbnail */}
+                                    { /* Notification thumbnail */ }
                                     <div
                                         className="flex-shrink-0 w-11 h-11 rounded-xl overflow-hidden border border-black/8"
-                                        style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
+                                        style={ {
+                                            boxShadow:
+                                                '0 2px 8px rgba(0,0,0,0.12)',
+                                        } }
                                     >
                                         <img
-                                            src={ icon ? icon : defaultBellIcon }
+                                            src={
+                                                icon ? icon : defaultBellIcon
+                                            }
                                             alt="notification-icon"
                                             className="w-full h-full object-cover"
                                         />
@@ -97,10 +111,12 @@ const ChromeMac = ( {
                                 </div>
                             </div>
 
-                            {/* Bottom glass sheen */}
+                            { /* Bottom glass sheen */ }
                             <div
                                 className="absolute inset-x-0 bottom-0 h-[1px]"
-                                style={{ background: 'rgba(255,255,255,0.6)' }}
+                                style={ {
+                                    background: 'rgba(255,255,255,0.6)',
+                                } }
                             />
                         </div>
                     </div>

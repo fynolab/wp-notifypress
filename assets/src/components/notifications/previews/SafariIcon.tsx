@@ -27,7 +27,12 @@ const SafariIcon = ( props: SVGProps< SVGSVGElement > ) => {
                     <stop offset="1" stopColor="#0055d4" />
                 </linearGradient>
             </defs>
-            <circle cx="31.5" cy="31.5" r="31.5" fill={ `url(#${ safariGradientId })` } />
+            <circle
+                cx="31.5"
+                cy="31.5"
+                r="31.5"
+                fill={ `url(#${ safariGradientId })` }
+            />
             <circle
                 cx="31.5"
                 cy="31.5"

@@ -3,27 +3,27 @@
 @tailwind utilities;
 
 @font-face {
-  font-family: 'Figtree';
+  font-family: Figtree;
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('../fonts/figtree-400.woff2') format('woff2');
+  src: url(../fonts/figtree-400.woff2) format('woff2');
 }
 
 @font-face {
-  font-family: 'Figtree';
+  font-family: Figtree;
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('../fonts/figtree-500.woff2') format('woff2');
+  src: url(../fonts/figtree-500.woff2) format('woff2');
 }
 
 @font-face {
-  font-family: 'Figtree';
+  font-family: Figtree;
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('../fonts/figtree-600.woff2') format('woff2');
+  src: url(../fonts/figtree-600.woff2) format('woff2');
 }
 
 @layer base {
@@ -63,7 +63,7 @@
 
 :root {
   --np-bg: #f4f7fb;
-  --np-surface: #ffffff;
+  --np-surface: #fff;
   --np-surface-muted: #f8fafc;
   --np-border: #dfe7ef;
   --np-border-soft: #edf2f7;
@@ -78,6 +78,7 @@
 }
 
 .toplevel_page_notifypress {
+
   #wpcontent {
     padding-left: 0;
   }
@@ -105,6 +106,7 @@
 // the same font and lift them above WP admin chrome (#adminmenuwrap is
 // z-index 9990, #wpadminbar is 99999).
 body.toplevel_page_notifypress {
+
   [data-radix-popper-content-wrapper] {
     z-index: 100000 !important;
     font-family: ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
@@ -129,6 +131,7 @@ body.toplevel_page_notifypress {
 
   // shadcn Dialog overlay (fixed inset-0) must also clear the admin bar.
   [data-state] {
+
     &.fixed.inset-0 {
       z-index: 99999;
     }
@@ -298,6 +301,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 }
 
 @keyframes shimmer {
+
   from {
     background-position: 150% 0;
   }
@@ -330,7 +334,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 }
 
 .np-sidebar {
-  background: #ffffff;
+  background: #fff;
   border-right: 1px solid var(--np-border);
   padding: 24px 16px;
 }
@@ -350,7 +354,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
   display: grid;
   place-items: center;
   background: var(--np-primary);
-  color: #ffffff;
+  color: #fff;
   font-weight: 700;
 }
 
@@ -437,21 +441,17 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
   border: 1px solid var(--np-border-soft);
   border-radius: var(--np-radius);
   box-shadow: var(--np-shadow);
-}
-
-.np-card,
-.np-empty-state,
-.np-preview-panel {
   padding: 22px;
 }
 
 .np-card--hero {
   background: #0f172a;
-  color: #ffffff;
+  color: #fff;
 }
 
 .np-card--hero p,
-.np-card--hero .np-kicker {
+.np-card--hero .np-kicker,
+.np-card--hero .np-eyebrow {
   color: rgba(255, 255, 255, 0.72);
 }
 
@@ -472,7 +472,8 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
   flex-wrap: wrap;
 }
 
-.np-kicker {
+.np-kicker,
+.np-eyebrow {
   color: var(--np-muted);
   display: inline-block;
   font-size: 11px;
@@ -480,10 +481,6 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
   letter-spacing: 0.08em;
   margin-bottom: 6px;
   text-transform: uppercase;
-}
-
-.np-eyebrow {
-  @extend .np-kicker;
 }
 
 .np-card h3,
@@ -623,7 +620,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
   min-height: 42px;
   border: 1px solid var(--np-border);
   border-radius: var(--np-radius);
-  background: #ffffff;
+  background: #fff;
   color: var(--np-text);
 }
 
@@ -654,18 +651,18 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 .np-button--primary,
 .components-button.np-button--primary {
   background: var(--np-primary);
-  color: #ffffff;
+  color: #fff;
 }
 
 .np-button--primary:hover,
 .components-button.np-button--primary:hover {
   background: var(--np-primary-dark);
-  color: #ffffff;
+  color: #fff;
 }
 
 .np-button--secondary,
 .components-button.np-button--secondary {
-  background: #ffffff;
+  background: #fff;
   border-color: var(--np-border);
   color: var(--np-text);
 }
@@ -723,7 +720,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 
 .np-step-item {
   align-items: center;
-  background: #ffffff;
+  background: #fff;
   border: 1px solid var(--np-border-soft);
   border-radius: var(--np-radius);
   color: var(--np-muted);
@@ -790,7 +787,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 }
 
 .np-preview-toast {
-  background: #ffffff;
+  background: #fff;
   border: 1px solid var(--np-border);
   border-radius: var(--np-radius);
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
@@ -840,7 +837,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 }
 
 .np-choice-card {
-  background: #ffffff;
+  background: #fff;
   border: 1px solid var(--np-border);
   border-radius: var(--np-radius);
   color: var(--np-text);
@@ -918,7 +915,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 }
 
 .np-rule-pill {
-  background: #ffffff;
+  background: #fff;
   border: 1px solid var(--np-border);
   border-radius: 999px;
   color: var(--np-text);
@@ -970,7 +967,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 }
 
 .np-settings-menu {
-  background: #ffffff;
+  background: #fff;
   border: 1px solid var(--np-border-soft);
   border-radius: var(--np-radius);
   display: flex;
@@ -1042,7 +1039,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
   position: relative;
 }
 
-.np-setup-hero:after {
+.np-setup-hero::after {
   background: radial-gradient(circle, rgba(255, 255, 255, 0.22), transparent 62%);
   content: "";
   height: 260px;
@@ -1106,7 +1103,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 
 .np-app-stat-card,
 .np-app-panel {
-  background: #ffffff;
+  background: #fff;
   border: 1px solid #e1e8f0;
   border-radius: 10px;
   box-shadow: 0 2px 5px rgba(15, 23, 42, 0.04);
@@ -1251,7 +1248,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 }
 
 .np-map-fade {
-  background: linear-gradient(to top, #ffffff 0%, rgba(255, 255, 255, 0.35) 35%, rgba(255, 255, 255, 0) 100%);
+  background: linear-gradient(to top, #fff 0%, rgba(255, 255, 255, 0.35) 35%, rgba(255, 255, 255, 0) 100%);
   inset: 0;
   position: absolute;
 }
@@ -1306,7 +1303,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 }
 
 .np-country-row {
-  background: #ffffff;
+  background: #fff;
   border: 1px solid #dfe7ef;
   border-radius: 10px;
   display: grid;
@@ -1409,7 +1406,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 
 .np-campaign-row {
   align-items: flex-start;
-  background: #ffffff;
+  background: #fff;
   border: 1px solid #dfe7ef;
   border-radius: 10px;
   display: flex;
@@ -1531,6 +1528,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 }
 
 @media (max-width: 1100px) {
+
   .np-shell,
   .np-grid--2,
   .np-grid--detail,
@@ -1558,6 +1556,7 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
 }
 
 @media (max-width: 782px) {
+
   .np-main {
     padding: 16px;
   }

@@ -6,7 +6,12 @@ import { laravelRequest } from '../lib/api';
 import { getSettings } from '../lib/settings';
 import { ui } from '../lib/admin-ui';
 import { Button } from '../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from '../components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -58,8 +63,7 @@ export function PrerequisiteBanner( { variant }: { variant: BannerVariant } ) {
         'no-notifications': (
             <>
                 You don&apos;t have any push notification messages yet. This
-                template&apos;s Send step won&apos;t work until you create
-                one.{ ' ' }
+                template&apos;s Send step won&apos;t work until you create one.{ ' ' }
                 <Link
                     to="/notifications/new?message=1"
                     className="font-medium underline"
@@ -226,8 +230,9 @@ function TemplatesGallery( { settings }: { settings: NotifyPressSettings } ) {
     const [ category, setCategory ] = useState< 'popular' | 'all' >(
         'popular'
     );
-    const [ previewing, setPreviewing ] =
-        useState< AutomationTemplate | null >( null );
+    const [ previewing, setPreviewing ] = useState< AutomationTemplate | null >(
+        null
+    );
 
     const templatesQuery = useQuery( {
         queryKey: [ 'np-automation-templates', settings.apiToken ],
@@ -287,7 +292,10 @@ function TemplatesGallery( { settings }: { settings: NotifyPressSettings } ) {
             { ! hasSite ? <PrerequisiteBanner variant="no-site" /> : null }
 
             <div className="max-w-xs space-y-1.5">
-                <label className="text-sm font-medium">
+                <label
+                    htmlFor="np-template-category"
+                    className="text-sm font-medium"
+                >
                     Pre-built automation type
                 </label>
                 <Select
@@ -296,7 +304,7 @@ function TemplatesGallery( { settings }: { settings: NotifyPressSettings } ) {
                         setCategory( value as 'popular' | 'all' )
                     }
                 >
-                    <SelectTrigger>
+                    <SelectTrigger id="np-template-category">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

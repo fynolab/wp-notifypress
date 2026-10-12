@@ -23,11 +23,11 @@
         margin-top: 2rem;
 
         a {
-            color: #aaaaaa;
+            color: #aaa;
             font-weight: 300;
             font-size: 12px;
 
-            &:not(&:last-child):after {
+            &:not(&:last-child)::after {
                 content: "/";
                 margin: 0 5px;
             }

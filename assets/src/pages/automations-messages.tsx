@@ -72,9 +72,7 @@ function MessagesList( { settings }: { settings: NotifyPressSettings } ) {
     const [ sort, setSort ] = useState( 'newest' );
     const [ automationId, setAutomationId ] = useState( 'all' );
     const [ automationStatus, setAutomationStatus ] = useState( 'all' );
-    const [ previewing, setPreviewing ] = useState< MessageRow | null >(
-        null
-    );
+    const [ previewing, setPreviewing ] = useState< MessageRow | null >( null );
     const [ copiedId, setCopiedId ] = useState< number | null >( null );
 
     const listQuery = useQuery( {
@@ -219,9 +217,7 @@ function MessagesList( { settings }: { settings: NotifyPressSettings } ) {
                 <Card>
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                         <MessageIcon className="h-12 w-12 text-muted-foreground/40 mb-4" />
-                        <h3 className="text-lg font-medium">
-                            No messages yet
-                        </h3>
+                        <h3 className="text-lg font-medium">No messages yet</h3>
                         <p className="text-sm text-muted-foreground mt-1 mb-6">
                             Create a message to use in an automation&apos;s
                             &quot;Send&quot; step.
@@ -274,11 +270,13 @@ function MessagesList( { settings }: { settings: NotifyPressSettings } ) {
                                                     { row.automation_id ? (
                                                         <>
                                                             Message #
-                                                            { row.message_id }{ ' ' }
-                                                            · Step #
+                                                            { row.message_id } ·
+                                                            Step #
                                                             { row.step_id } ·
                                                             Automation #
-                                                            { row.automation_id }
+                                                            {
+                                                                row.automation_id
+                                                            }
                                                             { row.usage_count >
                                                             1
                                                                 ? ` · used in ${ row.usage_count } steps`
@@ -287,9 +285,9 @@ function MessagesList( { settings }: { settings: NotifyPressSettings } ) {
                                                     ) : (
                                                         <>
                                                             Message #
-                                                            { row.message_id }{ ' ' }
-                                                            · Not yet used in
-                                                            an automation
+                                                            { row.message_id } ·
+                                                            Not yet used in an
+                                                            automation
                                                         </>
                                                     ) }
                                                 </p>
@@ -328,8 +326,7 @@ function MessagesList( { settings }: { settings: NotifyPressSettings } ) {
                                                     handleCopyLink( row )
                                                 }
                                                 title={
-                                                    copiedId ===
-                                                    row.message_id
+                                                    copiedId === row.message_id
                                                         ? 'Copied!'
                                                         : 'Copy link'
                                                 }
@@ -362,9 +359,7 @@ function MessagesList( { settings }: { settings: NotifyPressSettings } ) {
                     { previewing ? (
                         <>
                             <DialogHeader>
-                                <DialogTitle>
-                                    { previewing.title }
-                                </DialogTitle>
+                                <DialogTitle>{ previewing.title }</DialogTitle>
                             </DialogHeader>
                             { previewing.thumbnail_url ? (
                                 <img
@@ -375,7 +370,9 @@ function MessagesList( { settings }: { settings: NotifyPressSettings } ) {
                             ) : null }
                             <p className="text-sm text-muted-foreground">
                                 Used in { previewing.usage_count } step
-                                { previewing.usage_count === 1 ? '' : 's' }{ ' ' }
+                                { previewing.usage_count === 1
+                                    ? ''
+                                    : 's' }{ ' ' }
                                 across your automations.
                             </p>
                         </>

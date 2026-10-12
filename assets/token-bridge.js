@@ -7,83 +7,86 @@
  * window.notifypressTokenBridge, printed by Services\WC\TokenBridge.
  */
 ( function () {
-	const config = window.notifypressTokenBridge;
+    const config = window.notifypressTokenBridge;
 
-	if ( ! config ) {
-		return;
-	}
+    if ( ! config ) {
+        return;
+    }
 
-	const TOKEN_KEY = 'notifypress-SubscriptionToken';
-	const SYNCED_KEY = 'notifypress-TokenSynced';
-	const RETRIES = 5;
-	const RETRY_DELAY = 2000;
+    const TOKEN_KEY = 'notifypress-SubscriptionToken';
+    const SYNCED_KEY = 'notifypress-TokenSynced';
+    const RETRIES = 5;
+    const RETRY_DELAY = 2000;
 
-	let attempts = 0;
+    let attempts = 0;
 
-	function readToken() {
-		try {
-			return window.localStorage.getItem( TOKEN_KEY ) || '';
-		} catch ( error ) {
-			return '';
-		}
-	}
+    function readToken() {
+        try {
+            return window.localStorage.getItem( TOKEN_KEY ) || '';
+        } catch ( error ) {
+            return '';
+        }
+    }
 
-	function readSynced() {
-		try {
-			return window.sessionStorage.getItem( SYNCED_KEY ) || '';
-		} catch ( error ) {
-			return '';
-		}
-	}
+    function readSynced() {
+        try {
+            return window.sessionStorage.getItem( SYNCED_KEY ) || '';
+        } catch ( error ) {
+            return '';
+        }
+    }
 
-	function markSynced( token ) {
-		try {
-			window.sessionStorage.setItem( SYNCED_KEY, token );
-		} catch ( error ) {
-			// Private browsing with storage disabled: the token still reached
-			// the server, we just cannot remember that for the next pageview.
-		}
-	}
+    function markSynced( token ) {
+        try {
+            window.sessionStorage.setItem( SYNCED_KEY, token );
+        } catch ( error ) {
+            // Private browsing with storage disabled: the token still reached
+            // the server, we just cannot remember that for the next pageview.
+        }
+    }
 
-	function sync() {
-		attempts += 1;
+    function sync() {
+        attempts += 1;
 
-		const token = readToken();
+        const token = readToken();
 
-		if ( ! token ) {
-			if ( attempts < RETRIES ) {
-				window.setTimeout( sync, RETRY_DELAY );
-			}
+        if ( ! token ) {
+            if ( attempts < RETRIES ) {
+                window.setTimeout( sync, RETRY_DELAY );
+            }
 
-			return;
-		}
+            return;
+        }
 
-		if ( token === readSynced() ) {
-			return;
-		}
+        if ( token === readSynced() ) {
+            return;
+        }
 
-		const body = new window.FormData();
+        const body = new window.FormData();
 
-		body.append( 'action', config.action );
-		body.append( 'nonce', config.nonce );
-		body.append( 'token', token );
+        body.append( 'action', config.action );
+        body.append( 'nonce', config.nonce );
+        body.append( 'token', token );
 
-		window.fetch( config.ajaxUrl, {
-			method: 'POST',
-			credentials: 'same-origin',
-			body: body,
-		} ).then( function ( response ) {
-			if ( response.ok ) {
-				markSynced( token );
-			}
-		} ).catch( function () {
-			// Offline or blocked: the next pageview tries again.
-		} );
-	}
+        window
+            .fetch( config.ajaxUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                body,
+            } )
+            .then( function ( response ) {
+                if ( response.ok ) {
+                    markSynced( token );
+                }
+            } )
+            .catch( function () {
+                // Offline or blocked: the next pageview tries again.
+            } );
+    }
 
-	if ( 'loading' === document.readyState ) {
-		document.addEventListener( 'DOMContentLoaded', sync );
-	} else {
-		sync();
-	}
-}() );
+    if ( 'loading' === document.readyState ) {
+        document.addEventListener( 'DOMContentLoaded', sync );
+    } else {
+        sync();
+    }
+} )();

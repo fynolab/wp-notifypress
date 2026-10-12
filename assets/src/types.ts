@@ -1,10 +1,14 @@
 export type DateTime = string;
 
-export type Nullable<T> = T | null;
+export type Nullable< T > = T | null;
 
 export type AutomationStatus = 'draft' | 'active' | 'paused' | 'archived';
 export type AutomationTrigger = 'subscriber_created' | 'custom_event';
-export type AutomationStepType = 'wait' | 'send_notification' | 'add_tag' | 'webhook';
+export type AutomationStepType =
+    | 'wait'
+    | 'send_notification'
+    | 'add_tag'
+    | 'webhook';
 
 export interface AutomationStep {
     id?: number;
@@ -115,14 +119,14 @@ export interface NotifyPressSettings {
     pwaEnabled?: boolean;
 }
 
-export interface LaravelCollection<T> {
+export interface LaravelCollection< T > {
     data?: T[];
     total?: number;
     next_cursor?: string;
     prev_cursor?: string;
 }
 
-export interface LaravelResource<T> {
+export interface LaravelResource< T > {
     data?: T;
 }
 
@@ -142,7 +146,7 @@ export interface Segment {
     name: string;
     description?: string;
     is_active?: boolean;
-    rule?: Partial<SegmentRule> | string | null;
+    rule?: Partial< SegmentRule > | string | null;
     created_at?: DateTime;
 }
 
@@ -266,7 +270,7 @@ export interface AnalyticsData {
     notificationsPerMonth: MonthlyAnalyticsEntry[];
     subscribersPerMonth: MonthlyAnalyticsEntry[];
     browserBreakdown: BrowserBreakdownEntry[];
-    notificationsByStatus: Record<string, number>;
+    notificationsByStatus: Record< string, number >;
     activeSubscribers: number;
     inactiveSubscribers: number;
     isPaidUser: boolean;
