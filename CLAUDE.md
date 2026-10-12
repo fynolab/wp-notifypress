@@ -34,12 +34,21 @@ pnpm run format:php       # phpcbf via composer
 pnpm version:bump 1.1.2   # sets package.json, plugin header Version, readme Stable tag
 pnpm version:check        # fails if those three disagree
 pnpm run plugin-zip       # runs version:check, then builds notifypress-<version>.zip
+pnpm svn:deploy           # builds the zip, syncs it to WordPress.org SVN trunk + tags/<version>, shows status
+pnpm svn:deploy --commit  # same, then commits the release to WordPress.org
 ```
 
 `package.json` is the source of truth for the version. Add a `= x.y.z =` changelog entry to
 `readme.txt` for each release (both commands warn when it is missing). Only the zip file is
 versioned: it must still unzip to `notifypress/`, or WordPress installs it as a separate plugin
 instead of updating this one.
+
+WordPress.org SVN (`https://plugins.svn.wordpress.org/notifypress`, exists only after approval):
+`bin/svn-deploy.sh` keeps a working copy outside this repo (`~/Documents/www/notifypress-svn`,
+override with `NOTIFYPRESS_SVN_DIR`; `SVN_USERNAME` sets the committer). trunk is the unpacked
+release zip, `.wordpress-org/` (icons, banners, screenshots) becomes the SVN `assets/` directory,
+and trunk is copied to `tags/<version>`. It refuses to overwrite an existing tag. Needs
+`brew install subversion`.
 
 Any change to `assets/src/` requires rebuilding **both** bundles (`pnpm run build`):
 - `assets/main-dist` — wp-admin React SPA
