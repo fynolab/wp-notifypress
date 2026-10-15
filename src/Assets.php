@@ -57,7 +57,7 @@ class Assets {
 			return;
 		}
 
-		$service_worker = ASSETS_DIR . self::SERVICE_WORKER_JS;
+		$service_worker = NOTIFYPRESS_ASSETS_DIR . self::SERVICE_WORKER_JS;
 
 		if ( ! is_readable( $service_worker ) ) {
 			return;
@@ -132,8 +132,8 @@ class Assets {
 		}
 
 		$script_paths = array(
-			'main'   => ASSETS_DIR . 'main-dist/main.asset.php',
-			'editor' => ASSETS_DIR . 'editor-dist/editor.asset.php',
+			'main'   => NOTIFYPRESS_ASSETS_DIR . 'main-dist/main.asset.php',
+			'editor' => NOTIFYPRESS_ASSETS_DIR . 'editor-dist/editor.asset.php',
 		);
 
 		foreach ( $script_paths as $script_name => $script_path ) {
@@ -144,15 +144,15 @@ class Assets {
 			$script         = require $script_path;
 			$dependency     = array_merge( $script['dependencies'], array( 'jquery' ) );
 			$script_version = $script['version'];
-			$style_path     = ASSETS_DIR . "{$script_name}-dist/style-{$script_name}.css";
+			$style_path     = NOTIFYPRESS_ASSETS_DIR . "{$script_name}-dist/style-{$script_name}.css";
 			// wp-scripts derives $script['version'] from the JS bundle only, so a
 			// CSS-only rebuild keeps the same query string and browsers keep
 			// serving stale CSS from cache. Version the stylesheet by its own
 			// mtime instead.
 			$style_version = is_readable( $style_path ) ? (string) filemtime( $style_path ) : $script_version;
 
-			wp_register_script( self::SCRIPT_HANDLE . "-{$script_name}", ASSETS_URL . "{$script_name}-dist/{$script_name}.js", $dependency, $script_version, true );
-			wp_register_style( self::STYLE_HANDLE . "-{$script_name}", ASSETS_URL . "{$script_name}-dist/style-{$script_name}.css", array(), $style_version );
+			wp_register_script( self::SCRIPT_HANDLE . "-{$script_name}", NOTIFYPRESS_ASSETS_URL . "{$script_name}-dist/{$script_name}.js", $dependency, $script_version, true );
+			wp_register_style( self::STYLE_HANDLE . "-{$script_name}", NOTIFYPRESS_ASSETS_URL . "{$script_name}-dist/style-{$script_name}.css", array(), $style_version );
 
 			// No app URL here — it is a fixed constant the JS bundle already
 			// knows (assets/src/lib/app.ts).

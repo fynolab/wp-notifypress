@@ -23,8 +23,8 @@ admin surfaces, per the app repo's CLAUDE.md.
 
 ## Bootstrap
 
-`notifypress.php` checks the PHP version, defines path/URL constants (`SERVICE_DIR`,
-`ASSETS_DIR`, `ASSETS_URL`, `NOTIFYPRESS_PLUGIN_FILE`), then requires the Composer autoloader and
+`notifypress.php` checks the PHP version, defines path/URL constants (`NOTIFYPRESS_ASSETS_DIR`,
+`NOTIFYPRESS_ASSETS_URL`, `NOTIFYPRESS_PLUGIN_FILE`), then requires the Composer autoloader and
 calls `App::run()`.
 
 `App` (`src/App.php`):
