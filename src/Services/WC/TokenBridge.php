@@ -108,9 +108,9 @@ class TokenBridge implements ObserverInterface {
 
 		wp_enqueue_script(
 			self::SCRIPT_HANDLE,
-			ASSETS_URL . 'token-bridge.js',
+			NOTIFYPRESS_ASSETS_URL . 'token-bridge.js',
 			array(),
-			(string) filemtime( ASSETS_DIR . 'token-bridge.js' ),
+			(string) filemtime( NOTIFYPRESS_ASSETS_DIR . 'token-bridge.js' ),
 			true
 		);
 
