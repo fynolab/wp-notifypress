@@ -260,9 +260,7 @@ export default function SettingsPage() {
         // "Powered by" lives on the Laravel site record too — the WP option
         // only holds a copy, refreshed when settings are saved here. Changing
         // it in the app (or from another site) left this page showing the
-        // stale copy, so take the live record as the truth. The app also
-        // coerces the flag off for free plans, so the live record is the only
-        // thing that knows a lapsed subscription turned it back on.
+        // stale copy, so take the live record as the truth.
         setForm( ( current ) =>
             current
                 ? {
@@ -778,22 +776,20 @@ export default function SettingsPage() {
                             </div>
                             <div className="flex items-center gap-3 md:col-span-2">
                                 <Switch
-                                    id="np-remove-powered-by"
-                                    checked={ Boolean(
-                                        displayForm.removePoweredBy
-                                    ) }
-                                    onCheckedChange={ ( removePoweredBy ) =>
+                                    id="np-show-powered-by"
+                                    checked={ ! displayForm.removePoweredBy }
+                                    onCheckedChange={ ( showPoweredBy ) =>
                                         setForm( {
                                             ...displayForm,
-                                            removePoweredBy,
+                                            removePoweredBy: ! showPoweredBy,
                                         } )
                                     }
                                 />
                                 <Label
-                                    htmlFor="np-remove-powered-by"
+                                    htmlFor="np-show-powered-by"
                                     className="cursor-pointer"
                                 >
-                                    Remove powered by link
+                                    Show powered by link
                                 </Label>
                             </div>
                             <div className="flex items-start gap-3 md:col-span-2">
