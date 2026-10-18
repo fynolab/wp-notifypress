@@ -528,15 +528,14 @@ export default function SetupPage() {
                                     <div className="md:col-span-2">
                                         <OptionRow
                                             icon={ ShieldCheck }
-                                            label="Remove powered by link"
-                                            description="Hide the NotifyPress attribution from the public prompt when your account allows white labeling."
-                                            checked={ Boolean(
-                                                form.removePoweredBy
-                                            ) }
-                                            onChange={ ( removePoweredBy ) =>
+                                            label="Show powered by link"
+                                            description="Add a small NotifyPress credit link to the public prompt. Off by default."
+                                            checked={ ! form.removePoweredBy }
+                                            onChange={ ( showPoweredBy ) =>
                                                 setForm( {
                                                     ...form,
-                                                    removePoweredBy,
+                                                    removePoweredBy:
+                                                        ! showPoweredBy,
                                                 } )
                                             }
                                         />

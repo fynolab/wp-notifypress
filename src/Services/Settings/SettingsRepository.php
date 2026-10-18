@@ -189,7 +189,8 @@ class SettingsRepository {
 			'connectedSite'                      => array(),
 			'siteName'                           => get_bloginfo( 'name' ),
 			'siteUrl'                            => home_url(),
-			'removePoweredBy'                    => false,
+			// Opt-in credit link: hidden until the user turns it on (WordPress.org guideline 10).
+			'removePoweredBy'                    => true,
 			'welcomeNotificationEnabled'         => true,
 			'welcomeNotificationTitle'           => __( 'Welcome!', 'notifypress' ),
 			'welcomeNotificationMessage'         => __( 'Thanks for subscribing — we will keep you posted with our latest updates.', 'notifypress' ),
@@ -219,7 +220,7 @@ class SettingsRepository {
 				'id'                => isset( $params['connectedSite']['id'] ) ? (int) $params['connectedSite']['id'] : 0,
 				'site_name'         => sanitize_text_field( $params['connectedSite']['site_name'] ?? '' ),
 				'site_url'          => esc_url_raw( $params['connectedSite']['site_url'] ?? '' ),
-				'remove_powered_by' => rest_sanitize_boolean( $params['connectedSite']['remove_powered_by'] ?? false ),
+				'remove_powered_by' => rest_sanitize_boolean( $params['connectedSite']['remove_powered_by'] ?? true ),
 			);
 		}
 
@@ -253,7 +254,7 @@ class SettingsRepository {
 			'connectedSite'                      => $connected_site,
 			'siteName'                           => sanitize_text_field( $params['siteName'] ?? get_bloginfo( 'name' ) ),
 			'siteUrl'                            => esc_url_raw( $params['siteUrl'] ?? home_url() ),
-			'removePoweredBy'                    => rest_sanitize_boolean( $params['removePoweredBy'] ?? false ),
+			'removePoweredBy'                    => rest_sanitize_boolean( $params['removePoweredBy'] ?? true ),
 			'welcomeNotificationEnabled'         => rest_sanitize_boolean( $params['welcomeNotificationEnabled'] ?? true ),
 			'welcomeNotificationTitle'           => sanitize_text_field( $params['welcomeNotificationTitle'] ?? __( 'Welcome!', 'notifypress' ) ),
 			'welcomeNotificationMessage'         => sanitize_text_field( $params['welcomeNotificationMessage'] ?? '' ),

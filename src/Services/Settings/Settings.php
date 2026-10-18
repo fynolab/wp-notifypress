@@ -77,9 +77,7 @@ class Settings implements Service {
 		// The "powered by" link lives on the app's site record; the option only
 		// holds a copy. Overlay the app's value (cached — see CurrentSite) so
 		// the screen paints the truth on first render instead of showing the
-		// stale copy and correcting itself a moment later. This matters more
-		// now that the app coerces the flag off for free plans: without the
-		// overlay a lapsed site would keep showing the switch as on.
+		// stale copy and correcting itself a moment later.
 		$site = CurrentSite::cached();
 
 		if ( ! empty( $site ) ) {
