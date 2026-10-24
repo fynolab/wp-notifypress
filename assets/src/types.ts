@@ -220,6 +220,7 @@ export interface Notification {
 }
 
 export interface DashboardCountry {
+    code?: string | null;
     name?: string;
     country?: string;
     flag?: string;
@@ -227,7 +228,6 @@ export interface DashboardCountry {
     total?: number;
     count?: number;
     percentage?: number | string;
-    growth?: string;
     growth_rate?: number | string;
 }
 
@@ -245,6 +245,12 @@ export interface DashboardData {
     totalCountries?: number;
     totalScheduledNotifications?: number;
     topCountries?: DashboardCountry[];
+    mapCountries?: {
+        code: string;
+        name: string;
+        subscribers: number;
+    }[];
+    subscribersWithoutCountry?: number;
     recentCampaigns?: DashboardCampaign[];
     recentNotifications?: DashboardCampaign[];
 }

@@ -737,8 +737,18 @@ function SegmentForm( {
     segmentId?: string;
 } ) {
     const navigate = useNavigate();
+    const routerLocation = useLocation();
     const queryClient = useQueryClient();
     const isEdit = Boolean( segmentId );
+    // "Create segment for {country}" on the dashboard map passes every stored
+    // spelling of the country, so subscribers saved under either name match.
+    const prefillLocations = isEdit
+        ? []
+        : (
+              routerLocation.state as {
+                  prefillLocations?: string[];
+              } | null
+           )?.prefillLocations || [];
     const [ step, setStep ] = useState< 'details' | 'rules' >( 'details' );
     const [ notice, setNotice ] = useState( '' );
     const [ createdSegmentId, setCreatedSegmentId ] = useState< string | null >(
@@ -748,7 +758,18 @@ function SegmentForm( {
         name: '',
         description: '',
         is_active: true,
-        rule: defaultRule,
+        rule:
+            prefillLocations.length > 0
+                ? {
+                      ...defaultRule,
+                      location: {
+                          condition: 'is_one_of',
+                          values: prefillLocations.map( ( name ) =>
+                              name.toLowerCase()
+                          ),
+                      },
+                  }
+                : defaultRule,
     } );
 
     const metaQuery = useQuery( {
@@ -851,7 +872,16 @@ function SegmentForm( {
         onError: ( error ) => setNotice( error.message ),
     } );
 
-    const countries = metaQuery.data?.countries || [];
+    const metaCountries = metaQuery.data?.countries || [];
+    const countries = [
+        ...metaCountries,
+        ...prefillLocations.filter(
+            ( name ) =>
+                ! metaCountries.some(
+                    ( country ) => country.toLowerCase() === name.toLowerCase()
+                )
+        ),
+    ];
     const canContinue = Boolean( form.name.trim() );
     const canOpenRules = Boolean( createdSegmentId );
 
