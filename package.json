@@ -76,6 +76,7 @@
         "autoprefixer": "^10.5.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
+        "d3-geo": "^3.1.1",
         "date-fns": "^3.6.0",
         "jquery": "^3.7.1",
         "lucide-react": "^0.477.0",
@@ -87,14 +88,19 @@
         "recharts": "^2.15.4",
         "sonner": "^1.5.0",
         "tailwind-merge": "^3.6.0",
-        "tailwindcss": "^3.4.19"
+        "tailwindcss": "^3.4.19",
+        "topojson-client": "^3.1.0",
+        "world-atlas": "^2.0.2"
     },
     "devDependencies": {
         "@svgr/webpack": "^8.1.0",
+        "@types/d3-geo": "^3.1.1",
+        "@types/geojson": "^7946.0.16",
         "@types/jquery": "^3.5.34",
         "@types/node": "^20.19.43",
         "@types/react": "^18.3.29",
         "@types/react-dom": "^18.3.7",
+        "@types/topojson-client": "^3.1.5",
         "@wordpress/scripts": "^30.27.0",
         "typescript": "^5.9.3",
         "url-loader": "^4.1.1"

@@ -120,6 +120,7 @@ function track( notificationId, endpoint, body ) {
             ...body,
             browser: getBrowserName(),
             device: getDeviceType(),
+            timezone: getTimezone(),
         } ),
     } )
         .then( () => {} )
@@ -195,6 +196,21 @@ function getBrowserName() {
     }
 
     return self.navigator.appName || 'Unknown';
+}
+
+/**
+ * Read the browser's timezone, e.g. "Asia/Dhaka". The app maps it to a country
+ * for per-country engagement, the same way the widget sets a subscriber's
+ * country, so no location lookup is needed.
+ *
+ * @return {string} The IANA timezone, or an empty string when unavailable.
+ */
+function getTimezone() {
+    try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    } catch ( error ) {
+        return '';
+    }
 }
 
 /**
