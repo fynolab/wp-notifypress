@@ -1,7 +1,9 @@
 declare module '@wordpress/element' {
     export {
         createRoot,
+        lazy,
         render,
+        Suspense,
         useCallback,
         useEffect,
         useLayoutEffect,
