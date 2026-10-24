@@ -642,7 +642,7 @@ export default function SubscribersPage() {
                                                 { /* Active status */ }
                                                 <TableCell>
                                                     { subscriber.active ? (
-                                                        <Badge className="gap-1 bg-emerald-600/10 text-emerald-600 dark:bg-green-900/30 dark:text-green-300 border-0">
+                                                        <Badge className="gap-1 bg-emerald-600/10 text-emerald-700 dark:bg-green-900/30 dark:text-green-300 border-0">
                                                             <Wifi className="h-3 w-3" />
                                                             Active
                                                         </Badge>
