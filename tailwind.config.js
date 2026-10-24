@@ -8,6 +8,12 @@ module.exports = {
     corePlugins: {
         preflight: false,
     },
+    // The admin UI is light only (style.scss defines light theme colours
+    // alone). Tailwind's default `media` strategy turned every `dark:` class
+    // on whenever the computer was in dark mode, painting dark colours onto
+    // the light WordPress admin. Scoping them to a class nothing sets keeps
+    // them off, and leaves a switch should a dark theme ever be added.
+    darkMode: [ 'class', '.np-dark' ],
     theme: {
         container: {
             center: true,
