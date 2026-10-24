@@ -8,6 +8,7 @@ import {
     TrendingUp,
 } from 'lucide-react';
 import { cn } from '../utils';
+import { prefetchRoute } from '../../lib/prefetch-nav';
 import { formatCount, formatDateTime, formatSigned } from './format';
 import type {
     DashboardCampaignsSent,
@@ -365,6 +366,8 @@ export function UpcomingCard( { upcoming }: { upcoming: DashboardUpcoming } ) {
             <CardFooter>
                 <Link
                     to="/notifications"
+                    onMouseEnter={ () => prefetchRoute( '/notifications' ) }
+                    onFocus={ () => prefetchRoute( '/notifications' ) }
                     className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline"
                 >
                     View campaigns

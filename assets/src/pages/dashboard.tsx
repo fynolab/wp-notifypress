@@ -15,6 +15,7 @@ import { Card } from '../components/ui/card';
 import { getApiToken, getSettings, hasApiToken } from '../lib/settings';
 import { isUnauthorizedError, laravelRequest } from '../lib/api';
 import useLiveActivity from '../lib/use-live-activity';
+import { prefetchRoute } from '../lib/prefetch-nav';
 import LiveActivityPanel from '../components/live-activity-panel';
 import { cn } from '../components/utils';
 import { WorldChoropleth } from '../components/world-map/world-choropleth';
@@ -170,6 +171,8 @@ function DashboardHeader( {
                 <div className="flex flex-wrap gap-2">
                     <Link
                         to="/notifications"
+                        onMouseEnter={ () => prefetchRoute( '/notifications' ) }
+                        onFocus={ () => prefetchRoute( '/notifications' ) }
                         className="inline-flex h-11 items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-semibold text-foreground hover:bg-muted"
                     >
                         <ListChecks className="h-4 w-4" aria-hidden />
@@ -177,6 +180,10 @@ function DashboardHeader( {
                     </Link>
                     <Link
                         to="/notifications/new"
+                        onMouseEnter={ () =>
+                            prefetchRoute( '/notifications/new' )
+                        }
+                        onFocus={ () => prefetchRoute( '/notifications/new' ) }
                         className="inline-flex h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
                     >
                         <Plus className="h-4 w-4" aria-hidden />
@@ -569,6 +576,8 @@ function RecentCampaigns( {
                 </div>
                 <Link
                     to="/notifications"
+                    onMouseEnter={ () => prefetchRoute( '/notifications' ) }
+                    onFocus={ () => prefetchRoute( '/notifications' ) }
                     className="inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-primary hover:underline"
                 >
                     View all
