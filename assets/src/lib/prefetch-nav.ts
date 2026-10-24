@@ -37,6 +37,21 @@ function prefetchEntries( settings: NotifyPressSettings ) {
                 queryFn: () =>
                     laravelRequest( settings, '/notifications', { query: {} } ),
             } ),
+        // The new-campaign form's first-load queries (NotificationForm), keyed
+        // on settings.apiToken exactly as that form keys them.
+        '/notifications/new': () => {
+            queryClient.prefetchQuery( {
+                queryKey: [ 'np-segments-all', settings.apiToken ],
+                queryFn: () => laravelRequest( settings, '/segments' ),
+            } );
+            queryClient.prefetchQuery( {
+                queryKey: [ 'np-notifications-latest', settings.apiToken ],
+                queryFn: () =>
+                    laravelRequest( settings, '/notifications', {
+                        query: { limit: 1, order: 'desc' },
+                    } ),
+            } );
+        },
         '/automations': () =>
             queryClient.prefetchQuery( {
                 queryKey: [ 'np-automations', token ],
@@ -53,6 +68,22 @@ function prefetchEntries( settings: NotifyPressSettings ) {
                 queryFn: () => laravelRequest( settings, '/reports/meta' ),
             } ),
     } as Record< string, () => void >;
+}
+
+/**
+ * Warms the react-query cache for one admin page, the same way the sidebar
+ * links do. For in-app links: call it from onMouseEnter and onFocus.
+ *
+ * @param route The page's hash route, such as "/notifications".
+ */
+export function prefetchRoute( route: string ): void {
+    const settings = getBootstrapSettings();
+
+    if ( ! hasApiToken( settings ) ) {
+        return;
+    }
+
+    prefetchEntries( settings )[ route ]?.();
 }
 
 let attached = false;
@@ -84,13 +115,7 @@ export function attachHoverPrefetch(): void {
         const route = link.hash.replace( /^#/, '' );
 
         const prefetch = () => {
-            const settings = getBootstrapSettings();
-
-            if ( ! hasApiToken( settings ) ) {
-                return;
-            }
-
-            prefetchEntries( settings )[ route ]?.();
+            prefetchRoute( route );
         };
 
         link.addEventListener( 'mouseenter', prefetch, { passive: true } );
