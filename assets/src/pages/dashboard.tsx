@@ -1,33 +1,41 @@
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
+import { useCallback, useMemo, useRef, useState } from '@wordpress/element';
 import {
-    Activity,
     ArrowRight,
-    Bell,
-    CheckCircle2,
-    Clock,
-    Globe,
+    CalendarClock,
+    ListChecks,
     MapPin,
+    Megaphone,
+    Plus,
     Repeat,
-    TrendingDown,
-    TrendingUp,
-    Users,
-    XCircle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { getApiToken, getSettings, hasApiToken } from '../lib/settings';
 import { isUnauthorizedError, laravelRequest } from '../lib/api';
 import useLiveActivity from '../lib/use-live-activity';
 import LiveActivityPanel from '../components/live-activity-panel';
-import { formatNumber } from '../lib/format';
 import { cn } from '../components/utils';
 import { WorldChoropleth } from '../components/world-map/world-choropleth';
 import { CountryDetails } from '../components/world-map/country-details';
 import { flagFromCode } from '../components/world-map/country-codes';
 import type { MapCountry } from '../components/world-map/types';
+import {
+    formatDateTime,
+    formatRelativeDate,
+    toNumber,
+} from '../components/dashboard/format';
+import {
+    CampaignsSentCard,
+    ClickRateCard,
+    SubscribersCard,
+    UpcomingCard,
+} from '../components/dashboard/kpi-cards';
+import { PlanLimitBanner } from '../components/dashboard/plan-limit-banner';
+import { GettingStarted } from '../components/dashboard/getting-started';
+import { SubscriberGrowth } from '../components/dashboard/subscriber-growth';
+import { DevicesBrowsers } from '../components/dashboard/devices-browsers';
 import type {
     DashboardCampaign,
     DashboardCountry,
@@ -36,68 +44,23 @@ import type {
     NotifyPressSettings,
 } from '../types';
 
-const statusConfig: Record<
-    string,
-    {
-        icon: typeof CheckCircle2;
-        color: string;
-        bg: string;
-        label: string;
-    }
-> = {
-    sent: {
-        icon: CheckCircle2,
-        color: 'text-emerald-600',
-        bg: 'bg-emerald-600/10',
-        label: 'Completed',
-    },
-    sending: {
-        icon: Clock,
-        color: 'text-blue-500',
-        bg: 'bg-blue-500/10',
-        label: 'Sending',
-    },
-    scheduled: {
-        icon: Clock,
-        color: 'text-amber-500',
-        bg: 'bg-amber-500/10',
-        label: 'Scheduled',
-    },
-    recurring: {
-        icon: Repeat,
-        color: 'text-violet-500',
-        bg: 'bg-violet-500/10',
-        label: 'Recurring',
-    },
-    failed: {
-        icon: XCircle,
-        color: 'text-red-500',
-        bg: 'bg-red-500/10',
-        label: 'Failed',
-    },
-    pending: {
-        icon: Clock,
-        color: 'text-gray-500',
-        bg: 'bg-gray-500/10',
-        label: 'Pending',
-    },
-};
-
-const countryGradients = [
-    'from-blue-500 to-blue-600',
-    'from-purple-500 to-purple-600',
-    'from-cyan-500 to-cyan-600',
-    'from-emerald-500 to-emerald-600',
-    'from-amber-500 to-amber-600',
+// Share bar colour per rank, matching the map's splash rings for the top countries.
+const RANK_COLORS = [
+    'bg-blue-500',
+    'bg-purple-500',
+    'bg-cyan-500',
+    'bg-emerald-500',
+    'bg-amber-500',
 ];
 
-const emptyDashboardData: DashboardData = {
-    totalNotifications: 0,
-    totalSubscribers: 0,
-    totalCountries: 0,
-    totalScheduledNotifications: 0,
-    topCountries: [],
-    recentCampaigns: [],
+const CAMPAIGN_DOTS: Record< string, string > = {
+    sent: 'bg-emerald-600 dark:bg-emerald-400',
+    sending: 'bg-primary animate-pulse',
+    scheduled: 'bg-primary',
+    recurring: 'bg-violet-500',
+    failed: 'bg-red-600 dark:bg-red-400',
+    cancelled: 'bg-muted-foreground/50',
+    pending: 'bg-muted-foreground/50',
 };
 
 function useDashboardData() {
@@ -139,188 +102,103 @@ function StateView( {
     );
 }
 
-function formatRelativeDate( date?: string ) {
-    const target = new Date( date || '' ).getTime();
-
-    if ( ! date || Number.isNaN( target ) ) {
-        return '';
+function greetingFor( hour: number ): string {
+    if ( hour < 12 ) {
+        return 'Good morning';
     }
 
-    const diffMs = target - Date.now();
-    const diffMinutes = Math.round( diffMs / 60000 );
-    const formatter = new Intl.RelativeTimeFormat( 'en', { numeric: 'auto' } );
-
-    if ( Math.abs( diffMinutes ) < 60 ) {
-        return formatter.format( diffMinutes, 'minute' );
+    if ( hour < 18 ) {
+        return 'Good afternoon';
     }
 
-    const diffHours = Math.round( diffMinutes / 60 );
+    return 'Good evening';
+}
 
-    if ( Math.abs( diffHours ) < 24 ) {
-        return formatter.format( diffHours, 'hour' );
+function siteNameFor( settings?: NotifyPressSettings ): string | null {
+    if ( settings?.siteName ) {
+        return settings.siteName;
     }
 
-    const diffDays = Math.round( diffHours / 24 );
-
-    return formatter.format( diffDays, 'day' );
-}
-
-function compact( value?: string | number | null ) {
-    return formatNumber( value );
-}
-
-function toNumber( value?: string | number | null ) {
-    const number = Number( String( value ?? 0 ).replace( /,/g, '' ) );
-
-    return Number.isFinite( number ) ? number : 0;
-}
-
-function useAnimatedNumber( target: number, duration = 700 ) {
-    const previous = useRef( target );
-    const [ display, setDisplay ] = useState( target );
-
-    useEffect( () => {
-        const from = previous.current;
-        const delta = target - from;
-        let frame = 0;
-
-        previous.current = target;
-
-        if ( delta === 0 ) {
-            setDisplay( target );
-            return undefined;
-        }
-
-        const start = performance.now();
-
-        const tick = ( now: number ) => {
-            const progress = Math.min( ( now - start ) / duration, 1 );
-            const eased = 1 - Math.pow( 1 - progress, 3 );
-
-            setDisplay( from + delta * eased );
-
-            if ( progress < 1 ) {
-                frame = requestAnimationFrame( tick );
-            }
-        };
-
-        frame = requestAnimationFrame( tick );
-
-        return () => cancelAnimationFrame( frame );
-    }, [ duration, target ] );
-
-    return display;
-}
-
-function AnimatedCompact( {
-    value,
-    decimals = 0,
-    suffix = '',
-}: {
-    value?: string | number | null;
-    decimals?: number;
-    suffix?: string;
-} ) {
-    const animated = useAnimatedNumber( toNumber( value ) );
-
-    if ( suffix ) {
-        return (
-            <>
-                { animated.toFixed( decimals ) }
-                { suffix }
-            </>
-        );
-    }
-
-    return <>{ compact( Math.round( animated ) ) }</>;
-}
-
-function StatCards( {
-    data,
-    dataReady,
-    loading,
-}: {
-    data?: DashboardData;
-    dataReady: boolean;
-    loading: boolean;
-} ) {
-    const stats = [
-        {
-            title: 'Notifications Sent',
-            value: data?.totalNotifications,
-            change: dataReady ? '+8.2%' : '0%',
-            icon: Bell,
-            color: 'text-purple-500',
-        },
-        {
-            title: 'Total Subscribers',
-            value: data?.totalSubscribers,
-            change: dataReady ? '+12.5%' : '0%',
-            icon: Users,
-            color: 'text-blue-500',
-        },
-        {
-            title: 'Click Rate',
-            value: dataReady ? 18.4 : 0,
-            change: dataReady ? '+2.1%' : '0%',
-            icon: TrendingUp,
-            color: 'text-emerald-600',
-            decimals: 1,
-            suffix: '%',
-        },
-        {
-            title: 'Total Scheduled Notifications',
-            value: data?.totalScheduledNotifications,
-            change: dataReady ? '+5' : '0',
-            icon: Activity,
-            color: 'text-cyan-500',
-        },
-    ];
+    const url = settings?.siteUrl || window.notifypress?.siteUrl || '';
 
     return (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-            { stats.map( ( stat ) => {
-                const Icon = stat.icon;
+        url
+            .replace( /(^\w+:|^)\/\//, '' )
+            .replace( /^www\./, '' )
+            .split( '/' )[ 0 ] || null
+    );
+}
 
-                return (
-                    <Card
-                        key={ stat.title }
-                        className={ `bg-card border-border transition-opacity duration-500 ${
-                            loading ? 'animate-pulse opacity-70' : 'opacity-100'
-                        }` }
+function DashboardHeader( {
+    siteName,
+    isNew,
+}: {
+    siteName: string | null;
+    isNew: boolean;
+} ) {
+    // The viewer's own clock: "morning" is local.
+    const { greeting, today } = useMemo( () => {
+        const now = new Date();
+
+        return {
+            greeting: greetingFor( now.getHours() ),
+            today: new Intl.DateTimeFormat( undefined, {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+            } ).format( now ),
+        };
+    }, [] );
+
+    return (
+        <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="min-w-0">
+                <p className="mb-1 text-sm text-muted-foreground">
+                    { today }
+                    { siteName ? ` · ${ siteName }` : '' }
+                </p>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                    { isNew ? 'Welcome to NotifyPress' : greeting }
+                </h1>
+                <p className="mt-1.5 text-muted-foreground">
+                    { isNew
+                        ? 'Let us get your first subscribers in.'
+                        : 'Here is how your push notifications did over the last 30 days.' }
+                </p>
+            </div>
+            { isNew ? null : (
+                <div className="flex flex-wrap gap-2">
+                    <Link
+                        to="/notifications"
+                        className="inline-flex h-11 items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-semibold text-foreground hover:bg-muted"
                     >
-                        <div className="p-6">
-                            <div className="flex items-start justify-between">
-                                <div className="space-y-2">
-                                    <p className="text-sm text-muted-foreground">
-                                        { stat.title }
-                                    </p>
-                                    <p className="text-3xl font-bold text-foreground">
-                                        <AnimatedCompact
-                                            value={ stat.value }
-                                            decimals={ stat.decimals }
-                                            suffix={ stat.suffix }
-                                        />
-                                    </p>
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-sm font-medium text-emerald-600">
-                                            { stat.change }
-                                        </span>
-                                        <span className="text-xs text-muted-foreground">
-                                            vs last month
-                                        </span>
-                                    </div>
-                                </div>
-                                <div
-                                    className={ `p-3 rounded-lg bg-secondary ${ stat.color }` }
-                                >
-                                    <Icon className="w-6 h-6" />
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
-                );
-            } ) }
+                        <ListChecks className="h-4 w-4" aria-hidden />
+                        All campaigns
+                    </Link>
+                    <Link
+                        to="/notifications/new"
+                        className="inline-flex h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                    >
+                        <Plus className="h-4 w-4" aria-hidden />
+                        New campaign
+                    </Link>
+                </div>
+            ) }
+        </div>
+    );
+}
+
+// Placeholder cards while the dashboard loads, so a real account never
+// flashes zeros or the getting-started checklist.
+function LoadingCards() {
+    return (
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            { [ 0, 1, 2, 3 ].map( ( index ) => (
+                <div
+                    key={ index }
+                    className="h-[212px] animate-pulse rounded-xl border border-border bg-card"
+                />
+            ) ) }
         </div>
     );
 }
@@ -365,10 +243,23 @@ function TopCountriesMap( {
     );
     const withoutCountry = Number( subscribersWithoutCountry || 0 );
     const audience = totalWithCountry + withoutCountry;
-    const isEmpty = dataReady && audience === 0;
+    const isEmpty = dataReady && 0 === audience;
     const unknownShare =
         audience > 0 ? Math.round( ( withoutCountry / audience ) * 100 ) : 0;
-    const countryCount = Number( totalCountries || 0 );
+    const countryCount = toNumber( totalCountries );
+    const located = toNumber( totalSubscribers ) - withoutCountry;
+    const topShare = Math.max( Number( rows[ 0 ]?.percentage || 0 ), 1 );
+    let subtitle = 'Where your subscribers are';
+
+    if ( dataReady ) {
+        subtitle = isEmpty
+            ? 'No subscribers yet'
+            : `${ located.toLocaleString() } located ${
+                  1 === located ? 'subscriber' : 'subscribers'
+              } in ${ countryCount } ${
+                  1 === countryCount ? 'country' : 'countries'
+              }`;
+    }
 
     const selectCountry = useCallback( ( code: string | null ) => {
         if ( null !== code && panelRef.current ) {
@@ -396,25 +287,13 @@ function TopCountriesMap( {
                 className
             ) }
         >
-            <div className="mb-6 flex items-start justify-between gap-3">
-                <div>
-                    <h3 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                        <Globe className="w-5 h-5 text-primary" />
-                        Top Countries
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        { dataReady && ! isEmpty
-                            ? `Subscribers in ${ countryCount } ${
-                                  countryCount === 1 ? 'country' : 'countries'
-                              }`
-                            : 'Geographic distribution of subscribers' }
-                    </p>
-                </div>
-                <div className="shrink-0 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5">
-                    <span className="text-sm font-semibold tabular-nums text-primary">
-                        <AnimatedCompact value={ totalSubscribers } /> Total
-                    </span>
-                </div>
+            <div className="mb-4">
+                <h2 className="text-lg font-semibold text-foreground">
+                    Audience
+                </h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                    { subtitle }
+                </p>
             </div>
 
             <div className="relative mb-2 aspect-[960/440] w-full overflow-hidden rounded-xl border border-border/50 bg-gradient-to-b from-muted/50 to-card p-2 dark:from-background/70 dark:to-card">
@@ -476,10 +355,11 @@ function TopCountriesMap( {
                         onSettled={ releasePanelHeight }
                     />
                 ) : (
-                    <div
-                        className={ `grid grid-cols-1 gap-3 transition-opacity duration-500 ${
+                    <ul
+                        className={ cn(
+                            'flex flex-col gap-0.5 transition-opacity duration-500',
                             dataReady ? 'opacity-100' : 'opacity-80'
-                        }` }
+                        ) }
                     >
                         { rows.length ? (
                             rows.map( ( country, index ) => {
@@ -491,117 +371,165 @@ function TopCountriesMap( {
                                 );
                                 const growthUp = growth >= 0;
                                 const code = country.code || null;
-                                const gradient =
-                                    countryGradients[
-                                        index % countryGradients.length
-                                    ];
+                                const name =
+                                    country.name ||
+                                    country.country ||
+                                    'Unknown';
+                                const subscribers = toNumber(
+                                    country.subscribers
+                                );
+                                const growthLabel = `${
+                                    growthUp ? '+' : '−'
+                                }${ Math.abs( growth ) }%`;
+                                const growthColor = growthUp
+                                    ? 'text-emerald-700 dark:text-emerald-400'
+                                    : 'text-orange-700 dark:text-orange-400';
 
                                 return (
-                                    <button
-                                        key={ code || country.name || index }
-                                        type="button"
-                                        disabled={ ! code }
-                                        onClick={ () => {
-                                            if ( code ) {
-                                                selectCountry( code );
-                                            }
-                                        } }
-                                        onMouseEnter={ () => {
-                                            setHoveredCode( code );
-                                        } }
-                                        onMouseLeave={ () => {
-                                            setHoveredCode( null );
-                                        } }
-                                        onFocus={ () => {
-                                            setHoveredCode( code );
-                                        } }
-                                        onBlur={ () => {
-                                            setHoveredCode( null );
-                                        } }
-                                        className={ cn(
-                                            'group relative overflow-hidden rounded-lg border border-border bg-card text-left transition-all duration-300 hover:bg-accent/5 hover:shadow-lg enabled:cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                            code && code === hoveredCode
-                                                ? 'bg-accent/5 shadow-lg ring-1 ring-primary/40'
-                                                : null
-                                        ) }
-                                    >
-                                        <div
-                                            className={ `absolute inset-0 bg-gradient-to-r ${ gradient } opacity-0 transition-opacity duration-300 group-hover:opacity-5` }
-                                        />
-
-                                        <div className="relative flex items-center justify-between gap-3 p-3 sm:p-4">
-                                            <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
-                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-xl sm:h-12 sm:w-12 sm:text-2xl">
-                                                    { country.flag ||
-                                                        flagFromCode( code ) }
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                        <h4 className="max-w-full truncate font-semibold text-foreground">
-                                                            { country.name ||
-                                                                country.country ||
-                                                                'Unknown' }
-                                                        </h4>
-                                                        <span
-                                                            className={ cn(
-                                                                'flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                                                                growthUp
-                                                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                                                    : 'bg-red-500/10 text-red-600 dark:text-red-400'
-                                                            ) }
-                                                            title="New subscribers last month vs the month before"
-                                                        >
-                                                            { growthUp ? (
-                                                                <TrendingUp className="h-3 w-3" />
-                                                            ) : (
-                                                                <TrendingDown className="h-3 w-3" />
-                                                            ) }
-                                                            { growthUp
-                                                                ? '+'
-                                                                : '' }
-                                                            { growth }%
-                                                        </span>
-                                                    </div>
-                                                    <span className="text-sm text-muted-foreground">
-                                                        { formatNumber(
-                                                            country.subscribers
-                                                        ) }{ ' ' }
-                                                        subscribers
+                                    <li key={ code || name || index }>
+                                        <button
+                                            type="button"
+                                            disabled={ ! code }
+                                            aria-label={ `${ name }, ${ subscribers.toLocaleString() } subscribers, ${ percentage } percent. Show details.` }
+                                            onClick={ () => {
+                                                if ( code ) {
+                                                    selectCountry( code );
+                                                }
+                                            } }
+                                            onMouseEnter={ () => {
+                                                setHoveredCode( code );
+                                            } }
+                                            onMouseLeave={ () => {
+                                                setHoveredCode( null );
+                                            } }
+                                            onFocus={ () => {
+                                                setHoveredCode( code );
+                                            } }
+                                            onBlur={ () => {
+                                                setHoveredCode( null );
+                                            } }
+                                            className={ cn(
+                                                'flex min-h-[52px] w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted/70 enabled:cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                                code && code === hoveredCode
+                                                    ? 'bg-muted/70'
+                                                    : null
+                                            ) }
+                                        >
+                                            <span
+                                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-lg"
+                                                aria-hidden
+                                            >
+                                                { country.flag ||
+                                                    flagFromCode( code ) }
+                                            </span>
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block truncate font-semibold text-foreground">
+                                                    { name }
+                                                </span>
+                                                <span className="block text-xs text-muted-foreground">
+                                                    { subscribers.toLocaleString() }{ ' ' }
+                                                    subscribers
+                                                    { /* On phones the growth column moves here to give the name room. */ }
+                                                    <span
+                                                        className={ cn(
+                                                            'font-semibold sm:hidden',
+                                                            growthColor
+                                                        ) }
+                                                    >
+                                                        { ` · ${ growthLabel }` }
                                                     </span>
-                                                </div>
-                                            </div>
-
-                                            <div className="shrink-0 text-right">
-                                                <div className="text-xl font-bold text-foreground sm:text-2xl">
-                                                    { percentage }%
-                                                </div>
-                                                <div className="text-xs text-muted-foreground">
-                                                    of total
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="h-1 bg-secondary">
-                                            <div
-                                                className={ `h-full bg-gradient-to-r ${ gradient } transition-all duration-500` }
-                                                style={ {
-                                                    width: `${ percentage }%`,
-                                                } }
-                                            />
-                                        </div>
-                                    </button>
+                                                </span>
+                                            </span>
+                                            <span
+                                                className="hidden h-1.5 w-28 shrink overflow-hidden rounded-full bg-secondary sm:block"
+                                                aria-hidden
+                                            >
+                                                <span
+                                                    className={ cn(
+                                                        'block h-full rounded-full',
+                                                        RANK_COLORS[
+                                                            index %
+                                                                RANK_COLORS.length
+                                                        ]
+                                                    ) }
+                                                    style={ {
+                                                        width: `${ Math.min(
+                                                            100,
+                                                            ( percentage /
+                                                                topShare ) *
+                                                                100
+                                                        ) }%`,
+                                                    } }
+                                                />
+                                            </span>
+                                            <span className="w-14 shrink-0 text-right font-semibold text-foreground">
+                                                { percentage }%
+                                            </span>
+                                            <span
+                                                className={ cn(
+                                                    'hidden w-16 shrink-0 text-right text-xs font-semibold sm:block',
+                                                    growthColor
+                                                ) }
+                                                title="New subscribers last month vs the month before"
+                                            >
+                                                { growthLabel }
+                                            </span>
+                                        </button>
+                                    </li>
                                 );
                             } )
                         ) : (
-                            <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+                            <li className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
                                 No country breakdown available yet.
-                            </div>
+                            </li>
                         ) }
-                    </div>
+                    </ul>
                 ) }
             </div>
         </Card>
     );
+}
+
+function campaignMeta( campaign: DashboardCampaign ): string {
+    const date = String(
+        campaign.date ||
+            campaign.sent_at ||
+            campaign.scheduled_at ||
+            campaign.created_at ||
+            ''
+    );
+    const analytics =
+        typeof campaign.analytics === 'object' && campaign.analytics
+            ? campaign.analytics
+            : {};
+
+    switch ( campaign.status ) {
+        case 'sent':
+            return `Sent ${ formatRelativeDate( date ) } · ${ toNumber(
+                analytics.views
+            ).toLocaleString() } views`;
+        case 'sending':
+            return 'Sending now';
+        case 'scheduled':
+            return `Goes out ${ formatDateTime( date ) }`;
+        case 'recurring':
+            return `Next send ${ formatDateTime( date ) }`;
+        case 'failed':
+            return `Failed · created ${ formatRelativeDate( date ) }`;
+        case 'cancelled':
+            return `Cancelled · created ${ formatRelativeDate( date ) }`;
+        default:
+            return `Created ${ formatRelativeDate( date ) }`;
+    }
+}
+
+function clickRateOf( campaign: DashboardCampaign ): number {
+    const analytics =
+        typeof campaign.analytics === 'object' && campaign.analytics
+            ? campaign.analytics
+            : {};
+
+    return toNumber( analytics.click_through_rate );
 }
 
 function RecentCampaigns( {
@@ -614,131 +542,146 @@ function RecentCampaigns( {
     className?: string;
 } ) {
     const rows = campaigns || [];
+    // Click-rate bars are relative to the best campaign in the list.
+    const bestRate = Math.max(
+        1,
+        ...rows
+            .filter( ( campaign ) => 'sent' === campaign.status )
+            .map( clickRateOf )
+    );
 
     return (
         <Card
             className={ cn(
-                'p-6 bg-card border-border transition-opacity duration-500',
+                'flex flex-col border-border bg-card p-5 shadow-sm transition-opacity duration-500 sm:p-6',
                 loading ? 'opacity-75' : 'opacity-100',
                 className
             ) }
         >
-            <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-start justify-between gap-3">
                 <div>
-                    <h3 className="text-lg font-semibold text-foreground">
-                        Recent Campaigns
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Latest notification campaigns
+                    <h2 className="text-lg font-semibold text-foreground">
+                        Recent campaigns
+                    </h2>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                        Newest first
                     </p>
                 </div>
                 <Link
                     to="/notifications"
-                    className="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-primary transition-colors hover:bg-accent hover:text-primary"
+                    className="inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-primary hover:underline"
                 >
-                    View All
-                    <ArrowRight className="ml-1 h-4 w-4" />
+                    View all
+                    <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                 </Link>
             </div>
 
-            <div className="space-y-4">
-                { rows.length ? (
-                    rows.map( ( campaign ) => {
-                        const status =
-                            statusConfig[
-                                ( campaign.status ||
-                                    'pending' ) as keyof typeof statusConfig
-                            ] || statusConfig.pending;
-                        const StatusIcon = status.icon;
-                        const displayDate = String(
-                            campaign.date ||
-                                campaign.sent_at ||
-                                campaign.scheduled_at ||
-                                campaign.created_at ||
-                                ''
-                        );
-                        const analytics =
-                            typeof campaign.analytics === 'object' &&
-                            campaign.analytics
-                                ? campaign.analytics
-                                : {};
+            { rows.length ? (
+                <>
+                    <ul className="mt-3.5">
+                        { rows.map( ( campaign ) => {
+                            const status = String(
+                                campaign.status || 'pending'
+                            );
+                            const rate = clickRateOf( campaign );
 
-                        return (
-                            <div
-                                key={ campaign.id }
-                                className="flex items-start gap-4 rounded-lg border border-border p-4 transition-colors hover:bg-accent/50"
-                            >
-                                <div
-                                    className={ `rounded-lg p-2 ${ status.bg }` }
+                            return (
+                                <li
+                                    key={ campaign.id }
+                                    className="flex items-center gap-3 border-t border-border py-3.5"
                                 >
-                                    <StatusIcon
-                                        className={ `h-5 w-5 ${ status.color }` }
+                                    <span
+                                        className={ cn(
+                                            'h-2 w-2 shrink-0 rounded-full',
+                                            CAMPAIGN_DOTS[ status ] ||
+                                                CAMPAIGN_DOTS.pending
+                                        ) }
+                                        aria-hidden
                                     />
-                                </div>
-
-                                <div className="min-w-0 flex-1">
-                                    <div className="mb-2 flex items-start justify-between gap-2">
-                                        <h4 className="text-sm font-medium text-foreground">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="line-clamp-2 font-semibold text-foreground sm:line-clamp-none sm:truncate">
                                             { campaign.title ||
                                                 'Untitled campaign' }
-                                        </h4>
-                                        <Badge
-                                            variant="outline"
-                                            className={ `text-xs border-transparent ${ status.bg } ${ status.color }` }
-                                        >
-                                            { status.label }
-                                        </Badge>
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-muted-foreground">
+                                            { campaignMeta( campaign ) }
+                                        </p>
                                     </div>
-
-                                    <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 whitespace-nowrap text-xs text-muted-foreground">
-                                        <span>
-                                            { formatRelativeDate(
-                                                displayDate
-                                            ) }
+                                    { 'sent' === status ? (
+                                        <div className="w-[64px] shrink-0 text-right sm:w-[76px]">
+                                            <p className="text-base font-semibold leading-tight text-foreground">
+                                                { rate }%
+                                            </p>
+                                            <p className="mb-1 text-[11px] text-muted-foreground">
+                                                click rate
+                                            </p>
+                                            <div
+                                                className="h-1 overflow-hidden rounded-full bg-muted"
+                                                aria-hidden
+                                            >
+                                                <div
+                                                    className="h-full rounded-full bg-primary"
+                                                    style={ {
+                                                        width: `${ Math.min(
+                                                            100,
+                                                            ( rate /
+                                                                bestRate ) *
+                                                                100
+                                                        ) }%`,
+                                                    } }
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : null }
+                                    { 'scheduled' === status ? (
+                                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                                            <CalendarClock
+                                                className="h-3 w-3"
+                                                aria-hidden
+                                            />
+                                            Scheduled
                                         </span>
-                                        { campaign.status === 'sent' && (
-                                            <>
-                                                <span>•</span>
-                                                <span>
-                                                    { formatNumber(
-                                                        analytics.views ?? 0
-                                                    ) }{ ' ' }
-                                                    views
-                                                </span>
-                                                <span>•</span>
-                                                <span>
-                                                    { formatNumber(
-                                                        analytics.clicks ?? 0
-                                                    ) }{ ' ' }
-                                                    clicks
-                                                </span>
-                                                <span>•</span>
-                                                <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                                                    { analytics.click_through_rate ??
-                                                        0 }
-                                                    % CTR
-                                                </span>
-                                            </>
-                                        ) }
-                                        { campaign.status === 'sending' && (
-                                            <>
-                                                <span>•</span>
-                                                <span>
-                                                    Delivery in progress
-                                                </span>
-                                            </>
-                                        ) }
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    } )
-                ) : (
-                    <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-                        No recent campaigns yet.
-                    </div>
-                ) }
-            </div>
+                                    ) : null }
+                                    { 'recurring' === status ? (
+                                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-500/10 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                                            <Repeat
+                                                className="h-3 w-3"
+                                                aria-hidden
+                                            />
+                                            Recurring
+                                        </span>
+                                    ) : null }
+                                </li>
+                            );
+                        } ) }
+                    </ul>
+                    <p className="mt-auto border-t border-border pt-3.5 text-xs text-muted-foreground">
+                        Welcome and automation messages are not listed here.
+                    </p>
+                </>
+            ) : (
+                <div className="flex flex-1 flex-col items-center justify-center gap-2.5 px-4 py-10 text-center">
+                    <span
+                        className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground"
+                        aria-hidden
+                    >
+                        <Megaphone className="h-5 w-5" />
+                    </span>
+                    <p className="font-semibold text-foreground">
+                        No campaigns yet
+                    </p>
+                    <p className="max-w-64 text-sm text-muted-foreground">
+                        Campaigns you send or schedule show up here with their
+                        click rates.
+                    </p>
+                    <Link
+                        to="/notifications/new"
+                        className="mt-1 inline-flex h-11 items-center rounded-md border border-border px-4 text-sm font-semibold text-foreground hover:bg-muted"
+                    >
+                        Write a draft
+                    </Link>
+                </div>
+            ) }
         </Card>
     );
 }
@@ -763,17 +706,64 @@ export default function DashboardPage() {
         );
     }
 
-    const data = dashboardQuery.data?.data ?? emptyDashboardData;
+    const data: DashboardData = dashboardQuery.data?.data ?? {};
     const dataReady = Boolean( dashboardQuery.data?.data );
     const loading = dashboardQuery.isFetching && ! dataReady;
+    const settings = settingsQuery.data;
+    const siteName = siteNameFor( settings );
+    const totalSubscribers = toNumber( data.totalSubscribers );
+    // A site that has never had a subscriber gets the setup checklist instead
+    // of cards full of zeros. Only once the data is in, never while loading.
+    const isNew = dataReady && 0 === totalSubscribers;
+    const activeSubscribers = data.activeSubscribers ?? 0;
+    const growth = data.growth ?? [];
+    // An app that predates these cards sends none of their fields: show
+    // nothing rather than placeholders that never resolve.
+    let topSection: ReactNode = dataReady ? null : <LoadingCards />;
+
+    if ( isNew ) {
+        topSection = <GettingStarted siteName={ siteName } />;
+    } else if (
+        dataReady &&
+        data.plan &&
+        data.subscriberChange &&
+        data.campaignsSent &&
+        data.recentClickRate &&
+        data.upcoming
+    ) {
+        topSection = (
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                <SubscribersCard
+                    active={ activeSubscribers }
+                    change={ data.subscriberChange }
+                    plan={ data.plan }
+                    growth={ growth }
+                />
+                <CampaignsSentCard sent={ data.campaignsSent } />
+                <ClickRateCard
+                    recent={ data.recentClickRate }
+                    allTime={ data.clickRate ?? 0 }
+                    change={ data.clickRateChange ?? null }
+                    weekly={ data.weeklyClickRates ?? [] }
+                />
+                <UpcomingCard upcoming={ data.upcoming } />
+            </div>
+        );
+    }
 
     return (
-        <div className="container mx-auto space-y-8 px-4 py-8">
-            <StatCards
-                data={ data }
-                dataReady={ dataReady }
-                loading={ loading }
-            />
+        <div className="container mx-auto space-y-6 px-4 py-6 sm:py-8">
+            <DashboardHeader siteName={ siteName } isNew={ isNew } />
+
+            { data.plan ? (
+                <PlanLimitBanner
+                    plan={ data.plan }
+                    activeSubscribers={ activeSubscribers }
+                    siteKey={ settings?.siteKey || 'site' }
+                />
+            ) : null }
+
+            { topSection }
 
             { liveSends.length > 0 ? (
                 <LiveActivityPanel
@@ -783,27 +773,39 @@ export default function DashboardPage() {
             ) : null }
 
             { /* The map gets the wider column (3/5) on large screens; between lg and
-                xl the two cards stay half and half so Recent Campaigns keeps room. */ }
+                xl the two cards stay half and half so the right column keeps room. */ }
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-5">
                 <TopCountriesMap
                     className="xl:col-span-3"
-                    countries={ data?.topCountries }
-                    mapCountries={ data?.mapCountries }
-                    subscribersWithoutCountry={
-                        data?.subscribersWithoutCountry
-                    }
-                    settings={ settingsQuery.data }
+                    countries={ data.topCountries }
+                    mapCountries={ data.mapCountries }
+                    subscribersWithoutCountry={ data.subscribersWithoutCountry }
+                    settings={ settings }
                     dataReady={ dataReady }
                     loading={ loading }
-                    totalCountries={ data?.totalCountries }
-                    totalSubscribers={ data?.totalSubscribers }
+                    totalCountries={ data.totalCountries }
+                    totalSubscribers={ data.totalSubscribers }
                 />
                 <RecentCampaigns
                     className="xl:col-span-2"
-                    campaigns={ data?.recentCampaigns }
+                    campaigns={ data.recentCampaigns }
                     loading={ loading }
                 />
             </div>
+
+            { dataReady && ! isNew && growth.length > 0 ? (
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-5">
+                    <SubscriberGrowth
+                        growth={ growth }
+                        className="xl:col-span-3"
+                    />
+                    <DevicesBrowsers
+                        devices={ data.devices ?? [] }
+                        browsers={ data.browsers ?? [] }
+                        className="xl:col-span-2"
+                    />
+                </div>
+            ) : null }
         </div>
     );
 }

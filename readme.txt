@@ -50,7 +50,7 @@ Everything runs inside your WordPress admin: send campaigns, watch the numbers c
 
 = Analytics and reports =
 
-* Dashboard with notifications sent, subscriber totals, click rate and top countries.
+* Dashboard with subscriber growth, campaigns sent, click rate, upcoming sends, an audience map, devices and browsers, and plan limit warnings.
 * Charts for monthly sends, subscriber growth, browser breakdown and subscriber activity.
 * Download PDF reports for campaign performance, subscriber growth and a monthly summary. (Paid plans)
 

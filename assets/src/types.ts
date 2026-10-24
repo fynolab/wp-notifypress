@@ -239,11 +239,63 @@ export interface DashboardCampaign extends Notification {
     date?: string;
 }
 
+export interface DashboardSubscriberChange {
+    new: number;
+    lost: number;
+    net: number;
+    percent: number | null;
+}
+
+export interface DashboardPlanUsage {
+    name: string;
+    subscriberLimit: number;
+    accountSubscribers: number;
+}
+
+export interface DashboardCampaignsSent {
+    last30: number;
+    previous30: number;
+    weekly: number[];
+}
+
+export interface DashboardRecentClickRate {
+    rate: number | null;
+    clicks: number;
+    views: number;
+}
+
+export interface DashboardUpcoming {
+    scheduled: number;
+    recurring: number;
+    next: {
+        id: number;
+        title: string;
+        date: string | null;
+        type: 'scheduled' | 'recurring';
+    } | null;
+}
+
+export interface DashboardGrowthDay {
+    date: string;
+    new: number;
+    lost: number;
+}
+
+export interface DashboardShareRow {
+    name: string;
+    subscribers: number;
+    percentage: number;
+}
+
 export interface DashboardData {
-    totalNotifications?: number;
-    totalSubscribers?: number;
-    totalCountries?: number;
-    totalScheduledNotifications?: number;
+    // The original counts arrive formatted ("1,234"); everything below
+    // subscribersWithoutCountry is a raw number.
+    totalNotifications?: number | string;
+    totalSubscribers?: number | string;
+    totalCountries?: number | string;
+    totalScheduledNotifications?: number | string;
+    clickRate?: number;
+    clickRateChange?: number | null;
     topCountries?: DashboardCountry[];
     mapCountries?: {
         code: string;
@@ -253,6 +305,16 @@ export interface DashboardData {
     subscribersWithoutCountry?: number;
     recentCampaigns?: DashboardCampaign[];
     recentNotifications?: DashboardCampaign[];
+    activeSubscribers?: number;
+    subscriberChange?: DashboardSubscriberChange | null;
+    plan?: DashboardPlanUsage | null;
+    campaignsSent?: DashboardCampaignsSent | null;
+    recentClickRate?: DashboardRecentClickRate | null;
+    weeklyClickRates?: ( number | null )[];
+    upcoming?: DashboardUpcoming | null;
+    growth?: DashboardGrowthDay[];
+    devices?: DashboardShareRow[];
+    browsers?: DashboardShareRow[];
 }
 
 export interface MonthlyAnalyticsEntry {
