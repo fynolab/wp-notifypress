@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { laravelRequest } from '../../lib/api';
+import { getApiToken } from '../../lib/settings';
 import { cn } from '../utils';
 import { flagFromCode } from './country-codes';
 import type { NotifyPressSettings, LaravelResource } from '../../types';
@@ -186,9 +187,14 @@ function EngagementSummary( {
 }
 
 export function CountryDetails( { code, settings, onBack, onSettled }: Props ) {
+    // Reopening a country within five minutes reuses the loaded details
+    // instead of refetching (the app caches them for 10). The token is in the
+    // key, as for the other dashboard queries, so reconnecting to another site
+    // never shows the previous site's figures.
     const query = useQuery( {
-        queryKey: [ 'np-dashboard-country', code ],
+        queryKey: [ 'np-dashboard-country', getApiToken( settings ), code ],
         enabled: Boolean( settings ),
+        staleTime: 5 * 60 * 1000,
         queryFn: () =>
             laravelRequest< LaravelResource< CountryInsights > >(
                 settings,
