@@ -8,15 +8,19 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
-import { formatDay } from './format';
+import { formatDay, formatMonth } from './format';
 import type { DashboardGrowthDay } from '../../types';
 
 export const GROWTH_CHART_HEIGHT = 220;
 
+type Granularity = 'day' | 'month';
+
 function GrowthTooltip( {
     active,
     payload,
+    granularity,
 }: {
+    granularity: Granularity;
     active?: boolean;
     payload?: { payload: DashboardGrowthDay }[];
 } ) {
@@ -28,7 +32,11 @@ function GrowthTooltip( {
 
     return (
         <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md">
-            <p className="mb-1 font-semibold">{ formatDay( day.date ) }</p>
+            <p className="mb-1 font-semibold">
+                { 'month' === granularity
+                    ? formatMonth( day.date )
+                    : formatDay( day.date ) }
+            </p>
             <p className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-sm bg-primary" aria-hidden />
                 { day.new.toLocaleString() } new
@@ -48,13 +56,16 @@ function GrowthTooltip( {
  * Recharts lives in this lazily loaded chunk so it never delays the
  * dashboard's first paint.
  *
- * @param props      Component props.
- * @param props.days The days to plot, oldest first.
+ * @param props             Component props.
+ * @param props.days        The buckets to plot, oldest first.
+ * @param props.granularity Whether each bucket is a day or a month.
  */
 export default function GrowthChart( {
     days,
+    granularity = 'day',
 }: {
     days: DashboardGrowthDay[];
+    granularity?: Granularity;
 } ) {
     return (
         <div className="text-muted-foreground [--np-lost:#c2570c] dark:[--np-lost:#fb923c]">
@@ -90,7 +101,11 @@ export default function GrowthChart( {
                     />
                     <XAxis
                         dataKey="date"
-                        tickFormatter={ formatDay }
+                        tickFormatter={ ( tick: string ) =>
+                            'month' === granularity
+                                ? formatMonth( tick, false )
+                                : formatDay( tick )
+                        }
                         tickLine={ false }
                         axisLine={ false }
                         minTickGap={ 28 }
@@ -104,7 +119,9 @@ export default function GrowthChart( {
                         tick={ { fontSize: 11, fill: 'currentColor' } }
                     />
                     <Tooltip
-                        content={ <GrowthTooltip /> }
+                        content={
+                            <GrowthTooltip granularity={ granularity } />
+                        }
                         cursor={ { stroke: 'hsl(var(--border))' } }
                     />
                     <Area

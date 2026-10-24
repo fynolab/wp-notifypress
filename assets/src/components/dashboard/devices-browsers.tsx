@@ -1,6 +1,5 @@
 import { Card } from '../ui/card';
 import { cn } from '../utils';
-import type { DashboardShareRow } from '../../types';
 
 // Device shades step down in lightness so they stay distinct without colour.
 const DEVICE_SHADES = [
@@ -10,32 +9,41 @@ const DEVICE_SHADES = [
     'bg-muted-foreground/40',
 ];
 
+type Row = { name: string; percentage: number };
+
 export function DevicesBrowsers( {
     devices,
     browsers,
     className,
+    title = 'Devices and browsers',
+    description = 'Where your active subscribers get your pushes',
+    emptyText = 'No data yet.',
+    testId,
 }: {
-    devices: DashboardShareRow[];
-    browsers: DashboardShareRow[];
+    devices: Row[];
+    browsers: Row[];
     className?: string;
+    title?: string;
+    description?: string;
+    emptyText?: string;
+    testId?: string;
 } ) {
     return (
         <Card
+            data-testid={ testId }
             className={ cn(
                 'border-border bg-card p-5 shadow-sm sm:p-6',
                 className
             ) }
         >
-            <h2 className="text-lg font-semibold text-foreground">
-                Devices and browsers
-            </h2>
+            <h2 className="text-lg font-semibold text-foreground">{ title }</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
-                Where your active subscribers get your pushes
+                { description }
             </p>
 
             { 0 === devices.length ? (
                 <p className="mt-6 text-sm text-muted-foreground">
-                    No data yet.
+                    { emptyText }
                 </p>
             ) : (
                 <>

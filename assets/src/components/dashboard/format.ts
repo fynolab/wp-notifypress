@@ -87,3 +87,36 @@ export function formatDay( day: string ): string {
         timeZone: 'UTC',
     } ).format( new Date( Date.UTC( year, month - 1, date ) ) );
 }
+
+// "2026-10-01" (the start of a UTC month from the API) as "Oct 2026", or just
+// "Oct" when `withYear` is false, without shifting it for viewers west of UTC.
+export function formatMonth( day: string, withYear = true ): string {
+    const [ year, month, date ] = day.split( '-' ).map( Number );
+
+    return new Intl.DateTimeFormat( undefined, {
+        month: 'short',
+        year: withYear ? 'numeric' : undefined,
+        timeZone: 'UTC',
+    } ).format( new Date( Date.UTC( year, month - 1, date ) ) );
+}
+
+// A send time with the year, so rows older than this year stay unambiguous.
+export function formatSentAt( date?: string | null ): string {
+    if ( ! date ) {
+        return '—';
+    }
+
+    const parsed = new Date( date );
+
+    if ( Number.isNaN( parsed.getTime() ) ) {
+        return '—';
+    }
+
+    return new Intl.DateTimeFormat( undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    } ).format( parsed );
+}
