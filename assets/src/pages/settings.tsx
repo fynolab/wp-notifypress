@@ -1011,7 +1011,7 @@ export default function SettingsPage() {
                                                         promptForm.prompt_icon
                                                     }
                                                     type="url"
-                                                    placeholder="https://yourdomain.com/icon.png"
+                                                    placeholder="Full URL of a square image, at least 192 × 192"
                                                     onChange={ ( e ) =>
                                                         setPromptForm( {
                                                             ...promptForm,
@@ -1580,7 +1580,7 @@ export default function SettingsPage() {
                                             displayForm.welcomeNotificationIcon ||
                                             ''
                                         }
-                                        placeholder="https://yourdomain.com/icon.png"
+                                        placeholder="Full URL of a square image, at least 192 × 192"
                                         onChange={ ( e ) =>
                                             setForm( {
                                                 ...displayForm,
@@ -1605,7 +1605,7 @@ export default function SettingsPage() {
                                             displayForm.welcomeNotificationUrl ||
                                             ''
                                         }
-                                        placeholder="https://yourdomain.com"
+                                        placeholder="Page to open on click, such as your home page"
                                         onChange={ ( e ) =>
                                             setForm( {
                                                 ...displayForm,

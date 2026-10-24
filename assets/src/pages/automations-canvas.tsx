@@ -359,7 +359,7 @@ export function ConfigPanel( {
                             onChange={ ( e ) =>
                                 onUpdate( { ...cfg, url: e.target.value } )
                             }
-                            placeholder="https://example.com/webhook"
+                            placeholder="Your endpoint's full HTTPS URL"
                         />
                     </div>
                     <div>
