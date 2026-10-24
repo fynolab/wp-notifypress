@@ -317,31 +317,150 @@ export interface DashboardData {
     browsers?: DashboardShareRow[];
 }
 
-export interface MonthlyAnalyticsEntry {
-    month: string;
-    total: number;
+export type AnalyticsRange = '30d' | '90d' | '12m';
+
+export type AnalyticsGranularity = 'day' | 'month';
+
+export interface AnalyticsChange {
+    current: number;
+    previous: number;
 }
 
-export interface BrowserBreakdownEntry {
-    browser: string;
+export interface AnalyticsSummary {
+    campaigns: AnalyticsChange;
+    views: AnalyticsChange;
+    clicks: AnalyticsChange;
+    ctr: { current: number | null; previous: number | null };
+}
+
+export interface AnalyticsEngagementBucket {
+    date: string;
+    campaigns: number;
     views: number;
+    clicks: number;
+    ctr: number | null;
+}
+
+export interface AnalyticsShareRow {
+    name: string;
+    views: number;
+    percentage: number;
+}
+
+export type AnalyticsLostReasonKey =
+    | 'unsubscribed'
+    | 'token_expired'
+    | 'token_invalid'
+    | 'other';
+
+export interface AnalyticsLostReason {
+    reason: AnalyticsLostReasonKey;
+    label: string;
+    subscribers: number;
+    percentage: number;
+}
+
+export interface AnalyticsAudience {
+    new: number;
+    lost: number;
+    net: number;
+    series: DashboardGrowthDay[];
+    lostReasons: AnalyticsLostReason[];
+}
+
+export interface AnalyticsFunnel {
+    campaigns: number;
+    untracked: number;
+    sent: number;
+    delivered: number;
+    failed: number;
+    views: number;
+    clicks: number;
+}
+
+export interface AnalyticsSegmentRow {
+    id: number | null;
+    name: string;
+    campaigns: number;
+    views: number;
+    clicks: number;
+    ctr: number | null;
+}
+
+export interface AnalyticsCountryRow {
+    code: string;
+    name: string;
+    flag: string | null;
+    views: number;
+    clicks: number;
+    ctr: number | null;
+}
+
+export interface AnalyticsCountries {
+    from: string;
+    days: number;
+    siteCtr: number | null;
+    rows: AnalyticsCountryRow[];
+}
+
+export interface AnalyticsBestTimes {
+    from: string;
+    weeks: number;
+    views: number[];
+    clicks: number[];
+}
+
+export type AnalyticsCampaignSort =
+    | 'sent_at'
+    | 'sent'
+    | 'delivered'
+    | 'views'
+    | 'clicks'
+    | 'ctr';
+
+export interface AnalyticsCampaignRow {
+    id: number;
+    title: string;
+    sentAt: string | null;
+    segment: { id: number; name: string } | null;
+    sent: number | null;
+    delivered: number | null;
+    failed: number | null;
+    views: number;
+    clicks: number;
+    ctr: number | null;
+    ctrDelta: number | null;
+}
+
+export interface AnalyticsCampaignPage {
+    data: AnalyticsCampaignRow[];
+    meta: {
+        currentPage: number;
+        lastPage: number;
+        perPage: number;
+        total: number;
+    };
+    siteCtr: number | null;
 }
 
 export interface AnalyticsData {
-    totalSubscribers: number;
-    totalNotifications: number;
-    totalScheduledNotifications: number;
-    numberOfSubscribersUserCanHave: number;
-    totalClicks: number;
-    totalViews: number;
-    averageCtr: number;
-    notificationsPerMonth: MonthlyAnalyticsEntry[];
-    subscribersPerMonth: MonthlyAnalyticsEntry[];
-    browserBreakdown: BrowserBreakdownEntry[];
-    notificationsByStatus: Record< string, number >;
-    activeSubscribers: number;
-    inactiveSubscribers: number;
+    range: AnalyticsRange;
+    period: {
+        from: string;
+        to: string;
+        granularity: AnalyticsGranularity;
+    };
+    summary: AnalyticsSummary;
     isPaidUser: boolean;
+    // Everything below is null for Free users: the server does not send it.
+    engagement: AnalyticsEngagementBucket[] | null;
+    funnel: AnalyticsFunnel | null;
+    segments: AnalyticsSegmentRow[] | null;
+    countries: AnalyticsCountries | null;
+    bestTimes: AnalyticsBestTimes | null;
+    browsers: AnalyticsShareRow[] | null;
+    devices: AnalyticsShareRow[] | null;
+    audience: AnalyticsAudience | null;
 }
 
 export interface ReportsMeta {
