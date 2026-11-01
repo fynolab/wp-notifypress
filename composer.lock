@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "985d66f3bb106f1deadcdafe4dc7ab5e",
+    "content-hash": "01b46a3cba54f562266dddfb3fb53f90",
     "packages": [
         {
             "name": "notifypress/sdk",
             "version": "v0.1.0",
             "source": {
                 "type": "git",
-                "url": "git@github.com:fynolab/notifypress-php.git",
-                "reference": "fda1db81735d3fb43933cc18abb1e22b971b5f0d"
+                "url": "git@github.com:fynolab/notifypress-php-sdk.git",
+                "reference": "4e7c33027fe26431565979fe981f2c535b74af0e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/fynolab/notifypress-php/zipball/fda1db81735d3fb43933cc18abb1e22b971b5f0d",
-                "reference": "fda1db81735d3fb43933cc18abb1e22b971b5f0d",
+                "url": "https://api.github.com/repos/fynolab/notifypress-php-sdk/zipball/4e7c33027fe26431565979fe981f2c535b74af0e",
+                "reference": "4e7c33027fe26431565979fe981f2c535b74af0e",
                 "shasum": ""
             },
             "require": {
