@@ -5,12 +5,6 @@
             "Fynolab\\NotifyPress\\": "src/"
         }
     },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "git@github.com:fynolab/notifypress-php-sdk.git"
-        }
-    ],
     "require": {
         "php": ">=8.1",
         "notifypress/sdk": "^0.1"
