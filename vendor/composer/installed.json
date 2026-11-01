@@ -105,13 +105,13 @@
             "version_normalized": "0.1.0.0",
             "source": {
                 "type": "git",
-                "url": "git@github.com:fynolab/notifypress-php.git",
-                "reference": "fda1db81735d3fb43933cc18abb1e22b971b5f0d"
+                "url": "https://github.com/fynolab/notifypress-php-sdk.git",
+                "reference": "4e7c33027fe26431565979fe981f2c535b74af0e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/fynolab/notifypress-php/zipball/fda1db81735d3fb43933cc18abb1e22b971b5f0d",
-                "reference": "fda1db81735d3fb43933cc18abb1e22b971b5f0d",
+                "url": "https://api.github.com/repos/fynolab/notifypress-php-sdk/zipball/4e7c33027fe26431565979fe981f2c535b74af0e",
+                "reference": "4e7c33027fe26431565979fe981f2c535b74af0e",
                 "shasum": ""
             },
             "require": {
@@ -139,37 +139,14 @@
                     "NotifyPress\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "NotifyPress\\Tests\\": "tests/"
-                }
-            },
-            "scripts": {
-                "test": [
-                    "pest"
-                ],
-                "phpstan": [
-                    "phpstan analyse --memory-limit=512M"
-                ],
-                "cs": [
-                    "php-cs-fixer fix --dry-run --diff"
-                ],
-                "cs:fix": [
-                    "php-cs-fixer fix"
-                ],
-                "check": [
-                    "@cs",
-                    "@phpstan",
-                    "@test"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
             "description": "Official PHP SDK for the NotifyPress REST API — send and manage web push notifications, subscribers, segments, and automations.",
             "homepage": "https://notifypress.com",
             "keywords": [
-                "fcm",
+                "FCM",
                 "notifypress",
                 "push-notifications",
                 "sdk",
