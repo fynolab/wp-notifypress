@@ -3,7 +3,7 @@
         'name' => 'notifypress/app',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => '42aaa8ba94acf62526254f8b6b48239baa1eda23',
+        'reference' => '36143738c00ce8dd4879b53dc64aa9b7b67f7ec8',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -22,7 +22,7 @@
         'notifypress/app' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => '42aaa8ba94acf62526254f8b6b48239baa1eda23',
+            'reference' => '36143738c00ce8dd4879b53dc64aa9b7b67f7ec8',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -31,7 +31,7 @@
         'notifypress/sdk' => array(
             'pretty_version' => 'v0.1.0',
             'version' => '0.1.0.0',
-            'reference' => 'fda1db81735d3fb43933cc18abb1e22b971b5f0d',
+            'reference' => '4e7c33027fe26431565979fe981f2c535b74af0e',
             'type' => 'library',
             'install_path' => __DIR__ . '/../notifypress/sdk',
             'aliases' => array(),
