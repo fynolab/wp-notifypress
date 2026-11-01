@@ -8,7 +8,7 @@
     "repositories": [
         {
             "type": "vcs",
-            "url": "git@github.com:fynolab/notifypress-php.git"
+            "url": "git@github.com:fynolab/notifypress-php-sdk.git"
         }
     ],
     "require": {
