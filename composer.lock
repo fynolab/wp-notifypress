@@ -4,14 +4,14 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "01b46a3cba54f562266dddfb3fb53f90",
+    "content-hash": "f6019d4ea93cbc7b8fc8082b73e07e63",
     "packages": [
         {
             "name": "notifypress/sdk",
             "version": "v0.1.0",
             "source": {
                 "type": "git",
-                "url": "git@github.com:fynolab/notifypress-php-sdk.git",
+                "url": "https://github.com/fynolab/notifypress-php-sdk.git",
                 "reference": "4e7c33027fe26431565979fe981f2c535b74af0e"
             },
             "dist": {
@@ -43,37 +43,14 @@
                     "NotifyPress\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "NotifyPress\\Tests\\": "tests/"
-                }
-            },
-            "scripts": {
-                "test": [
-                    "pest"
-                ],
-                "phpstan": [
-                    "phpstan analyse --memory-limit=512M"
-                ],
-                "cs": [
-                    "php-cs-fixer fix --dry-run --diff"
-                ],
-                "cs:fix": [
-                    "php-cs-fixer fix"
-                ],
-                "check": [
-                    "@cs",
-                    "@phpstan",
-                    "@test"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
             "description": "Official PHP SDK for the NotifyPress REST API — send and manage web push notifications, subscribers, segments, and automations.",
             "homepage": "https://notifypress.com",
             "keywords": [
-                "fcm",
+                "FCM",
                 "notifypress",
                 "push-notifications",
                 "sdk",
