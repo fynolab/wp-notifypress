@@ -392,17 +392,14 @@ function NotificationForm( {
             ),
     } );
 
-    const latestNotificationQuery = useQuery( {
-        queryKey: [ 'np-notifications-latest', settings.apiToken ],
-        enabled: ! Boolean( notificationId ),
+    const lastUsedMediaQuery = useQuery( {
+        queryKey: [ 'np-notifications-last-used-media', notificationId ],
         queryFn: () =>
-            laravelRequest< LaravelCollection< Notification > >(
-                settings,
-                '/notifications',
-                {
-                    query: { limit: 1, order: 'desc' },
-                }
-            ),
+            laravelRequest< {
+                data: { icon_url: string; image_url: string };
+            } >( settings, '/notifications/last-used-media', {
+                query: notificationId ? { exclude: notificationId } : {},
+            } ),
     } );
 
     const notificationQuery = useQuery( {
@@ -634,14 +631,8 @@ function NotificationForm( {
     };
 
     const segments = segmentsQuery.data?.data || [];
-    const lastUsedIcon =
-        notificationQuery.data?.data?.icon_preview_url ||
-        latestNotificationQuery.data?.data?.[ 0 ]?.icon_preview_url ||
-        '';
-    const lastUsedImage =
-        notificationQuery.data?.data?.image_preview_url ||
-        latestNotificationQuery.data?.data?.[ 0 ]?.image_preview_url ||
-        '';
+    const lastUsedIcon = lastUsedMediaQuery.data?.data?.icon_url || '';
+    const lastUsedImage = lastUsedMediaQuery.data?.data?.image_url || '';
     const previewIcon =
         iconPreviewUrl ||
         ( form.last_used_icon ? lastUsedIcon : '' ) ||
