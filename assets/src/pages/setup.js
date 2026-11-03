@@ -180,9 +180,9 @@ function SetupHeader() {
                 Set up NotifyPress
             </h1>
             <p className="mt-3 text-base leading-7 text-muted-foreground">
-                Connect your account, confirm how this site appears to
-                subscribers, and start collecting push subscribers from
-                WordPress.
+                Connect your account, review your site&apos;s public details,
+                then start collecting subscribers and sending them push
+                notifications.
             </p>
         </div>
     );

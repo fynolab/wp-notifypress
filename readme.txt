@@ -1,4 +1,4 @@
-=== NotifyPress ===
+=== NotifyPress - Web Push Notifications ===
 Contributors: fynolab
 Tags: push notifications, web push, notifications, pwa, progressive web app
 Requires at least: 6.0
@@ -12,7 +12,7 @@ Web push notifications for WordPress and WooCommerce. Send campaigns, automate f
 
 == Description ==
 
-NotifyPress turns your website visitors into an audience you can reach any time. Visitors subscribe with one click, and you send them browser push notifications about new posts, products, sales and orders. No email address and no app install needed.
+[NotifyPress](https://notifypress.com/?utm_source=wordpress.org&utm_medium=plugin-listing) turns your website visitors into an audience you can reach any time. Visitors subscribe with one click, and you send them browser push notifications about new posts, products, sales and orders. No email address and no app install needed.
 
 Everything runs inside your WordPress admin: send campaigns, watch the numbers come in, and let automations follow up with new subscribers for you.
 
@@ -61,7 +61,7 @@ Everything runs inside your WordPress admin: send campaigns, watch the numbers c
 
 **Free and paid plans**
 
-The plugin is free. It connects to the NotifyPress service, which has a free plan for getting started and paid plans that raise subscriber limits and unlock segments, automations and PDF reports. See https://notifypress.com/#pricing for details.
+The plugin is free. It connects to the NotifyPress service, which has a free plan for getting started and paid plans that raise subscriber limits and unlock segments, automations and PDF reports. See [NotifyPress pricing](https://notifypress.com/?utm_source=wordpress.org&utm_medium=plugin-listing#pricing) for details.
 
 **How It Works**
 
@@ -81,7 +81,7 @@ The plugin is free. It connects to the NotifyPress service, which has a free pla
 
 This plugin is the WordPress side of the NotifyPress web push service. It does not work without a NotifyPress account, and it connects to the services below only after you connect the site in the plugin settings.
 
-**NotifyPress (app.notifypress.com)**
+**NotifyPress ([app.notifypress.com](https://app.notifypress.com))**
 
 NotifyPress stores subscribers and delivers notifications.
 
@@ -89,10 +89,9 @@ NotifyPress stores subscribers and delivers notifications.
 * When you publish a post (if enabled), or a subscribed WooCommerce customer places an order or abandons their cart (if enabled), the plugin sends the notification title, message, link and, for WooCommerce, that customer's subscription token to the NotifyPress API.
 * On every front-end page, the plugin loads the NotifyPress widget script from app.notifypress.com, which shows the opt-in prompt. The service worker the plugin serves at /?notifypress_sw=1 is bundled with the plugin; when a notification is shown or clicked, it reports the view or click to app.notifypress.com along with the visitor's browser, device type and timezone (used to count views and clicks per country).
 * When a visitor accepts the browser's notification prompt, the widget sends NotifyPress their push subscription token, IP address, city and country, browser, device and timezone.
-* To deliver notifications, the widget loads Google's push messaging library from www.gstatic.com when a visitor opts in, and at most once a day on later visits to keep their subscription token current. Google terms: https://policies.google.com/terms · Privacy: https://policies.google.com/privacy
+* To deliver notifications, the widget loads Google's push messaging library from www.gstatic.com when a visitor opts in, and at most once a day on later visits to keep their subscription token current. [Google terms](https://policies.google.com/terms) · [Google privacy policy](https://policies.google.com/privacy)
 
-Terms of service: https://notifypress.com/terms-of-service
-Privacy policy: https://notifypress.com/privacy-policy
+[NotifyPress terms of service](https://notifypress.com/terms-of-service?utm_source=wordpress.org&utm_medium=plugin-listing) · [NotifyPress privacy policy](https://notifypress.com/privacy-policy?utm_source=wordpress.org&utm_medium=plugin-listing)
 
 == Source code ==
 
@@ -107,7 +106,7 @@ The compiled admin app in assets/main-dist and assets/editor-dist is built from 
 1. Upload the `notifypress` folder to the `/wp-content/plugins/` directory
 2. Activate the plugin through the 'Plugins' menu in WordPress
 3. Go to NotifyPress settings page
-4. Click "Connect to NotifyPress App" and sign in or create a free account, or paste an API token from https://app.notifypress.com
+4. Click "Connect to NotifyPress App" and sign in or create a free account, or paste an API token from [app.notifypress.com](https://app.notifypress.com)
 5. Choose which notifications to send automatically
 6. Configure your notification preferences
 
@@ -115,7 +114,7 @@ The compiled admin app in assets/main-dist and assets/editor-dist is built from 
 
 = Do I need a NotifyPress account? =
 
-Yes. The plugin connects your site to the NotifyPress service, which stores subscribers and delivers notifications. You can create a free account at https://app.notifypress.com.
+Yes. The plugin connects your site to the NotifyPress service, which stores subscribers and delivers notifications. You can create a free account at [app.notifypress.com](https://app.notifypress.com/register).
 
 = Is this plugin free? =
 
@@ -131,7 +130,7 @@ No, visitors simply click "Allow" when prompted to receive notifications. No app
 
 = Is this GDPR compliant? =
 
-Visitors must opt in through the browser's permission prompt and can unsubscribe at any time. Subscribing stores personal data (such as the visitor's IP address and approximate location) with NotifyPress, so as the site owner you should mention web push notifications and NotifyPress in your own privacy policy. See the NotifyPress GDPR page: https://notifypress.com/gdpr-compliance
+Visitors must opt in through the browser's permission prompt and can unsubscribe at any time. Subscribing stores personal data (such as the visitor's IP address and approximate location) with NotifyPress, so as the site owner you should mention web push notifications and NotifyPress in your own privacy policy. See the [NotifyPress GDPR page](https://notifypress.com/gdpr-compliance?utm_source=wordpress.org&utm_medium=plugin-listing).
 
 = Does this work with WooCommerce? =
 
