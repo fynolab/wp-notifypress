@@ -25,7 +25,9 @@ export default function Masthead() {
                     Docs
                 </a>
                 <a
-                    href="mailto:contact@notifypress.com"
+                    href="https://notifypress.com/contact?utm_source=plugin"
+                    target="_blank"
+                    rel="noreferrer noopener"
                     className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                     <LifeBuoy className="h-4 w-4" />

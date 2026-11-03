@@ -1,8 +1,9 @@
 /* eslint-env serviceworker */
 /**
- * NotifyPress service worker, served at /service-worker.js by Assets::request().
+ * NotifyPress service worker, served at /?notifypress_sw=1 by Assets::request().
  *
- * The NotifyPress widget registers it when a visitor subscribes. It shows each
+ * The NotifyPress widget registers it under its own scope when a visitor
+ * subscribes, so it runs beside any other worker on the site. It shows each
  * push the NotifyPress app sends through Firebase Cloud Messaging, reports the
  * view and click back to the app, and opens the notification's link.
  *
@@ -16,10 +17,6 @@ const NOTIFYPRESS_API_URL = 'https://app.notifypress.com/api/v1';
 
 self.addEventListener( 'install', () => {
     self.skipWaiting();
-} );
-
-self.addEventListener( 'activate', ( event ) => {
-    event.waitUntil( self.clients.claim() );
 } );
 
 self.addEventListener( 'push', ( event ) => {
@@ -51,6 +48,7 @@ self.addEventListener( 'push', ( event ) => {
             } ),
             track( details.notificationId, 'track-view', { viewed: true } ),
             notifyOpenPages( {
+                source: 'notifypress',
                 title,
                 body: notification.body,
                 targetUrl: details.targetUrl,
