@@ -123,7 +123,7 @@ export default function Shell( { children }: { children: ReactNode } ) {
                             </div>
                         </div>
                         <Link
-                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-900 shadow-sm transition-colors hover:bg-amber-100"
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-900 shadow-sm transition-colors hover:bg-amber-100 hover:text-amber-900 focus:text-amber-900"
                             to="/settings"
                         >
                             <Settings className="h-4 w-4" />

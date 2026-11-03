@@ -132,7 +132,7 @@ export function PlanLimitBanner( {
                     href={ BILLING_URL }
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex h-10 items-center gap-1.5 rounded-md bg-violet-600 px-4 text-sm font-semibold text-white shadow transition-colors hover:bg-violet-700"
+                    className="inline-flex h-10 items-center gap-1.5 rounded-md bg-violet-600 px-4 text-sm font-semibold text-white shadow transition-colors hover:bg-violet-700 hover:text-white focus:text-white"
                 >
                     <Sparkles className="h-3.5 w-3.5" aria-hidden />
                     Upgrade plan
