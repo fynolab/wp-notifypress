@@ -1,6 +1,6 @@
 {
     "name": "notifypress",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "A web push notification plugin for WordPress.",
     "main": "index.js",
     "packageManager": "pnpm@12.11.2",

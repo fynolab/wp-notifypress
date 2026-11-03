@@ -4,7 +4,7 @@ Tags: push notifications, web push, notifications, pwa, progressive web app
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -156,6 +156,10 @@ Yes, you can customize notification titles, messages, icons, and target URLs thr
 12. Opt-in prompt settings with layout styles, accent color, bell position and live preview.
 
 == Changelog ==
+
+= 1.0.1 =
+* Improved: Clearer setup screen description that covers sending push notifications.
+* Improved: Plugin listing title and clickable links in the plugin description.
 
 = 1.0.0 =
 * Initial release
