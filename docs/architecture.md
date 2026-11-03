@@ -51,8 +51,8 @@ Services are self-contained feature modules under `src/Services/<Name>/`, each i
 `Assets` (`src/Assets.php`, instantiated directly, not a `Service`) registers/enqueues the two
 admin JS bundles (`main`, `editor`), localizes `window.notifypress` bootstrap data, enqueues the
 public widget script from
-`app.notifypress.com/widget.js?site_key=...`, and serves the bundled `/service-worker.js` via a
-rewrite rule + `parse_request` hook (same pattern `PWA` uses for `/manifest.json`).
+`app.notifypress.com/widget.js?site_key=...`, and serves the bundled worker at `/?notifypress_sw=1` from
+a `parse_request` hook, passing that path to the widget.
 
 ## Event → Notification Pattern (Observer)
 
@@ -247,8 +247,7 @@ sends can repoint the plugin at another host.
 
 Gated entirely behind `Settings::get('pwaEnabled', false)` — when off, `PWA::__construct()`
 registers nothing. When on: injects PWA `<meta>`/apple-touch-icon tags on `wp_head`, and serves
-`/manifest.json` via the same rewrite-rule + `parse_request` pattern `Assets` uses for
-`/service-worker.js`. Manifest fields (`app_name`, `theme_color`, `app_icon`, ...) live under
+`/manifest.json` via a rewrite rule + `parse_request` hook. Manifest fields (`app_name`, `theme_color`, `app_icon`, ...) live under
 `Settings::all()['pwa']` and fall back to site identity (`get_bloginfo`, site icon) when unset.
 
 ## Conventions Recap

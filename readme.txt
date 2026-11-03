@@ -87,9 +87,9 @@ NotifyPress stores subscribers and delivers notifications.
 
 * In the WordPress admin, the plugin's dashboard pages load your stats, subscribers, campaigns and reports from the NotifyPress API. Requests go through your own site, which adds your API token on the server, so the token is never sent to the browser.
 * When you publish a post (if enabled), or a subscribed WooCommerce customer places an order or abandons their cart (if enabled), the plugin sends the notification title, message, link and, for WooCommerce, that customer's subscription token to the NotifyPress API.
-* On every front-end page, the plugin loads the NotifyPress widget script from app.notifypress.com, which shows the opt-in prompt. The service worker the plugin serves at /service-worker.js is bundled with the plugin; when a notification is shown or clicked, it reports the view or click to app.notifypress.com along with the visitor's browser, device type and timezone (used to count views and clicks per country).
+* On every front-end page, the plugin loads the NotifyPress widget script from app.notifypress.com, which shows the opt-in prompt. The service worker the plugin serves at /?notifypress_sw=1 is bundled with the plugin; when a notification is shown or clicked, it reports the view or click to app.notifypress.com along with the visitor's browser, device type and timezone (used to count views and clicks per country).
 * When a visitor accepts the browser's notification prompt, the widget sends NotifyPress their push subscription token, IP address, city and country, browser, device and timezone.
-* To deliver notifications, the widget loads Google's push messaging library from www.gstatic.com when a visitor opts in. Google terms: https://policies.google.com/terms · Privacy: https://policies.google.com/privacy
+* To deliver notifications, the widget loads Google's push messaging library from www.gstatic.com when a visitor opts in, and at most once a day on later visits to keep their subscription token current. Google terms: https://policies.google.com/terms · Privacy: https://policies.google.com/privacy
 
 Terms of service: https://notifypress.com/terms-of-service
 Privacy policy: https://notifypress.com/privacy-policy
