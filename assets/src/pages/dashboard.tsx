@@ -184,7 +184,7 @@ function DashboardHeader( {
                             prefetchRoute( '/notifications/new' )
                         }
                         onFocus={ () => prefetchRoute( '/notifications/new' ) }
-                        className="inline-flex h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                        className="inline-flex h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground focus:text-primary-foreground"
                     >
                         <Plus className="h-4 w-4" aria-hidden />
                         New campaign

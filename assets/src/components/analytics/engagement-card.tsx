@@ -73,7 +73,7 @@ export function EngagementCard( {
                             prefetchRoute( '/notifications/new' )
                         }
                         onFocus={ () => prefetchRoute( '/notifications/new' ) }
-                        className="mt-1 inline-flex h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                        className="mt-1 inline-flex h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground focus:text-primary-foreground"
                     >
                         New campaign
                     </Link>
