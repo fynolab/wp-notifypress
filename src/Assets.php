@@ -20,20 +20,19 @@ defined( 'ABSPATH' ) || exit;
  * and serves the service worker.
  */
 class Assets {
-	const SCRIPT_HANDLE         = 'notifypress-script';
-	const STYLE_HANDLE          = 'notifypress-style';
-	const OBJECT_NAME           = 'notifypress';
-	const NONCE_ACTION          = 'notifypress-nonce';
-	const REST_NONCE            = 'wp_rest';
-	const SERVICE_WORKER_JS     = 'service-worker.js';
-	const SERVICE_WORKER_HANDLE = 'notifypress_service_worker';
-	const WIDGET_HANDLE         = 'notifypress-widget';
+	const SCRIPT_HANDLE        = 'notifypress-script';
+	const STYLE_HANDLE         = 'notifypress-style';
+	const OBJECT_NAME          = 'notifypress';
+	const NONCE_ACTION         = 'notifypress-nonce';
+	const REST_NONCE           = 'wp_rest';
+	const SERVICE_WORKER_JS    = 'notifypress-sw.js';
+	const SERVICE_WORKER_QUERY = 'notifypress_sw';
+	const WIDGET_HANDLE        = 'notifypress-widget';
 
 	/**
 	 * Register the asset-related hooks.
 	 */
 	public function __construct() {
-		add_action( 'generate_rewrite_rules', array( $this, 'add_rewrite_rules' ) );
 		add_action( 'parse_request', array( $this, 'request' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'register_scripts' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_widget' ) );
@@ -42,18 +41,16 @@ class Assets {
 	}
 
 	/**
-	 * Serve the bundled service worker at /service-worker.js.
+	 * Serve the bundled service worker at /?notifypress_sw=1.
+	 *
+	 * A query string rather than a .js path, because many Nginx setups answer
+	 * .js requests themselves and would return a 404 without reaching WordPress.
 	 *
 	 * @return void
 	 */
 	public function request(): void {
-		if ( wp_is_json_request() || wp_is_jsonp_request() ) {
-			return;
-		}
-
-		$requested_url = wp_parse_url( untrailingslashit( get_self_link() ), PHP_URL_PATH );
-
-		if ( '/' . self::SERVICE_WORKER_JS !== $requested_url ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Public, read-only script request.
+		if ( ! isset( $_GET[ self::SERVICE_WORKER_QUERY ] ) ) {
 			return;
 		}
 
@@ -65,24 +62,10 @@ class Assets {
 
 		header( 'Content-Type: application/javascript; charset=utf-8' );
 		header( 'X-Content-Type-Options: nosniff' );
+		header( 'Cache-Control: no-cache' );
 		// Local, bundled file (not user input); already reviewed as safe to output raw.
 		echo file_get_contents( $service_worker ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents, WordPress.Security.EscapeOutput.OutputNotEscaped
 		exit;
-	}
-
-	/**
-	 * Add the service worker rewrite rule.
-	 *
-	 * @param \WP_Rewrite $wp_rewrite The WP_Rewrite instance.
-	 *
-	 * @return void
-	 */
-	public function add_rewrite_rules( \WP_Rewrite $wp_rewrite ): void {
-		$rules = array(
-			'service-worker.js' => 'index.php?' . self::SERVICE_WORKER_HANDLE . '=1',
-		);
-
-		$wp_rewrite->rules = $rules + $wp_rewrite->rules;
 	}
 
 	/**
@@ -235,7 +218,7 @@ class Assets {
 	}
 
 	/**
-	 * Add the async attribute to the widget script tag.
+	 * Add the async attribute and the service worker path to the widget script tag.
 	 *
 	 * @param string $tag    The full script tag markup.
 	 * @param string $handle The script handle being printed.
@@ -247,7 +230,25 @@ class Assets {
 			return $tag;
 		}
 
-		return str_replace( '<script ', '<script async ', $tag );
+		return str_replace(
+			'<script ',
+			'<script async data-notifypress-sw="' . esc_attr( $this->service_worker_path() ) . '" ',
+			$tag
+		);
+	}
+
+	/**
+	 * The path the widget registers the service worker from.
+	 *
+	 * Read from the unfiltered home option: language plugins filter home_url(),
+	 * and a path per language would give each language its own push subscription.
+	 *
+	 * @return string
+	 */
+	private function service_worker_path(): string {
+		$home_path = (string) wp_parse_url( (string) get_option( 'home' ), PHP_URL_PATH );
+
+		return trailingslashit( $home_path ) . '?' . self::SERVICE_WORKER_QUERY . '=1';
 	}
 
 	/**

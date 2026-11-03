@@ -34,7 +34,7 @@
         "assets/main-dist",
         "assets/editor-dist",
         "assets/images",
-        "assets/service-worker.js",
+        "assets/notifypress-sw.js",
         "assets/token-bridge.js",
         "assets/src",
         "composer.json",

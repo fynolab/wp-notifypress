@@ -84,6 +84,9 @@
             } );
     }
 
+    // The widget rotates the token after this script has already run.
+    window.addEventListener( 'notifypress:token-changed', sync );
+
     if ( 'loading' === document.readyState ) {
         document.addEventListener( 'DOMContentLoaded', sync );
     } else {

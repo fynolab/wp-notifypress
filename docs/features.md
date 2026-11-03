@@ -53,8 +53,8 @@ directly.
 What the plugin contributes:
 
 - **Enqueueing the widget** — only when the `enabled` setting is on and a `siteKey` is stored.
-- **The service worker** — `/service-worker.js`, served from the bundled file via a rewrite rule,
-  which is what FCM registers against.
+- **The service worker** — `/?notifypress_sw=1`, served from the bundled file, with the path passed
+  to the widget in the script tag's `data-notifypress-sw` attribute. FCM registers against it.
 - **The settings that shape it** — prompt copy/style/timing, geolocation, "remove powered by",
   and the welcome notification all live on the app's site record; the settings screen writes them
   with `PUT {app}/api/v1/sites/current`, and the app applies them when it builds `widget.js` (and
@@ -176,8 +176,9 @@ Opt-in via `pwaEnabled`. When on, `PWA` service:
 
 ## Service Worker
 
-`Assets` serves the plugin's bundled `service-worker.js` at `/service-worker.js` via a rewrite
-rule, required for the widget's push notifications and installability to work at the site root.
+`Assets` serves the plugin's bundled `notifypress-sw.js` at `/?notifypress_sw=1`, under the widget's
+own `notifypress-push/` scope. It handles push only, so it runs beside any other worker on the site.
+The query string reaches WordPress on any web server and in subfolder installs.
 
 ## Multisite
 
