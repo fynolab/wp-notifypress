@@ -231,16 +231,6 @@ export function WorldChoropleth( {
         () => `np-map-${ Math.random().toString( 36 ).slice( 2 ) }`
     );
 
-    function pulseClassFor( code: string ): string | null {
-        const rank = topCodes.indexOf( code );
-
-        if ( rank < 0 || rank >= PULSING_POINTS ) {
-            return null;
-        }
-
-        return PULSE_COLORS[ rank % PULSE_COLORS.length ];
-    }
-
     /**
      * One glowing point per country with subscribers, sized by bucket. Countries
      * too small for a polygon at 1:110m are only reachable through their point,
@@ -249,6 +239,16 @@ export function WorldChoropleth( {
     const points = useMemo( () => {
         if ( ! features ) {
             return [];
+        }
+
+        function pulseClassFor( code: string ): string | null {
+            const rank = topCodes.indexOf( code );
+
+            if ( rank < 0 || rank >= PULSING_POINTS ) {
+                return null;
+            }
+
+            return PULSE_COLORS[ rank % PULSE_COLORS.length ];
         }
 
         return countries
