@@ -3,6 +3,8 @@ import type { NotifyPressSettings } from './types';
 declare global {
     interface Window {
         notifypress?: {
+            /** App origin (Api::app_url()), e.g. https://app.notifypress.com. */
+            appUrl?: string;
             settings?: NotifyPressSettings;
             siteUrl?: string;
             restUrl?: string;
