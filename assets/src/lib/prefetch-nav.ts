@@ -2,6 +2,7 @@ import { laravelRequest } from './api';
 import { getApiToken, getBootstrapSettings, hasApiToken } from './settings';
 import { queryClient } from './query-client';
 import { automationsListQuery } from '../components/automations/automations-query';
+import { SUBSCRIBERS_LIST_PARAMS } from '../components/subscribers/subscribers-query';
 import type { NotifyPressSettings } from '../types';
 
 // Mirrors the `queryKey`/`queryFn` each page's first-load `useQuery` call
@@ -20,7 +21,9 @@ function prefetchEntries( settings: NotifyPressSettings ) {
             queryClient.prefetchQuery( {
                 queryKey: [ 'np-subscribers', token, '' ],
                 queryFn: () =>
-                    laravelRequest( settings, '/subscribers', { query: {} } ),
+                    laravelRequest( settings, '/subscribers', {
+                        query: SUBSCRIBERS_LIST_PARAMS,
+                    } ),
             } );
             queryClient.prefetchQuery( {
                 queryKey: [ 'np-tags', token ],
