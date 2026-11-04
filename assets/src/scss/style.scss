@@ -330,6 +330,101 @@ body.toplevel_page_notifypress :is([role='dialog'], [role='alertdialog'], [data-
   }
 }
 
+// Insight panels: the "written for you" look (same as the end of the app's
+// app.css; used by components/insight-callout.tsx). Unscoped on purpose:
+// this stylesheet only loads on the plugin's admin page, and dialogs that use
+// these classes portal to <body>, outside #notifypress. The colour vars live
+// on body.toplevel_page_notifypress too, so they resolve in both places.
+// Reuses the `shimmer` keyframes above.
+.np-insight-border {
+  background: linear-gradient(120deg, color-mix(in oklab, hsl(var(--primary)) 55%, transparent), color-mix(in oklab, #a855f7 45%, transparent), color-mix(in oklab, #ec4899 35%, transparent), color-mix(in oklab, hsl(var(--primary)) 55%, transparent));
+  background-size: 300% 300%;
+  animation: np-gradient-pan 6s ease infinite;
+}
+
+.np-insight-text {
+  background: linear-gradient(90deg, hsl(var(--primary)), #a855f7, #ec4899);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.np-thinking {
+  background: linear-gradient(90deg, hsl(var(--muted-foreground)) 0%, hsl(var(--foreground)) 50%, hsl(var(--muted-foreground)) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.np-caret {
+  animation: np-caret 1s steps(1) infinite;
+}
+
+.np-fade-up {
+  animation: np-fade-up 0.45s ease-out both;
+}
+
+.np-sparkle {
+  animation: np-sparkle 1.6s ease-in-out infinite;
+}
+
+@keyframes np-gradient-pan {
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes np-caret {
+
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes np-fade-up {
+
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes np-sparkle {
+
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+
+  50% {
+    transform: scale(1.15) rotate(12deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .np-insight-border,
+  .np-thinking,
+  .np-caret,
+  .np-fade-up,
+  .np-sparkle {
+    animation: none;
+  }
+}
+
 #notifypress a,
 :where(#{$np-dialog}) a {
   text-decoration: none;

@@ -11,45 +11,54 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     AlertCircle,
-    Airplay,
+    ArrowLeft,
     Ban,
+    Bell,
     Calendar as CalendarIcon,
     CalendarClock,
-    BarChart,
     CheckCircle,
-    ChevronDown,
-    ChevronLeft,
     ChevronRight,
-    ChevronUp,
-    Globe,
     Clock,
     Edit3,
-    Eye,
+    Filter,
     ListFilter,
     Loader2,
-    MousePointerClick,
     Plus,
     Repeat,
-    Server,
     Send,
-    Smartphone,
     Upload,
-    WorkflowIcon as WordPress,
+    Users,
     XCircle,
     XIcon,
-    Users,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 import { cn } from '../components/utils';
-import useLiveActivity from '../lib/use-live-activity';
+import useLiveActivity, { trackOptimisticSend } from '../lib/use-live-activity';
 import LiveActivityPanel from '../components/live-activity-panel';
 import defaultBellIcon from '../../images/notification-icon.png';
-import ChromeMac from '../components/notifications/previews/ChromeMac';
-import ChromeWindows from '../components/notifications/previews/ChromeWindows';
-import FirefoxMac from '../components/notifications/previews/FirefoxMac';
-import FirefoxWindows from '../components/notifications/previews/FirefoxWindows';
-import SafariMac from '../components/notifications/previews/SafariMac';
-import { toast } from 'sonner';
+import {
+    Chip,
+    CursorPager,
+    EmptyState,
+    PageHeader,
+    SectionCard,
+    StepTabs,
+} from '../components/page-parts';
+import type { ChipTone, Step } from '../components/page-parts';
+import { CampaignInsights } from '../components/notifications/campaign-insights';
+import {
+    CHOICE_ROW,
+    ChoiceIcon,
+    ComposerPreview,
+    SendOptionCard,
+    SendOptionsUpgrade,
+} from '../components/notifications/composer-parts';
+import {
+    formatCount,
+    formatRelativeDate,
+    formatSentAt,
+} from '../components/dashboard/format';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -69,7 +78,6 @@ import {
 } from '../components/ui/tooltip';
 import { Button } from '../components/ui/button';
 import { Calendar } from '../components/ui/calendar';
-import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import {
@@ -77,15 +85,9 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '../components/ui/popover';
-import { Progress } from '../components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { Textarea } from '../components/ui/textarea';
-import {
-    Tabs,
-    TabsContent,
-    TabsList,
-    TabsTrigger,
-} from '../components/ui/tabs';
+import { Tabs, TabsContent } from '../components/ui/tabs';
 import {
     Select,
     SelectContent,
@@ -95,15 +97,6 @@ import {
 } from '../components/ui/select';
 import { Switch } from '../components/ui/switch';
 import { TimePicker } from '../components/ui/time-picker';
-import {
-    Bar as RechartsBar,
-    BarChart as RechartsBarChart,
-    CartesianGrid,
-    ResponsiveContainer,
-    Tooltip as RechartsTooltip,
-    XAxis,
-    YAxis,
-} from 'recharts';
 import { getApiToken, getSettings, hasApiToken } from '../lib/settings';
 import { laravelRequest } from '../lib/api';
 import {
@@ -163,6 +156,23 @@ const defaultForm: NotificationFormData = {
     icon: null,
     image: null,
 };
+
+const SEGMENTS_PER_PAGE = 100;
+
+// Opt-in list flags: full titles and messages, and no welcome messages, as on
+// the web campaign list. Part of the list's query key so the cache matches.
+const LIST_PARAMS = { full_text: 1, exclude_welcome: 1 };
+
+type CampaignRow = Notification & { next_run_at?: string | null };
+
+type StatusType =
+    | 'sending'
+    | 'sent'
+    | 'pending'
+    | 'failed'
+    | 'scheduled'
+    | 'recurring'
+    | 'cancelled';
 
 function NoticeMessage( {
     message,
@@ -241,100 +251,214 @@ function normalizeAnalytics(
     };
 }
 
-function notificationDate( notification: Notification ): string {
-    let value = notification.created_at;
+const STATUS: Record<
+    StatusType,
+    { label: string; tone: ChipTone; icon: JSX.Element }
+> = {
+    sending: {
+        label: 'Sending…',
+        tone: 'primary',
+        icon: <Loader2 className="h-3 w-3 animate-spin" aria-hidden />,
+    },
+    sent: {
+        label: 'Sent',
+        tone: 'success',
+        icon: <CheckCircle className="h-3 w-3" aria-hidden />,
+    },
+    pending: {
+        label: 'Pending',
+        tone: 'neutral',
+        icon: <Clock className="h-3 w-3" aria-hidden />,
+    },
+    failed: {
+        label: 'Failed',
+        tone: 'danger',
+        icon: <XCircle className="h-3 w-3" aria-hidden />,
+    },
+    scheduled: {
+        label: 'Scheduled',
+        tone: 'primary',
+        icon: <CalendarClock className="h-3 w-3" aria-hidden />,
+    },
+    recurring: {
+        label: 'Recurring',
+        tone: 'violet',
+        icon: <Repeat className="h-3 w-3" aria-hidden />,
+    },
+    cancelled: {
+        label: 'Cancelled',
+        tone: 'warning',
+        icon: <Ban className="h-3 w-3" aria-hidden />,
+    },
+};
 
-    if ( notification.status === 'sent' ) {
-        value = notification.sent_at || notification.created_at;
-    } else if ( notification.status === 'scheduled' ) {
-        value = notification.scheduled_at;
+const FILTERS: { value: string; label: string; icon: JSX.Element }[] = [
+    {
+        value: 'all',
+        label: 'All statuses',
+        icon: <ListFilter className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+        value: 'sent',
+        label: 'Sent',
+        icon: <CheckCircle className="h-4 w-4 text-emerald-600" />,
+    },
+    {
+        value: 'pending',
+        label: 'Pending',
+        icon: <Clock className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+        value: 'failed',
+        label: 'Failed',
+        icon: <XCircle className="h-4 w-4 text-red-600" />,
+    },
+    {
+        value: 'scheduled',
+        label: 'Scheduled',
+        icon: <CalendarClock className="h-4 w-4 text-primary" />,
+    },
+    {
+        value: 'recurring',
+        label: 'Recurring',
+        icon: <Repeat className="h-4 w-4 text-violet-600" />,
+    },
+    {
+        value: 'cancelled',
+        label: 'Cancelled',
+        icon: <Ban className="h-4 w-4 text-amber-600" />,
+    },
+];
+
+const TEXT_TONES: Record< ChipTone, string > = {
+    success: 'text-emerald-700',
+    danger: 'text-red-700',
+    warning: 'text-amber-700',
+    primary: 'text-primary',
+    violet: 'text-violet-700',
+    neutral: 'text-muted-foreground',
+};
+
+const TILE_TONES: Record< ChipTone, string > = {
+    success: 'bg-emerald-600/10 text-emerald-700',
+    danger: 'bg-red-600/10 text-red-700',
+    warning: 'bg-amber-500/10 text-amber-700',
+    primary: 'bg-primary/10 text-primary',
+    violet: 'bg-violet-500/10 text-violet-700',
+    neutral: 'bg-muted text-muted-foreground',
+};
+
+const SEND_VIA_LABELS: Record< string, string > = {
+    'rest-api': 'REST API',
+    web: 'Web',
+    mobile: 'Mobile',
+    wordpress: 'WordPress',
+};
+
+function statusOf( notification: CampaignRow ): StatusType {
+    const status = notification.status || 'pending';
+
+    return status in STATUS ? ( status as StatusType ) : 'pending';
+}
+
+function notificationRawDate( notification: CampaignRow ): string {
+    switch ( statusOf( notification ) ) {
+        case 'sent':
+            return notification.sent_at || notification.created_at || '';
+        case 'scheduled':
+            return notification.scheduled_at || '';
+        case 'recurring':
+            return notification.next_run_at || notification.created_at || '';
+        default:
+            return notification.created_at || '';
     }
+}
 
-    if ( ! value ) {
-        return '—';
-    }
-
-    const date = new Date( value );
+// The list is grouped by day; scheduled and recurring sends in the future sit
+// under "Upcoming".
+function dayGroup( notification: CampaignRow ): { key: string; label: string } {
+    const date = new Date( notificationRawDate( notification ) );
 
     if ( Number.isNaN( date.getTime() ) ) {
-        return value;
+        return { key: 'unknown', label: 'Undated' };
     }
 
-    return new Intl.DateTimeFormat( 'en-US' ).format( date );
-}
+    const now = new Date();
 
-function sendViaLabel( createdBy?: string ) {
-    const labels: Record< string, string > = {
-        'rest-api': 'REST API',
-        web: 'Web',
-        mobile: 'Mobile',
-        wordpress: 'WordPress',
-    };
+    if (
+        date > now &&
+        [ 'scheduled', 'recurring' ].includes( statusOf( notification ) )
+    ) {
+        return { key: 'upcoming', label: 'Upcoming' };
+    }
 
-    return labels[ createdBy || '' ] || createdBy || 'WordPress';
-}
-
-function SendViaIcon( { createdBy }: { createdBy?: string } ) {
-    const icons: Record< string, typeof Server > = {
-        mobile: Smartphone,
-        wordpress: WordPress,
-        web: Globe,
-    };
-    const Icon = icons[ createdBy || '' ] || Server;
-
-    return (
-        <span className="flex items-center font-medium">
-            <Icon className="h-4 w-4 mr-2" />
-            { sendViaLabel( createdBy ) }
-        </span>
+    const startOfDay = ( value: Date ) =>
+        new Date(
+            value.getFullYear(),
+            value.getMonth(),
+            value.getDate()
+        ).getTime();
+    const days = Math.round(
+        ( startOfDay( now ) - startOfDay( date ) ) / 86400000
     );
+    const key = String( startOfDay( date ) );
+
+    if ( days === 0 ) {
+        return { key, label: 'Today' };
+    }
+
+    if ( days === 1 ) {
+        return { key, label: 'Yesterday' };
+    }
+
+    return {
+        key,
+        label: new Intl.DateTimeFormat( undefined, {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year:
+                date.getFullYear() === now.getFullYear()
+                    ? undefined
+                    : 'numeric',
+        } ).format( date ),
+    };
 }
 
-function notificationStatusClass( status?: string ) {
-    switch ( status ) {
-        case 'sending':
-            return 'bg-blue-100 text-sm text-blue-600 animate-pulse';
+function timeOf( notification: CampaignRow ): string {
+    const date = new Date( notificationRawDate( notification ) );
+
+    if ( Number.isNaN( date.getTime() ) ) {
+        return '';
+    }
+
+    return new Intl.DateTimeFormat( undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+    } ).format( date );
+}
+
+// What to show where the stats go, for campaigns without views.
+function statusNote( notification: CampaignRow ): string {
+    switch ( statusOf( notification ) ) {
         case 'sent':
-            return 'bg-emerald-600/10 text-sm text-emerald-600';
-        case 'pending':
-            return 'bg-gray-100 text-sm text-gray-600';
-        case 'failed':
-            return 'bg-red-100 text-sm text-red-600';
+            return 'No views yet';
+        case 'sending':
+            return 'Sending now…';
         case 'scheduled':
-            return 'bg-purple-100 text-sm text-purple-600';
+            return `Goes out ${ formatRelativeDate(
+                notificationRawDate( notification )
+            ) }`;
         case 'recurring':
-            return 'bg-indigo-100 text-sm text-indigo-600';
+            return `Next send ${ formatRelativeDate(
+                notificationRawDate( notification )
+            ) }`;
+        case 'pending':
+            return 'Draft, not sent yet';
         default:
-            return 'bg-gray-100 text-sm text-gray-600';
+            // Failed and cancelled already say so in the row's status.
+            return '';
     }
-}
-
-function NotificationStatusBadge( { status }: { status?: string } ) {
-    const icons: Record< string, JSX.Element > = {
-        sending: (
-            <Loader2 className="text-blue-500 mr-2 h-4 w-4 animate-spin" />
-        ),
-        sent: <CheckCircle className="text-emerald-600 mr-2 h-4 w-4" />,
-        pending: <Clock className="text-muted-foreground mr-2 h-4 w-4" />,
-        failed: <XCircle className="text-red-500 mr-2 h-4 w-4" />,
-        scheduled: <CalendarClock className="text-purple-500 mr-2 h-4 w-4" />,
-        recurring: <Repeat className="text-indigo-500 mr-2 h-4 w-4" />,
-    };
-
-    const label = status
-        ? status.charAt( 0 ).toUpperCase() + status.slice( 1 )
-        : 'Unknown';
-
-    return (
-        <span
-            className={ `${ notificationStatusClass(
-                status
-            ) } notification-status flex items-center max-w-fit rounded-full py-1 px-3 font-medium` }
-        >
-            { icons[ status || 'pending' ] || icons.pending }
-            { status === 'sending' ? 'Sending...' : label }
-        </span>
-    );
 }
 
 function NotificationForm( {
@@ -383,13 +507,41 @@ function NotificationForm( {
 
     const activeNotificationId = draftId || notificationId;
 
+    // per_page=100 lists every segment, not just the API's default first 10.
     const segmentsQuery = useQuery( {
-        queryKey: [ 'np-segments-all', settings.apiToken ],
+        queryKey: [ 'np-segments-all', settings.apiToken, SEGMENTS_PER_PAGE ],
         queryFn: () =>
             laravelRequest< LaravelCollection< Segment > >(
                 settings,
-                '/segments'
+                '/segments',
+                { query: { per_page: SEGMENTS_PER_PAGE } }
             ),
+    } );
+
+    // Only the total matters: sending is blocked while the site has nobody
+    // to notify. Unknown (loading or failed) never blocks.
+    const subscribersCountQuery = useQuery( {
+        queryKey: [ 'np-subscribers-total', settings.apiToken ],
+        enabled: ! isMessage,
+        queryFn: () =>
+            laravelRequest< LaravelCollection< unknown > >(
+                settings,
+                '/subscribers',
+                { query: { limit: 1 } }
+            ),
+    } );
+
+    // Which send options the plan includes. Older app versions have no such
+    // endpoint: while loading or on failure both stay allowed, the server
+    // still refuses and the error notice explains why.
+    const capabilitiesQuery = useQuery( {
+        queryKey: [ 'np-notification-capabilities', settings.apiToken ],
+        enabled: ! isMessage,
+        retry: false,
+        queryFn: () =>
+            laravelRequest< {
+                data?: { canSchedule?: boolean; canRecur?: boolean };
+            } >( settings, '/notifications/capabilities' ),
     } );
 
     const lastUsedMediaQuery = useQuery( {
@@ -518,7 +670,9 @@ function NotificationForm( {
             queryClient.invalidateQueries( {
                 queryKey: [ 'np-notifications' ],
             } );
-            setNotice( 'Draft saved.' );
+            // No "Draft saved." notice: saving is an automatic step between
+            // the composer tabs, so moving to the next tab is the feedback.
+            // Errors still show (see saveAndContinue / handleSubmit).
         },
         onError: ( error ) => setNotice( error.message ),
     } );
@@ -534,14 +688,17 @@ function NotificationForm( {
                 segment_id: form.segment_id || undefined,
             };
 
-            const response = await laravelRequest(
-                settings,
-                '/notifications/send',
-                {
-                    method: 'POST',
-                    body: payload,
-                }
-            );
+            const response = await laravelRequest< {
+                notification?: {
+                    id?: number;
+                    title?: string;
+                    message?: string;
+                };
+                subscriber_total?: number;
+            } >( settings, '/notifications/send', {
+                method: 'POST',
+                body: payload,
+            } );
 
             if ( activeNotificationId ) {
                 try {
@@ -557,7 +714,18 @@ function NotificationForm( {
 
             return response;
         },
-        onSuccess: () => {
+        onSuccess: ( response ) => {
+            // Show the send in Live Activity right away; a short send can
+            // start and finish between two polls of the campaigns page.
+            const sent = response?.notification;
+            if ( sent?.id ) {
+                trackOptimisticSend( queryClient, {
+                    id: sent.id,
+                    title: sent.title || form.title,
+                    message: sent.message || form.message,
+                    subscriberTotal: Number( response?.subscriber_total || 0 ),
+                } );
+            }
             queryClient.invalidateQueries( {
                 queryKey: [ 'np-notifications' ],
             } );
@@ -660,6 +828,37 @@ function NotificationForm( {
         }
     } )();
 
+    // Same rule as the web composer: no subscribers, nobody to send to.
+    // While the count is loading or unknown, sending is not blocked.
+    const subscriberTotal = subscribersCountQuery.data?.total;
+    const noSubscribers =
+        ! isMessageMode &&
+        typeof subscriberTotal === 'number' &&
+        subscriberTotal <= 0;
+    const capabilities = capabilitiesQuery.isError
+        ? undefined
+        : capabilitiesQuery.data?.data;
+    const canSchedule = capabilities?.canSchedule !== false;
+    const canRecur = capabilities?.canRecur !== false;
+
+    // Scheduling needs a date and a time; recurring needs a time (and at
+    // least one weekday for weekly). Without them the server rejects it.
+    let sendOptionComplete = true;
+
+    if ( sendOption === 'schedule' ) {
+        sendOptionComplete =
+            canSchedule &&
+            Boolean( form.scheduled_date && form.scheduled_time );
+    } else if ( sendOption === 'recurring' ) {
+        sendOptionComplete =
+            canRecur &&
+            Boolean( form.time ) &&
+            ( form.frequency !== 'weekly' || form.days.length > 0 );
+    }
+
+    const sendBlocked =
+        step === 'send' && ( noSubscribers || ! sendOptionComplete );
+
     const processing =
         saveMutation.isPending ||
         sendMutation.isPending ||
@@ -694,6 +893,10 @@ function NotificationForm( {
             return;
         }
 
+        if ( noSubscribers || ! sendOptionComplete ) {
+            return;
+        }
+
         if ( sendOption === 'now' ) {
             sendMutation.mutate();
         } else if ( sendOption === 'schedule' ) {
@@ -717,13 +920,20 @@ function NotificationForm( {
         ? new Date( `${ form.scheduled_date }T00:00:00` )
         : undefined;
 
-    const tabTriggerClass = ( tab: string ) =>
-        cn(
-            'rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none py-3 px-4 text-sm font-medium text-muted-foreground data-[state=active]:text-foreground gap-2 sm:flex',
-            {
-                hidden: step !== tab,
-            }
-        );
+    // Later steps stay locked: each step is reached by saving the one
+    // before it, so the draft exists before Audience and Send. Earlier
+    // steps can be revisited; saving again updates the same draft.
+    const stepIndex = validSteps.indexOf( step );
+    const composerSteps: Step[] = [
+        { value: 'compose', label: 'Content', icon: <Upload /> },
+        { value: 'audience', label: 'Audience', icon: <Users /> },
+        { value: 'send', label: 'Send', icon: <Send /> },
+    ]
+        .slice( 0, isMessageMode ? 1 : 3 )
+        .map( ( item, index ) => ( {
+            ...item,
+            disabled: index > stepIndex,
+        } ) );
 
     const renderImageSection = (
         iconOrImage: 'icon' | 'image',
@@ -860,9 +1070,12 @@ function NotificationForm( {
     };
 
     const tabContentCreate = (
-        <Card className="mb-4">
-            <CardContent className="pt-5">
-                <div className="mb-4">
+        <SectionCard
+            title="Content"
+            description="What subscribers see when the notification arrives."
+        >
+            <div className="mt-5">
+                <div className="mb-5 space-y-1.5">
                     <Label htmlFor="title">
                         Title <span className="text-red-500">*</span>
                     </Label>
@@ -889,7 +1102,7 @@ function NotificationForm( {
                     </div>
                 </div>
 
-                <div className="mb-4">
+                <div className="mb-5 space-y-1.5">
                     <Label htmlFor="message">
                         Message <span className="text-red-500">*</span>
                     </Label>
@@ -916,7 +1129,7 @@ function NotificationForm( {
                     </div>
                 </div>
 
-                <div className="mb-4">
+                <div className="mb-5 space-y-1.5">
                     <Label htmlFor="target_url">Target URL</Label>
                     <Input
                         maxLength={ 255 }
@@ -934,12 +1147,12 @@ function NotificationForm( {
                     />
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
                         <Label>Notification Icon</Label>
                         <RadioGroup
                             disabled={ Boolean( form.icon_url ) }
-                            defaultValue="default-icon"
+                            value={ iconTypeOption }
                             onValueChange={ ( selectedIcon ) => {
                                 if ( selectedIcon === 'last-used-icon' ) {
                                     setForm( {
@@ -1001,11 +1214,11 @@ function NotificationForm( {
                             />
                         </div>
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
                         <Label>Notification Image</Label>
                         <RadioGroup
                             disabled={ Boolean( form.image_url ) }
-                            defaultValue="custom-image"
+                            value={ imageTypeOption }
                             onValueChange={ ( selectedImage ) => {
                                 if ( selectedImage === 'last-used-image' ) {
                                     setForm( {
@@ -1060,16 +1273,16 @@ function NotificationForm( {
                             />
                         </div>
 
-                        <div className="flex items-center space-x-2 text-sm text-yellow-600">
-                            <AlertCircle className="h-4 w-4" />
+                        <div className="flex items-center gap-2 text-xs font-medium text-amber-700">
+                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                             <span>
                                 Notification Image Displayed Only on Windows
                             </span>
                         </div>
                     </div>
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </SectionCard>
     );
 
     const activeSegments = segments.filter(
@@ -1077,365 +1290,380 @@ function NotificationForm( {
     );
 
     const tabContentAudience = (
-        <div className="mb-4 space-y-4">
-            <RadioGroup
-                value={ form.segment_id || 'all' }
-                onValueChange={ ( segmentId ) =>
-                    setForm( {
-                        ...form,
-                        segment_id: segmentId === 'all' ? '' : segmentId,
-                    } )
-                }
-                className="space-y-2"
-            >
-                <div className="bg-card transition-[border-color] flex items-center space-x-2 px-5 py-5 rounded-lg border border-border relative hover:border-primary">
-                    <RadioGroupItem
-                        className="w-5 h-5 flex-shrink-0"
-                        value="all"
-                        id="send-to-all"
-                    />
-                    <Label
-                        htmlFor="send-to-all"
-                        className="cursor-pointer font-medium"
-                    >
-                        Send to All Subscribers
-                    </Label>
-                </div>
-
-                { activeSegments.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-border px-5 py-6 text-center text-sm text-muted-foreground">
-                        No audience groups yet. Create a segment to target a
-                        specific group of subscribers.
-                    </div>
-                ) : (
-                    activeSegments.map( ( segment ) => (
-                        <div
-                            key={ segment.id }
-                            className="bg-card transition-[border-color] flex items-center space-x-2 px-5 py-5 rounded-lg border border-border relative hover:border-primary"
+        <SectionCard
+            title="Audience"
+            description="Who should get this notification."
+        >
+            <div className="mt-5 space-y-4">
+                <RadioGroup
+                    value={ form.segment_id || 'all' }
+                    onValueChange={ ( segmentId ) =>
+                        setForm( {
+                            ...form,
+                            segment_id: segmentId === 'all' ? '' : segmentId,
+                        } )
+                    }
+                    className="space-y-2.5"
+                >
+                    <div className={ CHOICE_ROW }>
+                        <RadioGroupItem
+                            className="w-5 h-5 flex-shrink-0"
+                            value="all"
+                            id="send-to-all"
+                        />
+                        <ChoiceIcon>
+                            <Users />
+                        </ChoiceIcon>
+                        <Label
+                            htmlFor="send-to-all"
+                            className="cursor-pointer font-medium after:absolute after:inset-0"
                         >
-                            <RadioGroupItem
-                                className="w-5 h-5 flex-shrink-0"
-                                value={ String( segment.id ) }
-                                id={ String( segment.id ) }
-                            />
-                            <Label
-                                htmlFor={ String( segment.id ) }
-                                className="cursor-pointer font-medium"
-                            >
-                                { segment.name }
-                            </Label>
-                        </div>
-                    ) )
-                ) }
-            </RadioGroup>
+                            Send to All Subscribers
+                        </Label>
+                    </div>
 
-            <p className="text-xs text-muted-foreground">
-                Want to target subscribers by interest or category?{ ' ' }
-                <Link
-                    to="/segments"
-                    className="text-primary underline underline-offset-2 hover:no-underline"
-                >
-                    Create a tag
-                </Link>
-                , then{ ' ' }
-                <Link
-                    to="/segments/new"
-                    className="text-primary underline underline-offset-2 hover:no-underline"
-                >
-                    build a segment
-                </Link>{ ' ' }
-                using that tag.
-            </p>
-        </div>
+                    { activeSegments.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-border px-5 py-6 text-center text-sm text-muted-foreground">
+                            No audience groups yet.{ ' ' }
+                            <Link
+                                to="/segments/new"
+                                className="text-primary underline underline-offset-2 hover:no-underline"
+                            >
+                                Create a segment
+                            </Link>{ ' ' }
+                            to target a specific group of subscribers.
+                        </div>
+                    ) : (
+                        activeSegments.map( ( segment ) => (
+                            <div key={ segment.id } className={ CHOICE_ROW }>
+                                <RadioGroupItem
+                                    className="w-5 h-5 flex-shrink-0"
+                                    value={ String( segment.id ) }
+                                    id={ String( segment.id ) }
+                                />
+                                <ChoiceIcon>
+                                    <Filter />
+                                </ChoiceIcon>
+                                <Label
+                                    htmlFor={ String( segment.id ) }
+                                    className="cursor-pointer font-medium after:absolute after:inset-0"
+                                >
+                                    { segment.name }
+                                </Label>
+                            </div>
+                        ) )
+                    ) }
+                </RadioGroup>
+
+                <p className="text-xs text-muted-foreground">
+                    Want to target subscribers by interest or category?{ ' ' }
+                    <Link
+                        to="/segments"
+                        className="text-primary underline underline-offset-2 hover:no-underline"
+                    >
+                        Create a tag
+                    </Link>
+                    , then{ ' ' }
+                    <Link
+                        to="/segments/new"
+                        className="text-primary underline underline-offset-2 hover:no-underline"
+                    >
+                        build a segment
+                    </Link>{ ' ' }
+                    using that tag.
+                </p>
+            </div>
+        </SectionCard>
     );
 
-    const sendOptionCards = [
-        {
-            value: 'now',
-            icon: Send,
-            label: 'Send Now',
-            description: 'Immediate delivery',
-        },
-        {
-            value: 'schedule',
-            icon: CalendarIcon,
-            label: 'Schedule',
-            description: 'Set a future date',
-        },
-        {
-            value: 'recurring',
-            icon: Clock,
-            label: 'Recurring',
-            description: 'Repeat on a schedule',
-        },
-    ];
-
     const tabContentSend = (
-        <div className="space-y-6 mb-4">
-            <RadioGroup
-                value={ sendOption }
-                onValueChange={ setSendOption }
-                className="grid grid-cols-1 md:grid-cols-3 gap-4"
-            >
-                { sendOptionCards.map( ( option ) => {
-                    const OptionIcon = option.icon;
-
-                    return (
-                        <Card
-                            key={ option.value }
-                            className={ cn(
-                                'relative transition-all cursor-pointer',
-                                sendOption === option.value
-                                    ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                                    : 'hover:border-primary/50'
-                            ) }
-                        >
-                            <CardContent className="flex items-center space-x-4 p-4">
-                                <RadioGroupItem
-                                    value={ option.value }
-                                    id={ option.value }
-                                    className="sr-only"
-                                />
-                                <div
-                                    className={ cn(
-                                        'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg',
-                                        sendOption === option.value
-                                            ? 'bg-primary text-primary-foreground'
-                                            : 'bg-muted text-muted-foreground'
-                                    ) }
-                                >
-                                    <OptionIcon className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <span className="font-medium text-sm">
-                                        { option.label }
-                                    </span>
-                                    <p className="text-xs text-muted-foreground">
-                                        { option.description }
-                                    </p>
-                                </div>
-                                <Label
-                                    htmlFor={ option.value }
-                                    className="absolute inset-0 cursor-pointer"
-                                ></Label>
-                            </CardContent>
-                        </Card>
-                    );
-                } ) }
-            </RadioGroup>
-            { sendOption === 'schedule' ? (
-                <Card>
-                    <CardHeader>
-                        <Label htmlFor="date_time">
-                            Schedule Date and Time
-                        </Label>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex space-x-2">
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        id="date_time"
-                                        type="button"
-                                        className={ cn(
-                                            'w-[240px] justify-start text-left font-normal border-dashed bg-muted/50 hover:bg-muted',
-                                            ! scheduledDateValue &&
-                                                'text-muted-foreground'
-                                        ) }
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        { scheduledDateValue ? (
-                                            format( scheduledDateValue, 'PPP' )
-                                        ) : (
-                                            <span>Pick a date</span>
-                                        ) }
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent
-                                    className="w-auto p-0"
-                                    align="start"
-                                >
-                                    <Calendar
-                                        mode="single"
-                                        selected={ scheduledDateValue }
-                                        onSelect={ ( selected ) =>
-                                            setForm( {
-                                                ...form,
-                                                scheduled_date: selected
-                                                    ? format(
-                                                          selected,
-                                                          'yyyy-MM-dd'
-                                                      )
-                                                    : '',
-                                            } )
-                                        }
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                            <TimePicker
-                                value={ form.scheduled_time }
-                                onChange={ ( time ) =>
-                                    setForm( {
-                                        ...form,
-                                        scheduled_time: time,
-                                    } )
-                                }
-                                className="w-[150px]"
-                            />
+        <SectionCard
+            title="When to send"
+            description="Send it now, pick a time, or repeat it on a schedule."
+        >
+            <div className="mt-5 space-y-5">
+                <RadioGroup
+                    value={ sendOption }
+                    onValueChange={ setSendOption }
+                    className="grid grid-cols-1 md:grid-cols-3 gap-4"
+                >
+                    <SendOptionCard
+                        value="now"
+                        title="Send Now"
+                        description="Immediate delivery"
+                        icon={ <Send /> }
+                        selected={ sendOption === 'now' }
+                    />
+                    <SendOptionCard
+                        value="schedule"
+                        title="Schedule"
+                        description="Set a future date"
+                        icon={ <CalendarIcon /> }
+                        selected={ sendOption === 'schedule' }
+                        locked={ ! canSchedule }
+                    />
+                    <SendOptionCard
+                        value="recurring"
+                        title="Recurring"
+                        description="Repeat on a schedule"
+                        icon={ <Clock /> }
+                        selected={ sendOption === 'recurring' }
+                        locked={ ! canRecur }
+                    />
+                </RadioGroup>
+                <SendOptionsUpgrade
+                    locked={ [
+                        ...( canSchedule ? [] : [ 'Scheduled sends' ] ),
+                        ...( canRecur ? [] : [ 'Recurring sends' ] ),
+                    ] }
+                />
+                { sendOption === 'schedule' ? (
+                    <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+                        <div>
+                            <Label htmlFor="date_time">
+                                Schedule Date and Time
+                            </Label>
                         </div>
-                    </CardContent>
-                </Card>
-            ) : null }
-            { sendOption === 'recurring' ? (
-                <div className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <Label>Repeat</Label>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                                <Select
-                                    value={ form.frequency }
-                                    onValueChange={ ( value ) =>
-                                        setForm( { ...form, frequency: value } )
-                                    }
-                                >
-                                    <SelectTrigger className="w-full sm:w-[180px]">
-                                        <SelectValue placeholder="Select frequency" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="daily">
-                                            Daily
-                                        </SelectItem>
-                                        <SelectItem value="weekly">
-                                            Weekly
-                                        </SelectItem>
-                                        <SelectItem value="monthly">
-                                            Monthly
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <span className="text-sm text-muted-foreground">
-                                    at
-                                </span>
-                                <Label
-                                    htmlFor="recurring_time"
-                                    className="sr-only"
-                                >
-                                    Time
-                                </Label>
+                        <div>
+                            <div className="flex space-x-2">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            id="date_time"
+                                            type="button"
+                                            className={ cn(
+                                                'w-[240px] justify-start text-left font-normal border-dashed bg-muted/50 hover:bg-muted',
+                                                ! scheduledDateValue &&
+                                                    'text-muted-foreground'
+                                            ) }
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            { scheduledDateValue ? (
+                                                format(
+                                                    scheduledDateValue,
+                                                    'PPP'
+                                                )
+                                            ) : (
+                                                <span>Pick a date</span>
+                                            ) }
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent
+                                        className="w-auto p-0"
+                                        align="start"
+                                    >
+                                        <Calendar
+                                            mode="single"
+                                            selected={ scheduledDateValue }
+                                            onSelect={ ( selected ) =>
+                                                setForm( {
+                                                    ...form,
+                                                    scheduled_date: selected
+                                                        ? format(
+                                                              selected,
+                                                              'yyyy-MM-dd'
+                                                          )
+                                                        : '',
+                                                } )
+                                            }
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
                                 <TimePicker
-                                    id="recurring_time"
-                                    value={ form.time }
+                                    value={ form.scheduled_time }
                                     onChange={ ( time ) =>
-                                        setForm( { ...form, time } )
+                                        setForm( {
+                                            ...form,
+                                            scheduled_time: time,
+                                        } )
                                     }
-                                    className="w-full sm:w-[150px]"
+                                    className="w-[150px]"
                                 />
                             </div>
-                            { form.frequency === 'weekly' ? (
-                                <div>
-                                    <Label>On</Label>
-                                    <div className="flex flex-wrap gap-x-5 gap-y-2 mt-2">
-                                        { weekdayLabels.map( ( day, index ) => {
-                                            const cronDay = ( index + 1 ) % 7;
-
-                                            return (
-                                                <div
-                                                    key={ day }
-                                                    className="flex items-center space-x-2"
-                                                >
-                                                    <Switch
-                                                        id={ day.toLowerCase() }
-                                                        checked={ form.days.includes(
-                                                            cronDay
-                                                        ) }
-                                                        onCheckedChange={ () =>
-                                                            toggleRecurringDay(
-                                                                index
-                                                            )
-                                                        }
-                                                    />
-                                                    <Label
-                                                        htmlFor={ day.toLowerCase() }
-                                                    >
-                                                        { day }
-                                                    </Label>
-                                                </div>
-                                            );
-                                        } ) }
-                                    </div>
-                                </div>
-                            ) : null }
-                            { form.frequency === 'monthly' ? (
-                                <div>
-                                    <Label htmlFor="recurring_day_of_month">
-                                        Day of month
-                                    </Label>
-                                    <Input
-                                        id="recurring_day_of_month"
-                                        type="number"
-                                        min={ 1 }
-                                        max={ 31 }
-                                        value={ form.day_of_month }
-                                        onChange={ ( event ) =>
+                            { form.scheduled_date &&
+                            form.scheduled_time ? null : (
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    Pick both a date and a time to schedule it.
+                                </p>
+                            ) }
+                        </div>
+                    </div>
+                ) : null }
+                { sendOption === 'recurring' ? (
+                    <div className="space-y-4">
+                        <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
+                            <div>
+                                <Label>Repeat</Label>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                    <Select
+                                        value={ form.frequency }
+                                        onValueChange={ ( value ) =>
                                             setForm( {
                                                 ...form,
-                                                day_of_month: Number(
-                                                    event.target.value
-                                                ),
+                                                frequency: value,
                                             } )
                                         }
-                                        className="w-[100px] mt-2"
+                                    >
+                                        <SelectTrigger className="w-full sm:w-[180px]">
+                                            <SelectValue placeholder="Select frequency" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="daily">
+                                                Daily
+                                            </SelectItem>
+                                            <SelectItem value="weekly">
+                                                Weekly
+                                            </SelectItem>
+                                            <SelectItem value="monthly">
+                                                Monthly
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <span className="text-sm text-muted-foreground">
+                                        at
+                                    </span>
+                                    <Label
+                                        htmlFor="recurring_time"
+                                        className="sr-only"
+                                    >
+                                        Time
+                                    </Label>
+                                    <TimePicker
+                                        id="recurring_time"
+                                        value={ form.time }
+                                        onChange={ ( time ) =>
+                                            setForm( { ...form, time } )
+                                        }
+                                        className="w-full sm:w-[150px]"
                                     />
                                 </div>
-                            ) : null }
-                        </CardContent>
-                    </Card>
-                </div>
-            ) : null }
-        </div>
+                                { form.time ? null : (
+                                    <p className="text-xs text-muted-foreground">
+                                        Pick a time for each send.
+                                    </p>
+                                ) }
+                                { form.frequency === 'weekly' ? (
+                                    <div>
+                                        <Label>On</Label>
+                                        <div className="flex flex-wrap gap-x-5 gap-y-2 mt-2">
+                                            { weekdayLabels.map(
+                                                ( day, index ) => {
+                                                    const cronDay =
+                                                        ( index + 1 ) % 7;
+
+                                                    return (
+                                                        <div
+                                                            key={ day }
+                                                            className="flex items-center space-x-2"
+                                                        >
+                                                            <Switch
+                                                                id={ day.toLowerCase() }
+                                                                checked={ form.days.includes(
+                                                                    cronDay
+                                                                ) }
+                                                                onCheckedChange={ () =>
+                                                                    toggleRecurringDay(
+                                                                        index
+                                                                    )
+                                                                }
+                                                            />
+                                                            <Label
+                                                                htmlFor={ day.toLowerCase() }
+                                                            >
+                                                                { day }
+                                                            </Label>
+                                                        </div>
+                                                    );
+                                                }
+                                            ) }
+                                        </div>
+                                        { form.days.length === 0 ? (
+                                            <p className="mt-2 text-xs text-muted-foreground">
+                                                Pick at least one day of the
+                                                week.
+                                            </p>
+                                        ) : null }
+                                    </div>
+                                ) : null }
+                                { form.frequency === 'monthly' ? (
+                                    <div>
+                                        <Label htmlFor="recurring_day_of_month">
+                                            Day of month
+                                        </Label>
+                                        <Input
+                                            id="recurring_day_of_month"
+                                            type="number"
+                                            min={ 1 }
+                                            max={ 31 }
+                                            value={ form.day_of_month }
+                                            onChange={ ( event ) =>
+                                                setForm( {
+                                                    ...form,
+                                                    day_of_month: Number(
+                                                        event.target.value
+                                                    ),
+                                                } )
+                                            }
+                                            className="w-[100px] mt-2"
+                                        />
+                                    </div>
+                                ) : null }
+                            </div>
+                        </div>
+                    </div>
+                ) : null }
+            </div>
+        </SectionCard>
     );
 
     return (
-        <div className="container mx-auto px-4 py-8 space-y-8">
-            <div className="flex justify-between gap-6">
-                <div className="flex-1 min-w-0">
+        <div className="container mx-auto space-y-6 px-4 py-6 sm:py-8">
+            <PageHeader
+                title={ ( () => {
+                    if ( isMessageMode ) {
+                        return notificationId
+                            ? 'Edit message'
+                            : 'Create message';
+                    }
+
+                    return notificationId
+                        ? 'Edit Notification'
+                        : 'Create Notification';
+                } )() }
+                description={
+                    isMessageMode
+                        ? 'A reusable message for your automations.'
+                        : 'Write it, pick who gets it, then send or schedule it.'
+                }
+                actions={
+                    <Button
+                        asChild
+                        variant="outline"
+                        className="h-10 gap-2 px-4"
+                    >
+                        <Link
+                            to={
+                                isMessageMode
+                                    ? '/automations/messages'
+                                    : '/notifications'
+                            }
+                        >
+                            <ArrowLeft className="h-4 w-4" aria-hidden />
+                            { isMessageMode ? 'All messages' : 'All campaigns' }
+                        </Link>
+                    </Button>
+                }
+            />
+
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+                <div className="min-w-0">
                     <form onSubmit={ handleSubmit }>
                         <Tabs value={ step } onValueChange={ goToStep }>
-                            <TabsList className="h-auto bg-transparent border-b border-border rounded-none w-full justify-start gap-0 p-0 mb-0">
-                                <TabsTrigger
-                                    className={ tabTriggerClass( 'compose' ) }
-                                    value="compose"
-                                >
-                                    <Upload className="w-4 h-4" />
-                                    Create Notification
-                                </TabsTrigger>
-                                { ! isMessageMode ? (
-                                    <>
-                                        <TabsTrigger
-                                            className={ tabTriggerClass(
-                                                'audience'
-                                            ) }
-                                            value="audience"
-                                        >
-                                            <Users className="w-4 h-4" />
-                                            Audience
-                                        </TabsTrigger>
-                                        <TabsTrigger
-                                            className={ tabTriggerClass(
-                                                'send'
-                                            ) }
-                                            value="send"
-                                        >
-                                            <Send className="w-4 h-4" />
-                                            Send
-                                        </TabsTrigger>
-                                    </>
-                                ) : null }
-                            </TabsList>
+                            <StepTabs active={ step } steps={ composerSteps } />
 
                             <TabsContent className="mt-5" value="compose">
                                 <NoticeMessage
@@ -1474,10 +1702,25 @@ function NotificationForm( {
                                 </>
                             ) : null }
 
-                            <div className="flex justify-end mt-4 relative">
+                            { sendBlocked ? (
+                                <div className="mt-5 rounded-xl border border-dashed border-border bg-card px-5 py-6 text-center text-sm text-muted-foreground">
+                                    No subscribers yet, so there is nobody to
+                                    notify.{ ' ' }
+                                    <Link
+                                        to="/settings?tab=optin"
+                                        className="text-primary underline underline-offset-2 hover:no-underline"
+                                    >
+                                        Set up the opt-in prompt
+                                    </Link>{ ' ' }
+                                    to start collecting subscribers.
+                                </div>
+                            ) : null }
+
+                            <div className="mt-5 flex justify-end">
                                 <Button
                                     type="submit"
-                                    disabled={ processing }
+                                    className="h-10 gap-1 px-5"
+                                    disabled={ processing || sendBlocked }
                                     aria-label={ submitButtonLabel }
                                 >
                                     { submitButtonLabel }
@@ -1488,95 +1731,43 @@ function NotificationForm( {
                     </form>
                 </div>
 
-                <div className="hidden sm:flex flex-col w-[400px] flex-shrink-0">
-                    <div className="flex items-center gap-2 px-4 py-3 mb-3 border-b-2 border-primary text-sm font-medium">
-                        <Airplay className="w-4 h-4 text-primary" />
-                        <span>Notification Preview</span>
-                    </div>
-                    <Card>
-                        <CardContent className="pt-5 pb-0">
-                            <ChromeMac
-                                classes="mb-7"
-                                cardTitle="Mac OS - Chrome"
-                                title={
-                                    form.title || notificationPlaceholder.title
-                                }
-                                message={
-                                    form.message ||
-                                    notificationPlaceholder.message
-                                }
-                                icon={ previewIcon || undefined }
-                            />
-                            <FirefoxMac
-                                classes="mb-7"
-                                cardTitle="Mac OS - Firefox"
-                                title={
-                                    form.title || notificationPlaceholder.title
-                                }
-                                message={
-                                    form.message ||
-                                    notificationPlaceholder.message
-                                }
-                                icon={ previewIcon || undefined }
-                            />
-                            <SafariMac
-                                classes="mb-7"
-                                cardTitle="Mac OS - Safari"
-                                title={
-                                    form.title || notificationPlaceholder.title
-                                }
-                                message={
-                                    form.message ||
-                                    notificationPlaceholder.message
-                                }
-                                icon={ previewIcon || undefined }
-                            />
-                            <ChromeWindows
-                                classes="mb-7"
-                                cardTitle="Windows OS - Chrome"
-                                title={
-                                    form.title || notificationPlaceholder.title
-                                }
-                                message={
-                                    form.message ||
-                                    notificationPlaceholder.message
-                                }
-                                icon={ previewIcon || undefined }
-                            />
-                            <FirefoxWindows
-                                classes="mb-7"
-                                cardTitle="Windows OS - Firefox"
-                                title={
-                                    form.title || notificationPlaceholder.title
-                                }
-                                message={
-                                    form.message ||
-                                    notificationPlaceholder.message
-                                }
-                                icon={ previewIcon || undefined }
-                            />
-                        </CardContent>
-                    </Card>
-                </div>
+                <ComposerPreview
+                    title={ form.title || notificationPlaceholder.title }
+                    message={ form.message || notificationPlaceholder.message }
+                    icon={ previewIcon }
+                />
             </div>
         </div>
     );
 }
 
+function siteNameFor( settings?: NotifyPressSettings ): string | null {
+    if ( settings?.siteName ) {
+        return settings.siteName;
+    }
+
+    if ( settings?.connectedSite?.site_name ) {
+        return settings.connectedSite.site_name;
+    }
+
+    const url = settings?.siteUrl || window.notifypress?.siteUrl || '';
+
+    return (
+        url
+            .replace( /(^\w+:|^)\/\//, '' )
+            .replace( /^www\./, '' )
+            .split( '/' )[ 0 ] || null
+    );
+}
+
 export default function NotificationsPage() {
     const params = useParams();
-    const navigate = useNavigate();
     const routerLocation = useLocation();
     const queryClient = useQueryClient();
     const { liveSends, markCancelling } = useLiveActivity();
     const [ cursor, setCursor ] = useState( '' );
     const [ statusFilter, setStatusFilter ] = useState( 'all' );
-    const [ expandedRow, setExpandedRow ] = useState< string | number | null >(
-        null
-    );
-    const [ analyticsTab, setAnalyticsTab ] = useState<
-        'overview' | 'browsers' | 'devices'
-    >( 'overview' );
+    const [ expandedRow, setExpandedRow ] = useState< string | null >( null );
     const settingsQuery = useQuery( {
         queryKey: [ 'np-settings' ],
         queryFn: getSettings,
@@ -1584,20 +1775,28 @@ export default function NotificationsPage() {
     const settings = settingsQuery.data;
     const hasToken = hasApiToken( settings );
     const token = getApiToken( settings );
+    const siteName = siteNameFor( settings );
     const notificationId = params.notificationId;
     const isFormRoute =
         routerLocation.pathname.includes( '/notifications/new' ) ||
         Boolean( notificationId );
 
     const notificationsQuery = useQuery( {
-        queryKey: [ 'np-notifications', token, cursor, statusFilter ],
+        queryKey: [
+            'np-notifications',
+            token,
+            cursor,
+            statusFilter,
+            LIST_PARAMS,
+        ],
         enabled: hasToken && ! isFormRoute,
         queryFn: () =>
-            laravelRequest< LaravelCollection< Notification > >(
+            laravelRequest< LaravelCollection< CampaignRow > >(
                 settings,
                 '/notifications',
                 {
                     query: {
+                        ...LIST_PARAMS,
                         ...( cursor ? { cursor } : {} ),
                         ...( statusFilter !== 'all'
                             ? { status: statusFilter }
@@ -1626,6 +1825,9 @@ export default function NotificationsPage() {
             } );
             toast.warning( 'Notification cancelled' );
         },
+        onError: ( error ) => {
+            toast.error( error.message );
+        },
     } );
 
     const rows = useMemo(
@@ -1638,232 +1840,10 @@ export default function NotificationsPage() {
     };
     const toggleRow = ( id: Notification[ 'id' ] ) => {
         setExpandedRow( ( current ) =>
-            String( current ) === String( id ) ? null : id
+            current === String( id ) ? null : String( id )
         );
-        setAnalyticsTab( 'overview' );
     };
     const loading = notificationsQuery.isFetching && ! notificationsQuery.data;
-
-    const renderSkeletonRows = () =>
-        Array.from( { length: 5 } ).map( ( _, index ) => (
-            <tr className="animate-pulse" key={ index }>
-                <td className={ ui.td }>
-                    <div className="h-4 w-4 rounded bg-muted" />
-                </td>
-                { Array.from( { length: 6 } ).map( ( __, cellIndex ) => (
-                    <td className={ ui.td } key={ cellIndex }>
-                        <div
-                            className={ `h-4 rounded bg-muted ${
-                                cellIndex === 1 ? 'w-40' : 'w-24'
-                            }` }
-                        />
-                    </td>
-                ) ) }
-                <td className={ ui.td }>
-                    <div className="ml-auto h-8 w-8 rounded bg-muted" />
-                </td>
-            </tr>
-        ) );
-
-    const renderAnalytics = ( analytics: NotificationAnalytics ) => {
-        const views = analytics.views || 0;
-        const clicks = analytics.clicks || 0;
-        const ctr = analytics.click_through_rate || 0;
-        const browserData = [
-            { name: 'Chrome', value: analytics.browsers?.chrome || 0 },
-            { name: 'Firefox', value: analytics.browsers?.firefox || 0 },
-            { name: 'Safari', value: analytics.browsers?.safari || 0 },
-            { name: 'Edge', value: analytics.browsers?.edge || 0 },
-            { name: 'Opera', value: analytics.browsers?.opera || 0 },
-            { name: 'Other', value: analytics.browsers?.other || 0 },
-        ];
-        const deviceData = [
-            {
-                name: 'Desktop',
-                value: analytics.devices?.desktop || 0,
-                icon: Server,
-            },
-            {
-                name: 'Mobile',
-                value: analytics.devices?.mobile || 0,
-                icon: Smartphone,
-            },
-            {
-                name: 'Tablet',
-                value: analytics.devices?.tablet || 0,
-                icon: WordPress,
-            },
-        ];
-
-        return (
-            <div className="rounded-2xl border border-dashed border-border bg-muted/30 px-6 py-7">
-                <Tabs
-                    className="w-full"
-                    value={ analyticsTab }
-                    onValueChange={ ( value ) =>
-                        setAnalyticsTab( value as typeof analyticsTab )
-                    }
-                >
-                    <TabsList className="grid h-11 w-full grid-cols-3 bg-transparent p-0 text-muted-foreground">
-                        <TabsTrigger
-                            className="!border-0 py-3 text-base font-semibold !shadow-none data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                            value="overview"
-                        >
-                            Impressions
-                        </TabsTrigger>
-                        <TabsTrigger
-                            className="!border-0 py-3 text-base font-semibold !shadow-none data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                            value="browsers"
-                        >
-                            Browsers
-                        </TabsTrigger>
-                        <TabsTrigger
-                            className="!border-0 py-3 text-base font-semibold !shadow-none data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-                            value="devices"
-                        >
-                            Devices
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="overview" className="mt-6 space-y-5">
-                        <div className="grid gap-8 md:grid-cols-2">
-                            <div className="flex items-center gap-4">
-                                <div className="grid h-10 w-10 place-items-center text-foreground">
-                                    <Eye className="h-8 w-8" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground">
-                                        Views
-                                    </p>
-                                    <p className="text-3xl font-bold leading-none text-foreground">
-                                        { views.toLocaleString() }
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <div className="grid h-10 w-10 place-items-center text-foreground">
-                                    <MousePointerClick className="h-8 w-8" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-muted-foreground">
-                                        Clicks
-                                    </p>
-                                    <p className="text-3xl font-bold leading-none text-foreground">
-                                        { clicks.toLocaleString() }
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <p className="mb-2 text-sm font-medium text-muted-foreground">
-                                Click-through Rate
-                            </p>
-                            <Progress value={ ctr } className="h-2" />
-                            <p className="mt-2 text-sm text-muted-foreground">
-                                { ctr }%
-                            </p>
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="browsers" className="mt-6 space-y-4">
-                        <h4 className="text-lg font-semibold text-foreground">
-                            Browser Distribution
-                        </h4>
-                        <ResponsiveContainer width="100%" height={ 220 }>
-                            <RechartsBarChart
-                                data={ browserData }
-                                layout="vertical"
-                                margin={ {
-                                    top: 0,
-                                    right: 0,
-                                    left: -16,
-                                    bottom: 0,
-                                } }
-                            >
-                                <CartesianGrid
-                                    horizontal={ false }
-                                    strokeDasharray="3 3"
-                                />
-                                <XAxis hide type="number" />
-                                <YAxis
-                                    axisLine={ false }
-                                    dataKey="name"
-                                    tickLine={ false }
-                                    type="category"
-                                    width={ 100 }
-                                />
-                                <RechartsTooltip
-                                    content={ ( { active, payload } ) =>
-                                        active && payload && payload.length ? (
-                                            <div className="rounded bg-background p-2 shadow">
-                                                <p className="font-semibold">
-                                                    { `Total: ${ (
-                                                        payload[ 0 ]?.value || 0
-                                                    ).toLocaleString() }` }
-                                                </p>
-                                            </div>
-                                        ) : null
-                                    }
-                                />
-                                <RechartsBar
-                                    dataKey="value"
-                                    fill="hsl(var(--primary))"
-                                    radius={ [ 0, 4, 4, 0 ] }
-                                />
-                            </RechartsBarChart>
-                        </ResponsiveContainer>
-                    </TabsContent>
-
-                    <TabsContent value="devices" className="mt-6 space-y-4">
-                        <h4 className="text-lg font-semibold text-foreground">
-                            Device Distribution
-                        </h4>
-                        <div className="grid gap-4 md:grid-cols-3">
-                            { deviceData.map( ( device ) => {
-                                const DeviceIcon = device.icon;
-                                const percent = views
-                                    ? Math.round(
-                                          ( device.value / views ) * 100
-                                      )
-                                    : 0;
-
-                                return (
-                                    <div
-                                        key={ device.name }
-                                        className="rounded-2xl border border-border bg-background p-4"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="grid h-10 w-10 place-items-center rounded-full bg-muted text-foreground">
-                                                <DeviceIcon className="h-5 w-5" />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <span className="block text-sm font-medium text-foreground">
-                                                    { device.name }
-                                                </span>
-                                                <span className="block text-sm text-muted-foreground">
-                                                    { device.value.toLocaleString() }
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="mt-4">
-                                            <Progress
-                                                className="h-2"
-                                                value={ percent }
-                                            />
-                                        </div>
-                                        <p className="mt-2 text-sm text-muted-foreground">
-                                            { percent }%
-                                        </p>
-                                    </div>
-                                );
-                            } ) }
-                        </div>
-                    </TabsContent>
-                </Tabs>
-            </div>
-        );
-    };
 
     if ( isFormRoute && ! hasToken ) {
         return <Navigate replace to="/notifications" />;
@@ -1887,378 +1867,579 @@ export default function NotificationsPage() {
         );
     }
 
+    // Click-rate bars are relative to the best campaign on the page.
+    const bestRate = Math.max(
+        1,
+        ...rows.map(
+            ( notification ) =>
+                normalizeAnalytics( notification ).click_through_rate
+        )
+    );
+
+    // Rows come newest-id first, so a day can appear twice (a draft created on
+    // the 23rd but sent on the 24th). Keep that order, but pull each day's rows
+    // together under the day's first header.
+    const groupOrder: string[] = [];
+    const byGroup: Record< string, CampaignRow[] > = {};
+
+    rows.forEach( ( notification ) => {
+        const key = dayGroup( notification ).key;
+
+        if ( ! byGroup[ key ] ) {
+            byGroup[ key ] = [];
+            groupOrder.push( key );
+        }
+
+        byGroup[ key ].push( notification );
+    } );
+
+    const grouped = groupOrder.flatMap( ( key ) => byGroup[ key ] );
+    const filterLabel =
+        STATUS[ statusFilter as StatusType ]?.label ?? statusFilter;
+
     return (
-        <div className={ ui.page }>
-            <section
-                className={ `${
-                    ui.tableWrap
-                } transition-opacity duration-500 ${
-                    loading ? 'opacity-75' : 'opacity-100'
-                }` }
-            >
-                <div className="flex gap-1 sm:gap-0 flex-col sm:flex-row sm:items-center justify-between space-y-0 p-6 pb-2">
-                    <h3 className="text-2xl font-bold leading-none tracking-tight text-foreground">
-                        Notifications
-                    </h3>
-                    <div className="flex items-center sm:space-x-2 flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-0 pb-2 sm:pb-0">
-                        <Select
-                            value={ statusFilter }
-                            onValueChange={ setStatusFilterAndResetCursor }
+        <div className="container mx-auto space-y-6 px-4 py-6 sm:py-8">
+            <PageHeader
+                title="Campaigns"
+                description={
+                    siteName
+                        ? `Send, schedule and track push notifications on ${ siteName }`
+                        : 'Send, schedule and track push notifications'
+                }
+                actions={
+                    hasToken ? (
+                        <Button
+                            asChild
+                            className="h-10 w-full gap-2 px-4 sm:w-auto"
                         >
-                            <SelectTrigger className="w-full sm:w-[180px]">
-                                <SelectValue placeholder="Filter by status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">
-                                    <span className="flex items-center gap-2">
-                                        <ListFilter className="h-4 w-4 text-muted-foreground" />
-                                        All
+                            <Link to="/notifications/new">
+                                <Plus className="h-4 w-4" aria-hidden />
+                                New campaign
+                            </Link>
+                        </Button>
+                    ) : (
+                        <Button
+                            disabled
+                            className="h-10 w-full gap-2 px-4 sm:w-auto"
+                        >
+                            <Plus className="h-4 w-4" aria-hidden />
+                            New campaign
+                        </Button>
+                    )
+                }
+            />
+
+            { liveSends.length > 0 ? (
+                <LiveActivityPanel
+                    sends={ liveSends }
+                    onMarkCancelling={ markCancelling }
+                />
+            ) : null }
+
+            <section aria-label="Campaigns" className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Select
+                        value={ statusFilter }
+                        onValueChange={ ( value ) => {
+                            setStatusFilterAndResetCursor( value );
+                        } }
+                    >
+                        <SelectTrigger
+                            aria-label="Filter by status"
+                            className="h-9 w-48 gap-2 rounded-lg bg-card text-sm font-medium [&_svg]:h-3.5 [&_svg]:w-3.5"
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            { FILTERS.map( ( filter ) => (
+                                <SelectItem
+                                    key={ filter.value }
+                                    value={ filter.value }
+                                >
+                                    <span className="flex items-center gap-2 [&>svg]:h-3.5 [&>svg]:w-3.5">
+                                        { filter.icon }
+                                        { filter.label }
                                     </span>
                                 </SelectItem>
-                                <SelectItem value="sent">
-                                    <span className="flex items-center gap-2">
-                                        <CheckCircle className="h-4 w-4 text-emerald-600" />
-                                        Sent
-                                    </span>
-                                </SelectItem>
-                                <SelectItem value="pending">
-                                    <span className="flex items-center gap-2">
-                                        <Clock className="h-4 w-4 text-muted-foreground" />
-                                        Pending
-                                    </span>
-                                </SelectItem>
-                                <SelectItem value="failed">
-                                    <span className="flex items-center gap-2">
-                                        <XCircle className="h-4 w-4 text-red-600" />
-                                        Failed
-                                    </span>
-                                </SelectItem>
-                                <SelectItem value="scheduled">
-                                    <span className="flex items-center gap-2">
-                                        <CalendarClock className="h-4 w-4 text-purple-600" />
-                                        Scheduled
-                                    </span>
-                                </SelectItem>
-                                <SelectItem value="recurring">
-                                    <span className="flex items-center gap-2">
-                                        <Repeat className="h-4 w-4 text-indigo-600" />
-                                        Recurring
-                                    </span>
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                        { hasToken ? (
-                            <Button asChild className="w-full sm:w-auto">
-                                <Link to="/notifications/new">
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Create New Notification
-                                </Link>
-                            </Button>
-                        ) : null }
-                    </div>
+                            ) ) }
+                        </SelectContent>
+                    </Select>
+                    { rows.length > 0 ? (
+                        <p className="hidden text-sm text-muted-foreground sm:block">
+                            Newest first · click a sent campaign for its
+                            breakdown
+                        </p>
+                    ) : null }
                 </div>
 
-                { liveSends.length > 0 ? (
-                    <div className="p-6 pb-0">
-                        <LiveActivityPanel
-                            sends={ liveSends }
-                            onMarkCancelling={ markCancelling }
-                        />
+                { loading ? (
+                    <ul className="space-y-2.5" aria-hidden>
+                        { Array.from( { length: 5 } ).map( ( _, index ) => (
+                            <li
+                                key={ index }
+                                className="flex animate-pulse items-center gap-3 rounded-xl border border-border bg-card p-4"
+                            >
+                                <span className="h-10 w-10 shrink-0 rounded-xl bg-muted" />
+                                <div className="flex-1 space-y-2">
+                                    <div className="h-4 w-48 rounded bg-muted" />
+                                    <div className="h-3 w-72 max-w-full rounded bg-muted" />
+                                </div>
+                            </li>
+                        ) ) }
+                    </ul>
+                ) : null }
+
+                { ! loading && rows.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border bg-card">
+                        { statusFilter !== 'all' ? (
+                            <EmptyState
+                                icon={ <ListFilter className="h-5 w-5" /> }
+                                title={ `No ${ filterLabel
+                                    .replace( '…', '' )
+                                    .toLowerCase() } campaigns` }
+                            >
+                                <p className="max-w-72 text-sm text-muted-foreground">
+                                    Nothing matches this filter on this site
+                                    yet.
+                                </p>
+                                <Button
+                                    variant="outline"
+                                    className="mt-1 h-10 px-4"
+                                    onClick={ () => {
+                                        setStatusFilterAndResetCursor( 'all' );
+                                    } }
+                                >
+                                    Show all campaigns
+                                </Button>
+                            </EmptyState>
+                        ) : (
+                            <EmptyState
+                                icon={ <Bell className="h-5 w-5" /> }
+                                title="No notifications"
+                            >
+                                <p className="max-w-72 text-sm text-muted-foreground">
+                                    You don&apos;t have any notifications at the
+                                    moment.
+                                </p>
+                                { hasToken ? (
+                                    <Button
+                                        asChild
+                                        className="mt-1 h-10 gap-2 px-4"
+                                    >
+                                        <Link to="/notifications/new">
+                                            <Plus
+                                                className="h-4 w-4"
+                                                aria-hidden
+                                            />
+                                            New campaign
+                                        </Link>
+                                    </Button>
+                                ) : null }
+                            </EmptyState>
+                        ) }
                     </div>
                 ) : null }
 
-                <div className="overflow-x-auto">
-                    <table className="min-w-full w-full caption-bottom text-sm">
-                        <thead className="bg-muted/50 [&_tr]:border-b">
-                            <tr className="border-y border-border transition-colors hover:bg-muted/50">
-                                <th className={ `w-[32px] ${ ui.th }` } />
-                                <th className={ ui.th }>Title</th>
-                                <th className={ ui.th }>Message</th>
-                                <th className={ ui.th }>Via</th>
-                                <th className={ ui.th }>Status</th>
-                                <th className={ ui.th }>Views / Clicks</th>
-                                <th className={ ui.th }>Date</th>
-                                <th className={ `w-[40px] ${ ui.th }` } />
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border [&_tr:last-child]:border-0">
-                            { loading ? renderSkeletonRows() : null }
-                            { ! loading && rows.length > 0
-                                ? rows.map( ( notification ) => {
-                                      const analytics =
-                                          normalizeAnalytics( notification );
-                                      const hasAnalytics = analytics.views > 0;
-                                      const isExpanded =
-                                          String( expandedRow ) ===
-                                          String( notification.id );
-                                      const ExpandIcon = isExpanded
-                                          ? ChevronUp
-                                          : ChevronDown;
+                { ! loading && rows.length > 0 ? (
+                    <ul
+                        className={ cn(
+                            'space-y-2 transition-opacity',
+                            notificationsQuery.isFetching
+                                ? 'opacity-75'
+                                : 'opacity-100'
+                        ) }
+                    >
+                        { grouped.map( ( notification, index ) => {
+                            const group = dayGroup( notification );
+                            const showHeader =
+                                index === 0 ||
+                                dayGroup( grouped[ index - 1 ] ).key !==
+                                    group.key;
+                            const analytics =
+                                normalizeAnalytics( notification );
+                            const hasAnalytics = analytics.views > 0;
+                            const expanded =
+                                expandedRow === String( notification.id );
+                            const rate = analytics.click_through_rate;
+                            const status = statusOf( notification );
+                            const meta = STATUS[ status ];
+                            const createdBy = notification.created_by || '';
+                            const via =
+                                SEND_VIA_LABELS[ createdBy ] ||
+                                createdBy ||
+                                'WordPress';
+                            const isSent = [ 'sent', 'sending' ].includes(
+                                status
+                            );
+                            const canCancel = [
+                                'scheduled',
+                                'recurring',
+                                'sending',
+                            ].includes( status );
+                            // No chevron and no buttons: keep the chevron's slot
+                            // so the status note lines up. Rows with Edit/Cancel
+                            // skip it, so the buttons sit where the chevrons are.
+                            const keepChevronSlot =
+                                ! hasAnalytics && isSent && ! canCancel;
 
-                                      return (
-                                          <Fragment key={ notification.id }>
-                                              <tr
-                                                  className={ `border-b hover:bg-muted/50 transition-colors ${
-                                                      hasAnalytics
-                                                          ? 'cursor-pointer'
-                                                          : ''
-                                                  }` }
-                                                  onClick={ () =>
-                                                      hasAnalytics
-                                                          ? toggleRow(
-                                                                notification.id
-                                                            )
-                                                          : undefined
-                                                  }
-                                              >
-                                                  <td
-                                                      className={ `${ ui.td } pr-0` }
-                                                  >
-                                                      { hasAnalytics ? (
-                                                          <ExpandIcon className="h-4 w-4 text-muted-foreground" />
-                                                      ) : (
-                                                          <span className="block h-4 w-4" />
-                                                      ) }
-                                                  </td>
-                                                  <td
-                                                      className={ `${ ui.td } font-medium max-w-[180px] truncate` }
-                                                  >
-                                                      <span className="truncate">
-                                                          { notification.title }
-                                                      </span>
-                                                  </td>
-                                                  <td
-                                                      className={ `${ ui.td } text-muted-foreground max-w-[220px] truncate` }
-                                                  >
-                                                      { notification.message }
-                                                  </td>
-                                                  <td
-                                                      className={ `${ ui.td } w-[120px]` }
-                                                  >
-                                                      <SendViaIcon
-                                                          createdBy={
-                                                              notification.created_by
-                                                          }
-                                                      />
-                                                  </td>
-                                                  <td
-                                                      className={ `${ ui.td } w-[130px]` }
-                                                  >
-                                                      <NotificationStatusBadge
-                                                          status={
-                                                              notification.status
-                                                          }
-                                                      />
-                                                  </td>
-                                                  <td
-                                                      className={ `${ ui.td } w-[140px]` }
-                                                  >
-                                                      { hasAnalytics ? (
-                                                          <div className="flex items-center gap-3 text-sm">
-                                                              <span className="flex items-center gap-1 text-muted-foreground">
-                                                                  <Eye className="h-3.5 w-3.5" />
-                                                                  { analytics.views.toLocaleString() }
-                                                              </span>
-                                                              <span className="flex items-center gap-1 text-muted-foreground">
-                                                                  <MousePointerClick className="h-3.5 w-3.5" />
-                                                                  { analytics.clicks.toLocaleString() }
-                                                              </span>
-                                                          </div>
-                                                      ) : (
-                                                          <span className="text-xs text-muted-foreground/60">
-                                                              —
-                                                          </span>
-                                                      ) }
-                                                  </td>
-                                                  <td
-                                                      className={ `${ ui.td } text-sm text-muted-foreground whitespace-nowrap` }
-                                                  >
-                                                      { notificationDate(
-                                                          notification
-                                                      ) }
-                                                  </td>
-                                                  <td
-                                                      className={ ui.td }
-                                                      onClick={ ( event ) =>
-                                                          event.stopPropagation()
-                                                      }
-                                                  >
-                                                      <div className="flex items-center gap-1">
-                                                          <button
-                                                              type="button"
-                                                              onClick={ () =>
-                                                                  navigate(
-                                                                      `/notifications/${ notification.id }/edit`
-                                                                  )
-                                                              }
-                                                              className={ `flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted transition-colors ${
-                                                                  [
-                                                                      'sent',
-                                                                      'sending',
-                                                                  ].includes(
-                                                                      notification.status ||
-                                                                          ''
-                                                                  )
-                                                                      ? 'pointer-events-none opacity-30'
-                                                                      : ''
-                                                              }` }
-                                                          >
-                                                              <Edit3 className="h-4 w-4" />
-                                                              <span className="sr-only">
-                                                                  Edit
-                                                              </span>
-                                                          </button>
-                                                          { [
-                                                              'scheduled',
-                                                              'recurring',
-                                                              'sending',
-                                                          ].includes(
-                                                              notification.status ||
-                                                                  ''
-                                                          ) ? (
-                                                              <AlertDialog>
-                                                                  <TooltipProvider>
-                                                                      <Tooltip>
-                                                                          <TooltipTrigger
-                                                                              asChild
-                                                                          >
-                                                                              <AlertDialogTrigger
-                                                                                  asChild
-                                                                              >
-                                                                                  <Button
-                                                                                      className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted transition-colors text-destructive"
-                                                                                      variant="ghost"
-                                                                                      disabled={
-                                                                                          cancelMutation.isPending
-                                                                                      }
-                                                                                      type="button"
-                                                                                  >
-                                                                                      <Ban className="h-4 w-4" />
-                                                                                      <span className="sr-only">
-                                                                                          Cancel
-                                                                                      </span>
-                                                                                  </Button>
-                                                                              </AlertDialogTrigger>
-                                                                          </TooltipTrigger>
-                                                                          <TooltipContent>
-                                                                              Cancel
-                                                                          </TooltipContent>
-                                                                      </Tooltip>
-                                                                  </TooltipProvider>
-                                                                  <AlertDialogContent>
-                                                                      <AlertDialogHeader>
-                                                                          <AlertDialogTitle>
-                                                                              { notification.status ===
-                                                                              'sending'
-                                                                                  ? 'Cancel this send?'
-                                                                                  : `Cancel this ${ notification.status } send?` }
-                                                                          </AlertDialogTitle>
-                                                                          <AlertDialogDescription>
-                                                                              { notification.status ===
-                                                                              'recurring'
-                                                                                  ? 'This will stop the recurring schedule. The notification will move back to Pending and can be re-scheduled later.'
-                                                                                  : null }
-                                                                              { notification.status ===
-                                                                              'sending'
-                                                                                  ? 'This will stop delivery to remaining subscribers. Messages already queued may still be delivered.'
-                                                                                  : null }
-                                                                              { notification.status ===
-                                                                              'scheduled'
-                                                                                  ? 'This will cancel the scheduled send. The notification will move back to Pending.'
-                                                                                  : null }
-                                                                          </AlertDialogDescription>
-                                                                      </AlertDialogHeader>
-                                                                      <AlertDialogFooter>
-                                                                          <AlertDialogCancel>
-                                                                              Keep
-                                                                              sending
-                                                                          </AlertDialogCancel>
-                                                                          <AlertDialogAction
-                                                                              onClick={ () =>
-                                                                                  cancelMutation.mutate(
-                                                                                      notification.id
-                                                                                  )
-                                                                              }
-                                                                          >
-                                                                              Cancel
-                                                                              send
-                                                                          </AlertDialogAction>
-                                                                      </AlertDialogFooter>
-                                                                  </AlertDialogContent>
-                                                              </AlertDialog>
-                                                          ) : null }
-                                                      </div>
-                                                  </td>
-                                              </tr>
-                                              { isExpanded && hasAnalytics ? (
-                                                  <tr>
-                                                      <td
-                                                          className="p-0"
-                                                          colSpan={ 8 }
-                                                      >
-                                                          <div className="p-4 bg-muted/50 border-t border-b">
-                                                              <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-4">
-                                                                  <BarChart className="h-4 w-4" />
-                                                                  <span>
-                                                                      Analytics
-                                                                  </span>
-                                                              </div>
-                                                              { renderAnalytics(
-                                                                  analytics
-                                                              ) }
-                                                          </div>
-                                                      </td>
-                                                  </tr>
-                                              ) : null }
-                                          </Fragment>
-                                      );
-                                  } )
-                                : null }
-                            { ! loading && rows.length === 0 ? (
-                                <tr>
-                                    <td colSpan={ 8 } className={ ui.emptyTd }>
-                                        No notifications yet.
-                                    </td>
-                                </tr>
-                            ) : null }
-                        </tbody>
-                    </table>
-                </div>
+                            return (
+                                <Fragment key={ notification.id }>
+                                    { showHeader ? (
+                                        <li
+                                            aria-hidden
+                                            className="flex items-center gap-3 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground first:pt-0"
+                                        >
+                                            { group.label }
+                                            <span className="h-px flex-1 bg-border" />
+                                        </li>
+                                    ) : null }
+                                    <li
+                                        className={ cn(
+                                            'group rounded-xl border bg-card shadow-sm transition-colors',
+                                            expanded
+                                                ? 'border-primary/40 shadow-sm'
+                                                : 'border-border hover:border-primary/30'
+                                        ) }
+                                    >
+                                        { /* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- mirrors the app; the chevron state is announced via aria-expanded. */ }
+                                        <div
+                                            className={ cn(
+                                                'flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-6 sm:px-5',
+                                                hasAnalytics
+                                                    ? 'cursor-pointer'
+                                                    : null
+                                            ) }
+                                            aria-expanded={
+                                                hasAnalytics
+                                                    ? expanded
+                                                    : undefined
+                                            }
+                                            onClick={ () => {
+                                                if ( hasAnalytics ) {
+                                                    toggleRow(
+                                                        notification.id
+                                                    );
+                                                }
+                                            } }
+                                        >
+                                            <div className="flex min-w-0 flex-1 items-center gap-4">
+                                                <span
+                                                    className={ cn(
+                                                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl [&>svg]:h-5 [&>svg]:w-5',
+                                                        TILE_TONES[ meta.tone ]
+                                                    ) }
+                                                    aria-hidden
+                                                >
+                                                    { meta.icon }
+                                                </span>
+                                                <div className="min-w-0">
+                                                    <p className="flex min-w-0 items-center gap-2">
+                                                        <span
+                                                            className="truncate text-[15px] font-semibold leading-6 text-foreground"
+                                                            title={
+                                                                notification.title
+                                                            }
+                                                        >
+                                                            {
+                                                                notification.title
+                                                            }
+                                                        </span>
+                                                        { notification.purpose ===
+                                                        'automation_message' ? (
+                                                            <Chip tone="violet">
+                                                                Message
+                                                            </Chip>
+                                                        ) : null }
+                                                    </p>
+                                                    <p
+                                                        className="truncate text-sm leading-5 text-muted-foreground"
+                                                        title={
+                                                            notification.message
+                                                        }
+                                                    >
+                                                        { notification.message }
+                                                    </p>
+                                                    <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
+                                                        <span
+                                                            className={ cn(
+                                                                'notification-status inline-flex items-center gap-1.5 font-semibold',
+                                                                TEXT_TONES[
+                                                                    meta.tone
+                                                                ]
+                                                            ) }
+                                                        >
+                                                            <span
+                                                                className={ cn(
+                                                                    'h-1.5 w-1.5 rounded-full bg-current',
+                                                                    status ===
+                                                                        'sending'
+                                                                        ? 'animate-pulse'
+                                                                        : null
+                                                                ) }
+                                                                aria-hidden
+                                                            />
+                                                            { meta.label }
+                                                        </span>
+                                                        <span aria-hidden>
+                                                            ·
+                                                        </span>
+                                                        <span className="inline-flex items-center">
+                                                            { via }
+                                                        </span>
+                                                        <span aria-hidden>
+                                                            ·
+                                                        </span>
+                                                        <span className="tabular-nums">
+                                                            { group.key ===
+                                                            'upcoming'
+                                                                ? `${
+                                                                      status ===
+                                                                      'recurring'
+                                                                          ? 'Next'
+                                                                          : 'Goes out'
+                                                                  } ${ formatSentAt(
+                                                                      notificationRawDate(
+                                                                          notification
+                                                                      )
+                                                                  ) }`
+                                                                : timeOf(
+                                                                      notification
+                                                                  ) }
+                                                        </span>
+                                                    </p>
+                                                </div>
+                                            </div>
 
-                <div className="flex items-center p-6 pt-0 justify-end">
-                    <div className="flex overflow-x-auto sm:justify-center">
-                        { notificationsQuery.data?.prev_cursor ? (
-                            <button
-                                className="flex items-center text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2"
-                                onClick={ () =>
-                                    setCursor(
-                                        notificationsQuery.data?.prev_cursor ||
-                                            ''
-                                    )
-                                }
-                                type="button"
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                                Previous
-                            </button>
-                        ) : null }
-                        { notificationsQuery.data?.next_cursor ? (
-                            <button
-                                className="flex items-center text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2"
-                                onClick={ () =>
-                                    setCursor(
-                                        notificationsQuery.data?.next_cursor ||
-                                            ''
-                                    )
-                                }
-                                type="button"
-                            >
-                                Next
-                                <ChevronRight className="h-4 w-4" />
-                            </button>
-                        ) : null }
+                                            <div className="flex items-center gap-3 border-t border-border pt-3 sm:border-0 sm:pt-0">
+                                                { hasAnalytics ? (
+                                                    <dl className="grid flex-1 grid-cols-3 gap-4 sm:w-[360px] sm:flex-none">
+                                                        <div>
+                                                            <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                                                Views
+                                                            </dt>
+                                                            <dd className="font-display text-lg font-semibold leading-7 tabular-nums text-foreground">
+                                                                { formatCount(
+                                                                    analytics.views
+                                                                ) }
+                                                            </dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                                                Clicks
+                                                            </dt>
+                                                            <dd className="font-display text-lg font-semibold leading-7 tabular-nums text-foreground">
+                                                                { formatCount(
+                                                                    analytics.clicks
+                                                                ) }
+                                                            </dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                                                CTR
+                                                            </dt>
+                                                            <dd className="font-display text-lg font-semibold leading-7 tabular-nums text-primary">
+                                                                { rate }%
+                                                            </dd>
+                                                            <div
+                                                                className="mt-0.5 h-1 w-full max-w-24 overflow-hidden rounded-full bg-muted"
+                                                                aria-hidden
+                                                            >
+                                                                <div
+                                                                    className="h-full rounded-full bg-primary"
+                                                                    style={ {
+                                                                        width: `${ Math.min(
+                                                                            100,
+                                                                            ( rate /
+                                                                                bestRate ) *
+                                                                                100
+                                                                        ) }%`,
+                                                                    } }
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </dl>
+                                                ) : (
+                                                    <p
+                                                        className={ cn(
+                                                            'flex-1 text-xs font-medium sm:w-[360px] sm:flex-none',
+                                                            status === 'failed'
+                                                                ? 'text-destructive'
+                                                                : 'text-muted-foreground'
+                                                        ) }
+                                                    >
+                                                        { statusNote(
+                                                            notification
+                                                        ) }
+                                                    </p>
+                                                ) }
+
+                                                { /* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- only stops the row toggle. */ }
+                                                <div
+                                                    className="ml-auto flex shrink-0 items-center justify-end gap-1 sm:ml-0"
+                                                    onClick={ ( event ) => {
+                                                        event.stopPropagation();
+                                                    } }
+                                                >
+                                                    { isSent ? null : (
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger
+                                                                    asChild
+                                                                >
+                                                                    <Link
+                                                                        to={ `/notifications/${ notification.id }/edit` }
+                                                                        aria-label={ `Edit ${ notification.title }` }
+                                                                        className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                                                                    >
+                                                                        <Edit3
+                                                                            className="h-4 w-4"
+                                                                            aria-hidden
+                                                                        />
+                                                                    </Link>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    Edit
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    ) }
+                                                    { canCancel ? (
+                                                        <AlertDialog>
+                                                            <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger
+                                                                        asChild
+                                                                    >
+                                                                        <AlertDialogTrigger
+                                                                            asChild
+                                                                        >
+                                                                            <button
+                                                                                type="button"
+                                                                                aria-label={ `Cancel ${ notification.title }` }
+                                                                                disabled={
+                                                                                    cancelMutation.isPending
+                                                                                }
+                                                                                className="flex h-8 w-8 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                                                                            >
+                                                                                <Ban
+                                                                                    className="h-4 w-4"
+                                                                                    aria-hidden
+                                                                                />
+                                                                            </button>
+                                                                        </AlertDialogTrigger>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        Cancel
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <div className="mb-1 flex h-10 w-10 items-center justify-center self-center rounded-full bg-destructive/10 text-destructive sm:self-start">
+                                                                        <Ban className="h-5 w-5" />
+                                                                    </div>
+                                                                    <AlertDialogTitle>
+                                                                        { status ===
+                                                                        'sending'
+                                                                            ? 'Cancel this send?'
+                                                                            : `Cancel this ${ status } send?` }
+                                                                    </AlertDialogTitle>
+                                                                    <AlertDialogDescription>
+                                                                        { status ===
+                                                                        'recurring'
+                                                                            ? 'This will stop the recurring schedule. The notification will be marked Cancelled and can be re-scheduled later.'
+                                                                            : null }
+                                                                        { status ===
+                                                                        'sending'
+                                                                            ? 'This will stop delivery to remaining subscribers. Messages already queued may still be delivered.'
+                                                                            : null }
+                                                                        { status ===
+                                                                        'scheduled'
+                                                                            ? 'This will cancel the scheduled send. The notification will be marked Cancelled.'
+                                                                            : null }
+                                                                    </AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>
+                                                                        Keep it
+                                                                    </AlertDialogCancel>
+                                                                    <AlertDialogAction
+                                                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                                        onClick={ () => {
+                                                                            cancelMutation.mutate(
+                                                                                notification.id
+                                                                            );
+                                                                        } }
+                                                                    >
+                                                                        Cancel
+                                                                        send
+                                                                    </AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    ) : null }
+                                                </div>
+                                                { hasAnalytics ? (
+                                                    <ChevronRight
+                                                        className={ cn(
+                                                            'h-5 w-5 shrink-0 transition-transform',
+                                                            expanded
+                                                                ? 'rotate-90 text-primary'
+                                                                : 'text-muted-foreground group-hover:text-foreground'
+                                                        ) }
+                                                        aria-hidden
+                                                    />
+                                                ) : null }
+                                                { keepChevronSlot ? (
+                                                    <span
+                                                        className="w-5 shrink-0"
+                                                        aria-hidden
+                                                    />
+                                                ) : null }
+                                            </div>
+                                        </div>
+
+                                        { expanded && hasAnalytics ? (
+                                            <div className="px-4 pb-3">
+                                                <CampaignInsights
+                                                    analytics={ analytics }
+                                                />
+                                            </div>
+                                        ) : null }
+                                    </li>
+                                </Fragment>
+                            );
+                        } ) }
+                    </ul>
+                ) : null }
+
+                { ! loading && rows.length > 0 ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                        <p className="text-sm text-muted-foreground">
+                            { rows.length } on this page
+                        </p>
+                        <CursorPager
+                            label="Campaign pages"
+                            hasPrevious={ Boolean(
+                                notificationsQuery.data?.prev_cursor
+                            ) }
+                            hasNext={ Boolean(
+                                notificationsQuery.data?.next_cursor
+                            ) }
+                            disabled={ notificationsQuery.isFetching }
+                            onPrevious={ () => {
+                                setCursor(
+                                    notificationsQuery.data?.prev_cursor || ''
+                                );
+                            } }
+                            onNext={ () => {
+                                setCursor(
+                                    notificationsQuery.data?.next_cursor || ''
+                                );
+                            } }
+                        />
                     </div>
-                </div>
+                ) : null }
             </section>
         </div>
     );

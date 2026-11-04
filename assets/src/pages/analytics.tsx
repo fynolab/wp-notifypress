@@ -3,6 +3,7 @@ import { useState } from '@wordpress/element';
 import { Card, CardContent } from '../components/ui/card';
 import { cn } from '../components/utils';
 import { AnalyticsKpis } from '../components/analytics/analytics-kpis';
+import { AnalyticsInsight } from '../components/analytics/analytics-insight';
 import { EngagementCard } from '../components/analytics/engagement-card';
 import { FunnelCard } from '../components/analytics/funnel-card';
 import { BestTimesCard } from '../components/analytics/best-times-card';
@@ -65,11 +66,25 @@ function AnalyticsContent( {
                 loading ? 'opacity-70' : 'opacity-100'
             ) }
         >
-            <AnalyticsKpis
-                summary={ data.summary }
-                engagement={ engagement }
-                range={ shownRange }
-            />
+            { /* The whole page is a paid feature. The API still sends the
+                summary to Free users for older plugin copies, so it is
+                hidden here and shown as a placeholder in LockedSection. */ }
+            { isPaidUser ? (
+                <>
+                    <AnalyticsInsight
+                        range={ shownRange }
+                        summary={ data.summary }
+                        bestTimes={ bestTimes }
+                        countries={ countries }
+                    />
+
+                    <AnalyticsKpis
+                        summary={ data.summary }
+                        engagement={ engagement }
+                        range={ shownRange }
+                    />
+                </>
+            ) : null }
 
             { isPaidUser &&
             engagement &&

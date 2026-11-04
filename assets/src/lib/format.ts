@@ -28,18 +28,28 @@ export const formatDate = ( value?: string | null ) => {
     } ).format( date );
 };
 
+// The API stores schedules as wall-clock "Y-m-d H:i:s" (no timezone). Read
+// it as local time, with a "T" so Safari parses it too.
+const parseScheduleValue = ( value: string ) =>
+    new Date( value.includes( 'T' ) ? value : value.replace( ' ', 'T' ) );
+
 export const formatDateInput = ( value?: string | null ) => {
     if ( ! value ) {
         return '';
     }
 
-    const date = new Date( value );
+    const date = parseScheduleValue( value );
 
     if ( Number.isNaN( date.getTime() ) ) {
         return '';
     }
 
-    return date.toISOString().slice( 0, 10 );
+    // Local date parts: toISOString() is UTC and moved evening times to the
+    // next day.
+    return `${ date.getFullYear() }-${ String( date.getMonth() + 1 ).padStart(
+        2,
+        '0'
+    ) }-${ String( date.getDate() ).padStart( 2, '0' ) }`;
 };
 
 export const formatTimeInput = ( value?: string | null ) => {
@@ -47,7 +57,7 @@ export const formatTimeInput = ( value?: string | null ) => {
         return '';
     }
 
-    const date = new Date( value );
+    const date = parseScheduleValue( value );
 
     if ( Number.isNaN( date.getTime() ) ) {
         return '';
