@@ -35,6 +35,7 @@ import {
 } from '../components/dashboard/kpi-cards';
 import { PlanLimitBanner } from '../components/dashboard/plan-limit-banner';
 import { GettingStarted } from '../components/dashboard/getting-started';
+import { DashboardInsight } from '../components/dashboard/dashboard-insight';
 import { SubscriberGrowth } from '../components/dashboard/subscriber-growth';
 import { DevicesBrowsers } from '../components/dashboard/devices-browsers';
 import type {
@@ -130,13 +131,7 @@ function siteNameFor( settings?: NotifyPressSettings ): string | null {
     );
 }
 
-function DashboardHeader( {
-    siteName,
-    isNew,
-}: {
-    siteName: string | null;
-    isNew: boolean;
-} ) {
+function DashboardHeader( { isNew }: { isNew: boolean } ) {
     // The viewer's own clock: "morning" is local.
     const { greeting, today } = useMemo( () => {
         const now = new Date();
@@ -154,10 +149,7 @@ function DashboardHeader( {
     return (
         <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="min-w-0">
-                <p className="mb-1 text-sm text-muted-foreground">
-                    { today }
-                    { siteName ? ` · ${ siteName }` : '' }
-                </p>
+                <p className="mb-1 text-sm text-muted-foreground">{ today }</p>
                 <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                     { isNew ? 'Welcome to NotifyPress' : greeting }
                 </h1>
@@ -762,13 +754,27 @@ export default function DashboardPage() {
 
     return (
         <div className="container mx-auto space-y-6 px-4 py-6 sm:py-8">
-            <DashboardHeader siteName={ siteName } isNew={ isNew } />
+            <DashboardHeader isNew={ isNew } />
 
             { data.plan ? (
                 <PlanLimitBanner
                     plan={ data.plan }
                     activeSubscribers={ activeSubscribers }
                     siteKey={ settings?.siteKey || 'site' }
+                />
+            ) : null }
+
+            { dataReady &&
+            ! isNew &&
+            data.subscriberChange &&
+            data.recentClickRate &&
+            data.upcoming ? (
+                <DashboardInsight
+                    change={ data.subscriberChange }
+                    recent={ data.recentClickRate }
+                    clickRateChange={ data.clickRateChange ?? null }
+                    devices={ data.devices ?? [] }
+                    upcoming={ data.upcoming }
                 />
             ) : null }
 

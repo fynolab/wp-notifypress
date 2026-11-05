@@ -1,3 +1,4 @@
+import { browserTimeZone } from './format';
 import { isMaskedToken } from './settings';
 import type {
     Announcement,
@@ -113,6 +114,7 @@ function buildLaravelFetch(
     const headers: Record< string, string > = {
         Accept: 'application/json',
         'X-WP-Nonce': bootstrap?.restNonce || '',
+        'X-Timezone': browserTimeZone(),
         ...( options.headers || {} ),
     };
     const subscriptionToken =

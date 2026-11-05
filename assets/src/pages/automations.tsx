@@ -1,6 +1,11 @@
 import { useEffect, useState } from '@wordpress/element';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+    keepPreviousData,
+    useMutation,
+    useQuery,
+    useQueryClient,
+} from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 // Pausing takes everyone currently in the automation out, and they are not picked up again
@@ -27,9 +32,20 @@ import { laravelRequest } from '../lib/api';
 import { getSettings } from '../lib/settings';
 import { ui } from '../lib/admin-ui';
 import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
-import { Input } from '../components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
+import {
+    Chip,
+    CursorPager,
+    EmptyState,
+    PageHeader,
+    SearchInput,
+    SectionCard,
+    SegmentedControl,
+    SegmentedLinks,
+} from '../components/page-parts';
+import type { ChipTone } from '../components/page-parts';
+import { formatDateTime } from '../components/dashboard/format';
+import { automationsListQuery } from '../components/automations/automations-query';
+import type { AutomationStatusFilter } from '../components/automations/automations-query';
 import PaidFeatureOverlay from '../components/paid-feature-overlay';
 import { useConfirm } from '../components/confirm-dialog';
 import type { ConfirmOptions } from '../components/confirm-dialog';
@@ -57,6 +73,7 @@ import {
 import AutomationCanvas from './automations-canvas';
 import type {
     Automation,
+    AutomationStatus,
     AutomationStep,
     AutomationTrigger,
     LaravelResource,
@@ -86,35 +103,53 @@ export const TRIGGERS: Array< { value: AutomationTrigger; label: string } > = [
 
 // ── List view ─────────────────────────────────────────────────────────────────
 
-const statusDotColors: Record< string, string > = {
-    draft: 'bg-muted-foreground',
-    active: 'bg-emerald-600',
-    paused: 'bg-yellow-500',
-    archived: 'bg-red-500',
+const SEARCH_DEBOUNCE_MS = 300;
+
+const STATUS: Record< AutomationStatus, { label: string; tone: ChipTone } > = {
+    draft: { label: 'Inactive', tone: 'neutral' },
+    active: { label: 'Active', tone: 'success' },
+    paused: { label: 'Paused', tone: 'warning' },
+    archived: { label: 'Archived', tone: 'danger' },
 };
 
-function pct( part: number, total: number ): string {
+function share( part: number, total: number ): number {
     if ( ! total ) {
-        return '0%';
+        return 0;
     }
 
-    return `${ Math.round( ( part / total ) * 100 ) }%`;
+    return Math.round( ( part / total ) * 100 );
 }
 
 function AutomationsList( { settings }: { settings: NotifyPressSettings } ) {
     const queryClient = useQueryClient();
     const [ confirm, confirmDialog ] = useConfirm();
     const [ search, setSearch ] = useState( '' );
-    const [ statusFilter, setStatusFilter ] = useState( 'all' );
+    const [ query, setQuery ] = useState( '' );
+    const [ statusFilter, setAutomationStatusFilter ] =
+        useState< AutomationStatusFilter >( 'all' );
+    const [ page, setPage ] = useState( 1 );
+
+    // Wait for typing to pause before asking the server.
+    useEffect( () => {
+        const next = search.trim();
+
+        if ( next === query ) {
+            return;
+        }
+
+        const timer = window.setTimeout( () => {
+            setQuery( next );
+            setPage( 1 );
+        }, SEARCH_DEBOUNCE_MS );
+
+        return () => {
+            window.clearTimeout( timer );
+        };
+    }, [ search, query ] );
 
     const listQuery = useQuery( {
-        queryKey: [ 'np-automations', settings.apiToken ],
-        queryFn: () =>
-            laravelRequest< {
-                data: Automation[];
-                total: number;
-                isPaidUser?: boolean;
-            } >( settings, '/automations' ),
+        ...automationsListQuery( settings, statusFilter, query, page ),
+        placeholderData: keepPreviousData,
     } );
 
     const invalidate = () =>
@@ -184,28 +219,22 @@ function AutomationsList( { settings }: { settings: NotifyPressSettings } ) {
     } );
 
     const automations = listQuery.data?.data ?? [];
-    const rawCounts = automations.reduce< Record< string, number > >(
-        ( acc, a ) => {
-            acc[ a.status ] = ( acc[ a.status ] ?? 0 ) + 1;
-            return acc;
-        },
-        {}
-    );
-    const statusCounts = {
-        all: automations.length,
-        active: rawCounts.active ?? 0,
-        paused: rawCounts.paused ?? 0,
-        inactive: rawCounts.draft ?? 0,
+    const statusCounts = listQuery.data?.statusCounts ?? {
+        all: 0,
+        active: 0,
+        paused: 0,
+        inactive: 0,
     };
-    const visibleAutomations = automations
-        .filter( ( a ) =>
-            statusFilter === 'all' ? true : a.status === statusFilter
-        )
-        .filter( ( a ) =>
-            search.trim()
-                ? a.name.toLowerCase().includes( search.trim().toLowerCase() )
-                : true
-        );
+    const isPaidUser = listQuery.data?.isPaidUser ?? true;
+    const currentPage = listQuery.data?.current_page ?? page;
+    const hasPrevious = Boolean( listQuery.data?.prev_page_url );
+    const hasNext = Boolean( listQuery.data?.next_page_url );
+    const isFiltered = query !== '' || statusFilter !== 'all';
+
+    const handleTabChange = ( next: AutomationStatusFilter ) => {
+        setAutomationStatusFilter( next );
+        setPage( 1 );
+    };
 
     const handlePause = async ( id: number ) => {
         if ( ! ( await confirm( PAUSE_CONFIRMATION ) ) ) {
@@ -246,325 +275,372 @@ function AutomationsList( { settings }: { settings: NotifyPressSettings } ) {
         deleteMutation.mutate( id );
     };
 
-    return (
-        <div className="space-y-6 p-6">
-            { confirmDialog }
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                        Automations
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Trigger-based notification sequences that run
-                        automatically.
-                    </p>
-                </div>
-                <Button asChild>
-                    <Link to="/automations/templates">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create an automation
-                    </Link>
-                </Button>
-            </div>
+    const createButton = (
+        <Button asChild className="h-10 gap-2 px-4">
+            <Link to="/automations/templates">
+                <Plus className="h-4 w-4" aria-hidden />
+                Create an automation
+            </Link>
+        </Button>
+    );
 
-            <PaidFeatureOverlay
-                isPaidUser={ listQuery.data?.isPaidUser ?? true }
-                featureName="Automations"
-                description="Automation workflows are available on Starter plans and above. Upgrade to send notifications automatically when subscribers join or take an action."
+    let tableContent: JSX.Element;
+
+    if ( listQuery.isLoading ) {
+        tableContent = (
+            <p className="mt-4 py-10 text-center text-sm text-muted-foreground">
+                Loading…
+            </p>
+        );
+    } else if ( automations.length === 0 ) {
+        tableContent = (
+            <EmptyState
+                icon={ <Workflow className="h-5 w-5" /> }
+                title={
+                    isFiltered ? 'No automations match' : 'No automations yet'
+                }
             >
-                <div className="space-y-6">
-                    <div className="flex items-center gap-2 border-b">
-                        <Link
-                            to="/automations"
-                            className="border-b-2 border-primary px-3 py-2 text-sm font-medium"
-                        >
-                            Workflows
-                        </Link>
-                        <Link
-                            to="/automations/messages"
-                            className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                <p className="max-w-80 text-sm text-muted-foreground">
+                    { isFiltered
+                        ? 'Try a different search or status filter.'
+                        : 'Create your first automation to send notifications automatically when subscribers join.' }
+                </p>
+                { isFiltered ? null : (
+                    <div className="mt-1">{ createButton }</div>
+                ) }
+            </EmptyState>
+        );
+    } else {
+        tableContent = (
+            <div className="mt-4 overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead className="whitespace-nowrap">
+                                Name
+                            </TableHead>
+                            <TableHead className="whitespace-nowrap">
+                                Status
+                            </TableHead>
+                            <TableHead className="whitespace-nowrap text-right">
+                                Active now
+                            </TableHead>
+                            <TableHead className="whitespace-nowrap text-right">
+                                Started
+                            </TableHead>
+                            <TableHead className="whitespace-nowrap">
+                                Finished
+                            </TableHead>
+                            <TableHead className="whitespace-nowrap text-right">
+                                Suspended
+                            </TableHead>
+                            <TableHead className="w-[120px]">
+                                <span className="sr-only">Actions</span>
+                            </TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        { automations.map( ( automation ) => (
+                            <AutomationRow
+                                key={ automation.id }
+                                automation={ automation }
+                                onPause={ handlePause }
+                                onActivate={ ( id ) => {
+                                    activateMutation.mutate( id );
+                                } }
+                                onStop={ handleStop }
+                                onDuplicate={ ( id ) => {
+                                    duplicateMutation.mutate( id );
+                                } }
+                                onDelete={ handleDelete }
+                            />
+                        ) ) }
+                    </TableBody>
+                </Table>
+            </div>
+        );
+    }
+
+    return (
+        <div className="container mx-auto space-y-6 px-4 py-6 sm:py-8">
+            { confirmDialog }
+            <PageHeader
+                title="Automations"
+                description="Trigger-based notification sequences that run automatically."
+                actions={
+                    <>
+                        <div
                             onMouseEnter={ prefetchMessages }
                             onFocus={ prefetchMessages }
                         >
-                            Messages
-                        </Link>
-                    </div>
+                            <SegmentedLinks
+                                label="Automation sections"
+                                items={ [
+                                    {
+                                        to: '/automations',
+                                        label: 'Workflows',
+                                        active: true,
+                                    },
+                                    {
+                                        to: '/automations/messages',
+                                        label: 'Messages',
+                                        active: false,
+                                    },
+                                ] }
+                            />
+                        </div>
+                        { isPaidUser ? createButton : null }
+                    </>
+                }
+            />
 
-                    <Tabs
-                        value={ statusFilter }
-                        onValueChange={ setStatusFilter }
-                    >
-                        <TabsList>
-                            <TabsTrigger value="all">
-                                All { statusCounts.all }
-                            </TabsTrigger>
-                            <TabsTrigger value="active">
-                                Active { statusCounts.active }
-                            </TabsTrigger>
-                            <TabsTrigger value="paused">
-                                Paused { statusCounts.paused }
-                            </TabsTrigger>
-                            <TabsTrigger value="draft">
-                                Inactive { statusCounts.inactive }
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-
-                    <div className="flex items-center gap-2">
-                        <Input
-                            value={ search }
-                            onChange={ ( event ) =>
-                                setSearch( event.target.value )
-                            }
-                            placeholder="Search for an automation"
-                            className="max-w-sm"
-                        />
-                    </div>
-
-                    <div className="flex overflow-x-auto sm:justify-center" />
-
-                    { ! listQuery.isLoading && automations.length === 0 ? (
-                        <Card>
-                            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                                <Workflow className="h-12 w-12 text-muted-foreground/40 mb-4" />
-                                <h3 className="text-lg font-medium">
-                                    No automations yet
-                                </h3>
-                                <p className="text-sm text-muted-foreground mt-1 mb-6">
-                                    Create your first automation to send
-                                    notifications automatically when subscribers
-                                    join.
+            <PaidFeatureOverlay
+                isPaidUser={ isPaidUser }
+                featureName="Automations"
+                description="Automation workflows are available on Starter plans and above. Upgrade to send notifications automatically when subscribers join or take an action."
+            >
+                <SectionCard
+                    title="Workflows"
+                    description="Enrollment counts since each automation started"
+                    actions={
+                        <>
+                            <SegmentedControl< AutomationStatusFilter >
+                                value={ statusFilter }
+                                onChange={ handleTabChange }
+                                label="Filter by status"
+                                options={ [
+                                    {
+                                        key: 'all',
+                                        label: 'All',
+                                        count: statusCounts.all,
+                                    },
+                                    {
+                                        key: 'active',
+                                        label: 'Active',
+                                        count: statusCounts.active,
+                                    },
+                                    {
+                                        key: 'paused',
+                                        label: 'Paused',
+                                        count: statusCounts.paused,
+                                    },
+                                    {
+                                        key: 'draft',
+                                        label: 'Inactive',
+                                        count: statusCounts.inactive,
+                                    },
+                                ] }
+                            />
+                            <SearchInput
+                                value={ search }
+                                onChange={ setSearch }
+                                label="Search automations"
+                                placeholder="Search for an automation"
+                            />
+                        </>
+                    }
+                    footer={
+                        automations.length > 0 ? (
+                            <>
+                                <p className="text-sm text-muted-foreground">
+                                    { automations.length } on this page
                                 </p>
-                                <Button asChild>
-                                    <Link to="/automations/templates">
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Create an automation
-                                    </Link>
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <Card>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">
-                                            Active now
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                            Started
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                            Finished
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                            Suspended
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                            Actions
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    { visibleAutomations.map(
-                                        ( automation ) => (
-                                            <TableRow key={ automation.id }>
-                                                <TableCell>
-                                                    <div>
-                                                        <p className="font-medium">
-                                                            { automation.name }
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            #{ automation.id } ·
-                                                            Last edited{ ' ' }
-                                                            { new Date(
-                                                                automation.updated_at ??
-                                                                    ''
-                                                            ).toLocaleString() }
-                                                        </p>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span className="inline-flex items-center gap-1.5 text-sm capitalize">
-                                                        <span
-                                                            className={ `h-2 w-2 rounded-full ${
-                                                                statusDotColors[
-                                                                    automation
-                                                                        .status
-                                                                ] ?? ''
-                                                            }` }
-                                                        />
-                                                        { automation.status ===
-                                                        'draft'
-                                                            ? 'Inactive'
-                                                            : automation.status }
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="text-sm font-medium">
-                                                        { automation.active_count ??
-                                                            0 }
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        { pct(
-                                                            automation.active_count ??
-                                                                0,
-                                                            automation.started_count ??
-                                                                0
-                                                        ) }
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="text-sm font-medium">
-                                                        { automation.started_count ??
-                                                            0 }
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        100%
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="text-sm font-medium">
-                                                        { automation.finished_count ??
-                                                            0 }
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        { pct(
-                                                            automation.finished_count ??
-                                                                0,
-                                                            automation.started_count ??
-                                                                0
-                                                        ) }
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="text-sm font-medium">
-                                                        { automation.suspended_count ??
-                                                            0 }
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        { pct(
-                                                            automation.suspended_count ??
-                                                                0,
-                                                            automation.started_count ??
-                                                                0
-                                                        ) }
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        { automation.status ===
-                                                        'active' ? (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8"
-                                                                onClick={ () =>
-                                                                    handlePause(
-                                                                        automation.id
-                                                                    )
-                                                                }
-                                                                title="Pause"
-                                                            >
-                                                                <Pause className="h-4 w-4" />
-                                                            </Button>
-                                                        ) : null }
-                                                        { automation.status !==
-                                                            'archived' &&
-                                                        automation.status !==
-                                                            'active' ? (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8"
-                                                                onClick={ () =>
-                                                                    activateMutation.mutate(
-                                                                        automation.id
-                                                                    )
-                                                                }
-                                                                title="Activate"
-                                                            >
-                                                                <Play className="h-4 w-4" />
-                                                            </Button>
-                                                        ) : null }
-                                                        { automation.status !==
-                                                        'archived' ? (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8"
-                                                                onClick={ () =>
-                                                                    handleStop(
-                                                                        automation.id
-                                                                    )
-                                                                }
-                                                                title="Stop"
-                                                            >
-                                                                <Square className="h-4 w-4" />
-                                                            </Button>
-                                                        ) : null }
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger
-                                                                asChild
-                                                            >
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8 w-8"
-                                                                >
-                                                                    <MoreVertical className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuItem
-                                                                    asChild
-                                                                >
-                                                                    <Link
-                                                                        to={ `/automations/${ automation.id }/edit` }
-                                                                    >
-                                                                        <Edit3 className="mr-2 h-4 w-4" />{ ' ' }
-                                                                        Edit
-                                                                    </Link>
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem
-                                                                    onClick={ () =>
-                                                                        duplicateMutation.mutate(
-                                                                            automation.id
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Copy className="mr-2 h-4 w-4" />{ ' ' }
-                                                                    Duplicate
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem
-                                                                    className="text-destructive focus:text-destructive"
-                                                                    onClick={ () =>
-                                                                        handleDelete(
-                                                                            automation.id
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Trash2 className="mr-2 h-4 w-4" />{ ' ' }
-                                                                    Delete
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        )
-                                    ) }
-                                </TableBody>
-                            </Table>
-                        </Card>
-                    ) }
-
-                    <div className="flex overflow-x-auto sm:justify-center" />
-                </div>
+                                <CursorPager
+                                    label="Automation pages"
+                                    hasPrevious={ hasPrevious }
+                                    hasNext={ hasNext }
+                                    disabled={ listQuery.isFetching }
+                                    onPrevious={ () => {
+                                        setPage(
+                                            Math.max( 1, currentPage - 1 )
+                                        );
+                                    } }
+                                    onNext={ () => {
+                                        setPage( currentPage + 1 );
+                                    } }
+                                />
+                            </>
+                        ) : null
+                    }
+                >
+                    { tableContent }
+                </SectionCard>
             </PaidFeatureOverlay>
         </div>
+    );
+}
+
+function AutomationRow( {
+    automation,
+    onPause,
+    onActivate,
+    onStop,
+    onDuplicate,
+    onDelete,
+}: {
+    automation: Automation;
+    onPause: ( id: number ) => void;
+    onActivate: ( id: number ) => void;
+    onStop: ( id: number ) => void;
+    onDuplicate: ( id: number ) => void;
+    onDelete: ( id: number ) => void;
+} ) {
+    const status = STATUS[ automation.status ] ?? STATUS.draft;
+    const started = automation.started_count ?? 0;
+    const active = automation.active_count ?? 0;
+    const finished = automation.finished_count ?? 0;
+    const suspended = automation.suspended_count ?? 0;
+    const finishedShare = share( finished, started );
+    const isArchived = automation.status === 'archived';
+    let runButton: JSX.Element | null = null;
+
+    if ( ! isArchived && automation.status === 'active' ) {
+        runButton = (
+            <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700"
+                onClick={ () => onPause( automation.id ) }
+                title="Pause"
+                aria-label={ `Pause ${ automation.name }` }
+            >
+                <Pause className="h-4 w-4" aria-hidden />
+            </Button>
+        );
+    } else if ( ! isArchived ) {
+        runButton = (
+            <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700"
+                onClick={ () => onActivate( automation.id ) }
+                title="Activate"
+                aria-label={ `Activate ${ automation.name }` }
+            >
+                <Play className="h-4 w-4" aria-hidden />
+            </Button>
+        );
+    }
+
+    return (
+        <TableRow className="group">
+            <TableCell>
+                <div className="flex min-w-56 max-w-96 items-center gap-3">
+                    <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
+                        aria-hidden
+                    >
+                        <Workflow className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                        <Link
+                            to={ `/automations/${ automation.id }/edit` }
+                            className="block truncate font-medium text-foreground hover:text-primary"
+                        >
+                            { automation.name }
+                        </Link>
+                        <p className="truncate text-xs text-muted-foreground">
+                            #{ automation.id } · Last edited{ ' ' }
+                            { formatDateTime( automation.updated_at ) }
+                        </p>
+                    </div>
+                </div>
+            </TableCell>
+            <TableCell>
+                <Chip tone={ status.tone } dot>
+                    { status.label }
+                </Chip>
+            </TableCell>
+            <TableCell className="text-right">
+                <p className="font-semibold tabular-nums text-foreground">
+                    { active.toLocaleString() }
+                </p>
+                <p className="text-xs tabular-nums text-muted-foreground">
+                    { share( active, started ) }%
+                </p>
+            </TableCell>
+            <TableCell className="text-right font-semibold tabular-nums text-foreground">
+                { started.toLocaleString() }
+            </TableCell>
+            <TableCell>
+                <div className="w-[120px]">
+                    <div className="flex items-baseline justify-between gap-2">
+                        <span className="font-semibold tabular-nums text-foreground">
+                            { finished.toLocaleString() }
+                        </span>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                            { finishedShare }%
+                        </span>
+                    </div>
+                    <div
+                        className="mt-1 h-1 overflow-hidden rounded-full bg-muted"
+                        aria-hidden
+                    >
+                        <div
+                            className="h-full rounded-full bg-primary"
+                            style={ { width: `${ finishedShare }%` } }
+                        />
+                    </div>
+                </div>
+            </TableCell>
+            <TableCell className="text-right">
+                <p className="font-semibold tabular-nums text-foreground">
+                    { suspended.toLocaleString() }
+                </p>
+                <p className="text-xs tabular-nums text-muted-foreground">
+                    { share( suspended, started ) }%
+                </p>
+            </TableCell>
+            <TableCell>
+                <div className="flex items-center justify-end gap-1">
+                    { runButton }
+                    { isArchived ? null : (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={ () => onStop( automation.id ) }
+                            title="Stop"
+                            aria-label={ `Stop ${ automation.name }` }
+                        >
+                            <Square className="h-4 w-4" aria-hidden />
+                        </Button>
+                    ) }
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                aria-label={ `More actions for ${ automation.name }` }
+                            >
+                                <MoreVertical className="h-4 w-4" aria-hidden />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                                <Link
+                                    to={ `/automations/${ automation.id }/edit` }
+                                >
+                                    <Edit3 className="mr-2 h-4 w-4" /> Edit
+                                </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={ () => onDuplicate( automation.id ) }
+                            >
+                                <Copy className="mr-2 h-4 w-4" /> Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={ () => onDelete( automation.id ) }
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </TableCell>
+        </TableRow>
     );
 }
 

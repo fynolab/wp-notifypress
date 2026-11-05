@@ -12,7 +12,9 @@
  * instead, so a behaviour change here belongs there too.
  */
 
-// Must match Api::APP_URL.
+// Must match Api::APP_URL. Assets::request() swaps this exact string literal
+// for the configured API URL when NOTIFYPRESS_APP_URL points elsewhere, so keep
+// it a single-quoted literal on one line.
 const NOTIFYPRESS_API_URL = 'https://app.notifypress.com/api/v1';
 
 self.addEventListener( 'install', () => {

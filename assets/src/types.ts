@@ -205,6 +205,12 @@ export interface Notification {
     scheduled_at?: DateTime;
     sent_at?: DateTime;
     created_at?: DateTime;
+    recurring_cron?: string | null;
+    recurring_frequency?: string | null;
+    recurring_days?: number[] | null;
+    recurring_day_of_month?: number | null;
+    /** IANA timezone a recurring send's time and weekdays are in. */
+    recurring_timezone?: string | null;
     views?: number;
     clicks?: number;
     chrome?: number;

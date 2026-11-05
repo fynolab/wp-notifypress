@@ -168,6 +168,14 @@ class ProxyController implements RestController {
 			);
 		}
 
+		// The browser's IANA timezone, so the app can save it for emails and PDF
+		// reports. Anything that is not a plausible zone name is dropped.
+		$timezone = $request->get_header( 'X-Timezone' );
+
+		if ( ! empty( $timezone ) && 1 === preg_match( '/^[A-Za-z0-9_+\-\/]{1,64}\z/', $timezone ) ) {
+			$options = $options->withHeader( 'X-Timezone', $timezone );
+		}
+
 		try {
 			$response = $client->transport()->requestRaw(
 				$request->get_method(),

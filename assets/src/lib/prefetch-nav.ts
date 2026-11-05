@@ -1,6 +1,8 @@
 import { laravelRequest } from './api';
 import { getApiToken, getBootstrapSettings, hasApiToken } from './settings';
 import { queryClient } from './query-client';
+import { automationsListQuery } from '../components/automations/automations-query';
+import { SUBSCRIBERS_LIST_PARAMS } from '../components/subscribers/subscribers-query';
 import type { NotifyPressSettings } from '../types';
 
 // Mirrors the `queryKey`/`queryFn` each page's first-load `useQuery` call
@@ -19,7 +21,9 @@ function prefetchEntries( settings: NotifyPressSettings ) {
             queryClient.prefetchQuery( {
                 queryKey: [ 'np-subscribers', token, '' ],
                 queryFn: () =>
-                    laravelRequest( settings, '/subscribers', { query: {} } ),
+                    laravelRequest( settings, '/subscribers', {
+                        query: SUBSCRIBERS_LIST_PARAMS,
+                    } ),
             } );
             queryClient.prefetchQuery( {
                 queryKey: [ 'np-tags', token ],
@@ -31,18 +35,38 @@ function prefetchEntries( settings: NotifyPressSettings ) {
                 queryKey: [ 'np-segments', token ],
                 queryFn: () => laravelRequest( settings, '/segments' ),
             } ),
+        // Same opt-in flags as the campaign list (full titles and messages, no
+        // welcome messages), which are part of its query key.
         '/notifications': () =>
             queryClient.prefetchQuery( {
-                queryKey: [ 'np-notifications', token, '', 'all' ],
+                queryKey: [
+                    'np-notifications',
+                    token,
+                    '',
+                    'all',
+                    { full_text: 1, exclude_welcome: 1 },
+                ],
                 queryFn: () =>
-                    laravelRequest( settings, '/notifications', { query: {} } ),
+                    laravelRequest( settings, '/notifications', {
+                        query: { full_text: 1, exclude_welcome: 1 },
+                    } ),
             } ),
         // The new-campaign form's first-load queries (NotificationForm), keyed
         // on settings.apiToken exactly as that form keys them.
         '/notifications/new': () => {
             queryClient.prefetchQuery( {
-                queryKey: [ 'np-segments-all', settings.apiToken ],
-                queryFn: () => laravelRequest( settings, '/segments' ),
+                queryKey: [ 'np-segments-all', settings.apiToken, 100 ],
+                queryFn: () =>
+                    laravelRequest( settings, '/segments', {
+                        query: { per_page: 100 },
+                    } ),
+            } );
+            queryClient.prefetchQuery( {
+                queryKey: [ 'np-subscribers-total', settings.apiToken ],
+                queryFn: () =>
+                    laravelRequest( settings, '/subscribers', {
+                        query: { limit: 1 },
+                    } ),
             } );
             queryClient.prefetchQuery( {
                 queryKey: [ 'np-notifications-latest', settings.apiToken ],
@@ -53,10 +77,7 @@ function prefetchEntries( settings: NotifyPressSettings ) {
             } );
         },
         '/automations': () =>
-            queryClient.prefetchQuery( {
-                queryKey: [ 'np-automations', token ],
-                queryFn: () => laravelRequest( settings, '/automations' ),
-            } ),
+            queryClient.prefetchQuery( automationsListQuery( settings ) ),
         '/analytics': () =>
             queryClient.prefetchQuery( {
                 queryKey: [ 'np-analytics', token ],

@@ -13,6 +13,8 @@ use Fynolab\NotifyPress\Services\NewPost\PostNotification;
 use Fynolab\NotifyPress\Services\NotifyPress\CurrentSite;
 use Fynolab\NotifyPress\Services\Settings\Settings;
 
+use function Fynolab\NotifyPress\Helpers\log;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -60,11 +62,29 @@ class Assets {
 			return;
 		}
 
+		// Local, bundled file (not user input).
+		$script = (string) file_get_contents( $service_worker ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+
+		// The worker reports views and clicks to the app. It ships pointing at
+		// the production API; when NOTIFYPRESS_APP_URL points elsewhere, swap
+		// in that API URL. Api::base_url() is a validated origin plus a fixed
+		// path, and wp_json_encode() makes it a safe JS string literal.
+		$default_api_url = "'" . Api::APP_URL . "/api/v1'";
+
+		if ( Api::base_url() !== Api::APP_URL . '/api/v1' ) {
+			$script = str_replace( $default_api_url, (string) wp_json_encode( Api::base_url() ), $script, $replaced );
+
+			// The literal in notifypress-sw.js was reformatted: the worker would
+			// keep reporting to production. Say so instead of failing silently.
+			if ( 0 === $replaced ) {
+				log( 'Service worker API URL not swapped: the production URL literal was not found in notifypress-sw.js.' );
+			}
+		}
+
 		header( 'Content-Type: application/javascript; charset=utf-8' );
 		header( 'X-Content-Type-Options: nosniff' );
 		header( 'Cache-Control: no-cache' );
-		// Local, bundled file (not user input); already reviewed as safe to output raw.
-		echo file_get_contents( $service_worker ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents, WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo $script; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bundled worker script; the only change is the JSON-encoded, validated API URL above.
 		exit;
 	}
 
@@ -137,9 +157,11 @@ class Assets {
 			wp_register_script( self::SCRIPT_HANDLE . "-{$script_name}", NOTIFYPRESS_ASSETS_URL . "{$script_name}-dist/{$script_name}.js", $dependency, $script_version, true );
 			wp_register_style( self::STYLE_HANDLE . "-{$script_name}", NOTIFYPRESS_ASSETS_URL . "{$script_name}-dist/style-{$script_name}.css", array(), $style_version );
 
-			// No app URL here — it is a fixed constant the JS bundle already
-			// knows (assets/src/lib/app.ts).
+			// appUrl: the app this install talks to (Api::app_url(), normally
+			// app.notifypress.com, or NOTIFYPRESS_APP_URL for testing). The
+			// admin UI builds its connect, billing and report links from it.
 			$localized_data = array(
+				'appUrl'    => Api::app_url(),
 				'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
 				'nonce'     => wp_create_nonce( self::NONCE_ACTION ),
 				'restUrl'   => rest_url( 'notifypress/v1' ),
