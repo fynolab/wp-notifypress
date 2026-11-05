@@ -1,15 +1,4 @@
-import { useEffect, useMemo, useState } from '@wordpress/element';
-import { Alert, AlertDescription } from '../components/ui/alert';
-import { Button } from '../components/ui/button';
-import PaidFeatureOverlay from '../components/paid-feature-overlay';
-import { useConfirm } from '../components/confirm-dialog';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '../components/ui/select';
+import { useMemo, useState } from '@wordpress/element';
 import {
     Link,
     Navigate,
@@ -18,455 +7,119 @@ import {
     useParams,
     useSearchParams,
 } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-    ArrowRight,
-    Check,
-    ChevronDown,
-    Chrome,
-    Compass,
-    Filter,
-    Globe2,
-    Laptop,
-    MonitorSmartphone,
-    Pencil,
-    Plus,
-    Search,
-    Smartphone,
-    Tag as TagIcon,
-    Trash2,
-} from 'lucide-react';
+    keepPreviousData,
+    useMutation,
+    useQuery,
+    useQueryClient,
+} from '@tanstack/react-query';
+import { Filter, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { getApiToken, getSettings, hasApiToken } from '../lib/settings';
 import { laravelRequest } from '../lib/api';
-import { statusBadgeClass, ui } from '../lib/admin-ui';
-import { Input } from '../components/ui/input';
+import { ui } from '../lib/admin-ui';
+import type { NotifyPressSettings, Segment } from '../types';
+import PaidFeatureOverlay from '../components/paid-feature-overlay';
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '../components/ui/card';
-import type { ComponentType, ReactNode } from 'react';
-import type {
-    LaravelCollection,
-    LaravelResource,
-    NotifyPressSettings,
-    Segment,
-    SegmentRule,
-    SegmentRuleGroup,
-} from '../types';
+    Chip,
+    CursorPager,
+    EmptyState,
+    PageHeader,
+    SearchInput,
+    SectionCard,
+    SegmentedControl,
+} from '../components/page-parts';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '../components/ui/alert-dialog';
+import { Button, buttonVariants } from '../components/ui/button';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '../components/ui/table';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '../components/ui/tooltip';
+import { cn } from '../components/utils';
+import { RuleChips, normalizeRule } from '../components/segments/segment-parts';
+import type { TagOption } from '../components/segments/segment-parts';
+import { SegmentForm } from '../components/segments/segment-form';
+import { ROW_ACTIONS, TagsTab } from '../components/segments/tags-tab';
+import { formatDate } from '../lib/format';
 
-const defaultRule: SegmentRule = {
-    location: { condition: 'is_equal_to', values: [] },
-    device: { condition: 'is_equal_to', values: [] },
-    browser: { condition: 'is_equal_to', values: [] },
+type TabKey = 'segments' | 'tags';
+
+const TABS: { key: TabKey; label: string }[] = [
+    { key: 'segments', label: 'Segments' },
+    { key: 'tags', label: 'Tags' },
+];
+
+// GET /segments rows carry a cached audience size next to the rule.
+type SegmentRow = Segment & {
+    subscriber_count?: number | string;
+    subscriber_count_computed_at?: string | null;
 };
 
-const conditions = [
-    { label: 'Is equal to', value: 'is_equal_to' },
-    { label: 'Is not equal to', value: 'is_not_equal_to' },
-    { label: 'Is one of', value: 'is_one_of' },
-];
-
-const deviceOptions = [
-    { label: 'Desktop', value: 'desktop', icon: Laptop },
-    { label: 'Mobile', value: 'mobile', icon: Smartphone },
-];
-
-const browserOptions = [
-    { label: 'Chrome', value: 'chrome' },
-    { label: 'Firefox', value: 'firefox' },
-    { label: 'Opera', value: 'opera' },
-    { label: 'Edge', value: 'edge' },
-    { label: 'Safari', value: 'safari' },
-];
-
-interface SegmentFormData {
-    name: string;
-    description: string;
-    is_active: boolean;
-    rule: SegmentRule;
-}
-
-const normalizeGroup = (
-    group: Partial< SegmentRuleGroup > | undefined,
-    fallback: SegmentRuleGroup
-): SegmentRuleGroup => ( {
-    condition: group?.condition || fallback.condition || 'is_equal_to',
-    values: Array.isArray( group?.values ) ? group.values : [],
-} );
-
-const normalizeRule = (
-    raw?: Partial< SegmentRule > | string | null
-): SegmentRule => {
-    let rule: Partial< SegmentRule > = {};
-
-    if ( typeof raw === 'string' ) {
-        try {
-            rule = JSON.parse( raw ) || {};
-        } catch ( error ) {
-            rule = {};
-        }
-    } else if ( raw ) {
-        rule = raw;
-    }
-
-    return {
-        location: normalizeGroup( rule?.location, defaultRule.location ),
-        device: normalizeGroup( rule?.device, defaultRule.device ),
-        browser: normalizeGroup( rule?.browser, defaultRule.browser ),
+// SegmentResource::collection( cursorPaginate() ): cursors live in `meta`.
+type SegmentPage = {
+    data?: SegmentRow[];
+    meta?: {
+        next_cursor?: string | null;
+        prev_cursor?: string | null;
     };
+    isPaidUser?: boolean;
 };
 
-const titleCase = ( value: string ) =>
-    value
-        .replace( /_/g, ' ' )
-        .replace( /\b\w/g, ( letter ) => letter.toUpperCase() );
-
-function StepTabs( {
-    step,
-    canOpenRules,
-    onChange,
-}: {
-    step: 'details' | 'rules';
-    canOpenRules: boolean;
-    onChange: ( step: 'details' | 'rules' ) => void;
-} ) {
-    const items = [
-        { key: 'details' as const, label: '1. Details' },
-        { key: 'rules' as const, label: '2. Rules' },
-    ];
-
-    return (
-        <div className="inline-flex rounded-md bg-muted/40 p-1">
-            { items.map( ( item ) => {
-                const disabled = item.key === 'rules' && ! canOpenRules;
-
-                return (
-                    <Button
-                        className={ `min-h-10 rounded-md px-4 text-sm font-semibold transition-colors ${
-                            step === item.key
-                                ? 'bg-background text-foreground shadow'
-                                : 'text-muted-foreground hover:text-foreground'
-                        } ${
-                            disabled ? 'pointer-events-none opacity-50' : ''
-                        }` }
-                        disabled={ disabled }
-                        key={ item.key }
-                        onClick={ () => onChange( item.key ) }
-                        type="button"
-                        variant="ghost"
-                    >
-                        { item.label }
-                    </Button>
-                );
-            } ) }
-        </div>
-    );
-}
-
-function RuleHeader( { icon, label }: { icon: ReactNode; label: string } ) {
-    return (
-        <div className="mb-4 flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-primary/10 text-primary">
-                { icon }
-            </span>
-            <span className="text-base font-bold text-foreground">
-                { label }
-            </span>
-        </div>
-    );
-}
-
-function AndDivider() {
-    return (
-        <div className="flex items-center gap-4 py-4">
-            <div className="h-px flex-1 bg-border" />
-            <span className="rounded-full bg-primary/10 px-4 py-1 text-xs font-bold uppercase text-primary">
-                AND
-            </span>
-            <div className="h-px flex-1 bg-border" />
-        </div>
-    );
-}
-
-function CountrySelect( {
-    countries,
-    values,
-    onChange,
-}: {
-    countries: string[];
-    values: string[];
-    onChange: ( values: string[] ) => void;
-} ) {
-    const [ open, setOpen ] = useState( false );
-    const [ search, setSearch ] = useState( '' );
-    const selected = new Set( values );
-    const filteredCountries = countries.filter( ( country ) =>
-        country.toLowerCase().includes( search.toLowerCase() )
-    );
-    const selectedLabel = values.length
-        ? values.slice( 0, 3 ).map( titleCase ).join( ', ' ) +
-          ( values.length > 3 ? ` +${ values.length - 3 }` : '' )
-        : 'Select countries...';
-
-    const toggle = ( country: string ) => {
-        const value = country.toLowerCase();
-        onChange(
-            selected.has( value )
-                ? values.filter( ( item ) => item !== value )
-                : [ ...values, value ]
-        );
-    };
-
-    return (
-        <div className="relative min-w-0 flex-1">
-            <Button
-                className="flex min-h-11 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-left text-sm text-foreground shadow-sm focus:outline-none"
-                onClick={ () => setOpen( ! open ) }
-                type="button"
-            >
-                <span
-                    className={
-                        values.length
-                            ? 'truncate'
-                            : 'truncate text-muted-foreground'
-                    }
-                >
-                    { selectedLabel }
-                </span>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            </Button>
-            { open ? (
-                <div className="absolute z-30 mt-2 w-full rounded-md border border-border bg-background p-2 shadow-lg">
-                    <input
-                        className={ ui.input }
-                        onChange={ ( event ) =>
-                            setSearch( event.target.value )
-                        }
-                        placeholder="Search countries..."
-                        value={ search }
-                    />
-                    <div className="mt-2 max-h-64 overflow-auto">
-                        { filteredCountries.length ? (
-                            filteredCountries.map( ( country ) => {
-                                const value = country.toLowerCase();
-                                const active = selected.has( value );
-
-                                return (
-                                    <Button
-                                        className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
-                                        key={ country }
-                                        onClick={ () => toggle( country ) }
-                                        type="button"
-                                        variant="ghost"
-                                    >
-                                        <span>{ country }</span>
-                                        { active ? (
-                                            <Check className="h-4 w-4 text-primary" />
-                                        ) : null }
-                                    </Button>
-                                );
-                            } )
-                        ) : (
-                            <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-                                No countries found.
-                            </div>
-                        ) }
-                    </div>
-                </div>
-            ) : null }
-        </div>
-    );
-}
-
-function SelectableCard( {
-    icon: Icon,
-    label,
-    active,
-    onClick,
-}: {
-    icon: ComponentType< { className?: string } >;
-    label: string;
-    active: boolean;
-    onClick: () => void;
-} ) {
-    return (
-        <Button
-            className={ `relative grid h-28 w-28 place-items-center rounded-lg border-2 bg-background p-3 text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground ${
-                active
-                    ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary/15'
-                    : 'border-border'
-            }` }
-            onClick={ onClick }
-            type="button"
-        >
-            { active ? (
-                <span className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-primary text-primary-foreground">
-                    <Check className="h-3 w-3" />
-                </span>
-            ) : null }
-            <span className="grid gap-2 text-center">
-                <Icon className="mx-auto h-8 w-8" />
-                <span className="text-sm font-medium">{ label }</span>
-            </span>
-        </Button>
-    );
-}
-
-function RuleChips( { rule }: { rule: SegmentRule } ) {
-    const chips: { icon: ReactNode; label: string }[] = [];
-
-    if ( rule.location.values.length ) {
-        chips.push( {
-            icon: <Globe2 className="h-3.5 w-3.5" />,
-            label:
-                rule.location.values
-                    .slice( 0, 2 )
-                    .map( titleCase )
-                    .join( ', ' ) +
-                ( rule.location.values.length > 2
-                    ? ` +${ rule.location.values.length - 2 }`
-                    : '' ),
-        } );
+function siteNameFor( settings?: NotifyPressSettings ): string | null {
+    if ( settings?.siteName ) {
+        return settings.siteName;
     }
 
-    if ( rule.device.values.length ) {
-        chips.push( {
-            icon: <Smartphone className="h-3.5 w-3.5" />,
-            label: rule.device.values.map( titleCase ).join( ', ' ),
-        } );
+    if ( settings?.connectedSite?.site_name ) {
+        return settings.connectedSite.site_name;
     }
 
-    if ( rule.browser.values.length ) {
-        chips.push( {
-            icon: <MonitorSmartphone className="h-3.5 w-3.5" />,
-            label: rule.browser.values.map( titleCase ).join( ', ' ),
-        } );
-    }
-
-    if ( ! chips.length ) {
-        return (
-            <span className="text-sm italic text-muted-foreground">
-                All subscribers
-            </span>
-        );
-    }
+    const url = settings?.siteUrl || window.notifypress?.siteUrl || '';
 
     return (
-        <div className="flex flex-wrap gap-1.5">
-            { chips.map( ( chip ) => (
-                <span
-                    className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground"
-                    key={ chip.label }
-                >
-                    { chip.icon }
-                    { chip.label }
-                </span>
+        url
+            .replace( /(^\w+:|^)\/\//, '' )
+            .replace( /^www\./, '' )
+            .split( '/' )[ 0 ] || null
+    );
+}
+
+function SegmentSkeletonRows() {
+    return (
+        <>
+            { Array.from( { length: 4 } ).map( ( _, index ) => (
+                <TableRow className="animate-pulse" key={ index }>
+                    { Array.from( { length: 6 } ).map( ( __, cellIndex ) => (
+                        <TableCell key={ cellIndex }>
+                            <div
+                                className={ `h-4 rounded bg-muted ${
+                                    cellIndex === 0 ? 'w-40' : 'w-20'
+                                }` }
+                            />
+                        </TableCell>
+                    ) ) }
+                </TableRow>
             ) ) }
-        </div>
-    );
-}
-
-function AudiencePreview( {
-    form,
-    settings,
-}: {
-    form: SegmentFormData;
-    settings?: NotifyPressSettings;
-} ) {
-    const [ liveCount, setLiveCount ] = useState< number | null >( null );
-
-    // Debounced live re-count as the user edits targeting rules — avoids firing a request
-    // on every keystroke/checkbox toggle while still feeling responsive.
-    useEffect( () => {
-        if ( ! settings ) {
-            return;
-        }
-
-        const timer = setTimeout( () => {
-            laravelRequest< { count: number } >(
-                settings,
-                '/segments/preview-count',
-                {
-                    method: 'POST',
-                    body: { rule: form.rule },
-                }
-            )
-                .then( ( response ) => setLiveCount( response.count ) )
-                .catch( () => {
-                    // Keep showing the last known count rather than a broken/blank preview.
-                } );
-        }, 400 );
-
-        return () => clearTimeout( timer );
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [ JSON.stringify( form.rule ), settings ] );
-
-    const entries = [
-        { label: 'Location', rule: form.rule.location },
-        { label: 'Device', rule: form.rule.device },
-        { label: 'Browser', rule: form.rule.browser },
-    ];
-
-    return (
-        <aside className={ `${ ui.cardPadded } h-fit xl:sticky xl:top-6` }>
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <h3 className="text-lg font-bold text-foreground">
-                        Audience Preview
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Based on current rules
-                    </p>
-                </div>
-                <div className="text-right">
-                    <div className="text-3xl font-bold text-foreground">
-                        { liveCount === null
-                            ? '—'
-                            : liveCount.toLocaleString() }
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                        subscribers
-                    </div>
-                </div>
-            </div>
-
-            <div className="mt-5 border-t border-border pt-5">
-                { entries.map( ( entry ) => {
-                    const hasValues = entry.rule.values.length > 0;
-                    const values =
-                        entry.rule.values
-                            .slice( 0, 3 )
-                            .map( titleCase )
-                            .join( ', ' ) +
-                        ( entry.rule.values.length > 3
-                            ? ` +${ entry.rule.values.length - 3 } more`
-                            : '' );
-
-                    return (
-                        <div className="mb-5 last:mb-0" key={ entry.label }>
-                            <div className="font-bold text-foreground">
-                                { entry.label }
-                            </div>
-                            { hasValues ? (
-                                <div className="mt-1 text-sm text-muted-foreground">
-                                    { titleCase( entry.rule.condition || '' ) }:{ ' ' }
-                                    <span className="text-foreground">
-                                        { values }
-                                    </span>
-                                </div>
-                            ) : (
-                                <div className="mt-1 text-sm italic text-muted-foreground">
-                                    Any
-                                </div>
-                            ) }
-                        </div>
-                    );
-                } ) }
-            </div>
-        </aside>
+        </>
     );
 }
 
@@ -476,753 +129,59 @@ function DeleteDialog( {
     onCancel,
     onConfirm,
 }: {
-    segment: Segment | null;
+    segment: SegmentRow | null;
     busy: boolean;
     onCancel: () => void;
     onConfirm: () => void;
 } ) {
-    if ( ! segment ) {
-        return null;
-    }
+    const count = Number( segment?.subscriber_count || 0 );
 
     return (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
-            <div className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-xl">
-                <h3 className="text-lg font-bold text-foreground">
-                    Delete segment
-                </h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                    Are you sure you want to delete &ldquo;{ segment.name }
-                    &rdquo;? This action cannot be undone.
-                </p>
-                <div className="mt-6 flex justify-end gap-2">
-                    <Button
-                        className={ ui.secondaryButton }
-                        disabled={ busy }
-                        onClick={ onCancel }
-                        type="button"
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        className={ ui.dangerButton }
-                        disabled={ busy }
-                        onClick={ onConfirm }
-                        type="button"
-                    >
-                        { busy ? 'Deleting...' : 'Delete' }
-                    </Button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function SegmentSkeletonRows() {
-    return (
-        <>
-            { Array.from( { length: 4 } ).map( ( _, index ) => (
-                <tr className="animate-pulse" key={ index }>
-                    { Array.from( { length: 6 } ).map( ( __, cellIndex ) => (
-                        <td className={ ui.td } key={ cellIndex }>
-                            <div
-                                className={ `h-4 rounded bg-muted ${
-                                    cellIndex === 2 ? 'w-56' : 'w-28'
-                                }` }
-                            />
-                        </td>
-                    ) ) }
-                </tr>
-            ) ) }
-        </>
-    );
-}
-
-type TagRow = {
-    id: number;
-    name: string;
-    slug: string;
-    type: string;
-    subscribers_count: number;
-};
-
-const TAG_TYPE_CLASS: Record< string, string > = {
-    category: 'bg-blue-100 text-blue-700',
-    interest: 'bg-purple-100 text-purple-700',
-    custom: 'bg-gray-100 text-gray-700',
-};
-
-function TagsTab( { settings }: { settings?: NotifyPressSettings } ) {
-    const queryClient = useQueryClient();
-    const [ confirm, confirmDialog ] = useConfirm();
-    const [ name, setName ] = useState( '' );
-    const [ type, setType ] = useState( 'category' );
-
-    const tagsQuery = useQuery( {
-        queryKey: [ 'np-tags-list' ],
-        queryFn: () =>
-            laravelRequest< { data: TagRow[] } >( settings, '/tags' ),
-    } );
-    const tags = tagsQuery.data?.data || [];
-
-    const createMutation = useMutation( {
-        mutationFn: () =>
-            laravelRequest( settings, '/tags', {
-                method: 'POST',
-                body: { name, type },
-            } ),
-        onSuccess: () => {
-            setName( '' );
-            queryClient.invalidateQueries( { queryKey: [ 'np-tags-list' ] } );
-        },
-    } );
-
-    const deleteMutation = useMutation( {
-        mutationFn: ( id: number ) =>
-            laravelRequest( settings, `/tags/${ id }`, {
-                method: 'DELETE',
-            } ),
-        onSuccess: () =>
-            queryClient.invalidateQueries( { queryKey: [ 'np-tags-list' ] } ),
-    } );
-
-    return (
-        <div className="grid gap-6">
-            { confirmDialog }
-            <Card className={ ui.card }>
-                <CardHeader>
-                    <CardTitle className="text-base">Create Tag</CardTitle>
-                    <CardDescription>
-                        Tags group subscribers by interest, category, or any
-                        custom criteria.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                        <Input
-                            className="flex-1"
-                            onChange={ ( event ) =>
-                                setName( event.target.value )
-                            }
-                            onKeyDown={ ( event ) =>
-                                event.key === 'Enter' &&
-                                name.trim() &&
-                                createMutation.mutate()
-                            }
-                            placeholder="Tag name e.g. marketing, breaking-news"
-                            value={ name }
-                        />
-                        <Select onValueChange={ setType } value={ type }>
-                            <SelectTrigger className="min-h-11 w-full sm:w-40">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="category">
-                                    Category
-                                </SelectItem>
-                                <SelectItem value="interest">
-                                    Interest
-                                </SelectItem>
-                                <SelectItem value="custom">Custom</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Button
-                            className={ ui.primaryButton }
-                            disabled={
-                                createMutation.isPending || ! name.trim()
-                            }
-                            onClick={ () => createMutation.mutate() }
-                            type="button"
-                        >
-                            <Plus className="h-4 w-4" />
-                            Create
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <div className={ ui.tableWrap }>
-                <div className={ ui.tableScroll }>
-                    <table className={ ui.table }>
-                        <thead>
-                            <tr>
-                                <th className={ ui.th }>Tag</th>
-                                <th className={ ui.th }>Type</th>
-                                <th className={ ui.th }>Subscribers</th>
-                                <th className={ ui.th } />
-                            </tr>
-                        </thead>
-                        <tbody>
-                            { ! tags.length ? (
-                                <tr>
-                                    <td className={ ui.emptyTd } colSpan={ 4 }>
-                                        No tags yet. Create one above.
-                                    </td>
-                                </tr>
-                            ) : (
-                                tags.map( ( tag ) => (
-                                    <tr key={ tag.id }>
-                                        <td className={ ui.td }>
-                                            <div className="flex items-center gap-2">
-                                                <TagIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                                <span className="font-medium">
-                                                    { tag.name }
-                                                </span>
-                                                <span className="font-mono text-xs text-muted-foreground">
-                                                    #{ tag.slug }
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className={ ui.td }>
-                                            <span
-                                                className={ `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                                    TAG_TYPE_CLASS[
-                                                        tag.type
-                                                    ] ?? TAG_TYPE_CLASS.custom
-                                                }` }
-                                            >
-                                                { tag.type }
-                                            </span>
-                                        </td>
-                                        <td
-                                            className={ `${ ui.td } text-muted-foreground` }
-                                        >
-                                            { tag.subscribers_count }
-                                        </td>
-                                        <td
-                                            className={ `${ ui.td } text-right` }
-                                        >
-                                            <Button
-                                                aria-label={ `Delete tag ${ tag.name }` }
-                                                className={ `${ ui.ghostButton } text-destructive hover:bg-destructive/10 hover:text-destructive` }
-                                                onClick={ async () => {
-                                                    const confirmed =
-                                                        await confirm( {
-                                                            title: `Delete tag "${ tag.name }"?`,
-                                                            description:
-                                                                'This will remove it from all subscribers.',
-                                                            confirmLabel:
-                                                                'Delete',
-                                                            destructive: true,
-                                                        } );
-
-                                                    if ( confirmed ) {
-                                                        deleteMutation.mutate(
-                                                            tag.id
-                                                        );
-                                                    }
-                                                } }
-                                                type="button"
-                                                variant="ghost"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ) )
-                            ) }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function SegmentForm( {
-    settings,
-    segmentId,
-}: {
-    settings: NotifyPressSettings;
-    segmentId?: string;
-} ) {
-    const navigate = useNavigate();
-    const routerLocation = useLocation();
-    const queryClient = useQueryClient();
-    const isEdit = Boolean( segmentId );
-    // "Create segment for {country}" on the dashboard map passes every stored
-    // spelling of the country, so subscribers saved under either name match.
-    const prefillLocations = isEdit
-        ? []
-        : (
-              routerLocation.state as {
-                  prefillLocations?: string[];
-              } | null
-           )?.prefillLocations || [];
-    const [ step, setStep ] = useState< 'details' | 'rules' >( 'details' );
-    const [ notice, setNotice ] = useState( '' );
-    const [ createdSegmentId, setCreatedSegmentId ] = useState< string | null >(
-        segmentId || null
-    );
-    const [ form, setForm ] = useState< SegmentFormData >( {
-        name: '',
-        description: '',
-        is_active: true,
-        rule:
-            prefillLocations.length > 0
-                ? {
-                      ...defaultRule,
-                      location: {
-                          condition: 'is_one_of',
-                          values: prefillLocations.map( ( name ) =>
-                              name.toLowerCase()
-                          ),
-                      },
-                  }
-                : defaultRule,
-    } );
-
-    const metaQuery = useQuery( {
-        queryKey: [ 'np-segment-meta', settings.apiToken ],
-        queryFn: () =>
-            laravelRequest< { countries?: string[] } >(
-                settings,
-                '/segments/meta'
-            ),
-    } );
-
-    const segmentQuery = useQuery( {
-        queryKey: [ 'np-segment', segmentId ],
-        enabled: Boolean( segmentId ),
-        queryFn: () =>
-            laravelRequest< LaravelResource< Segment > >(
-                settings,
-                `/segments/${ segmentId }`
-            ),
-    } );
-
-    useEffect( () => {
-        if ( ! segmentQuery.data?.data ) {
-            return;
-        }
-
-        const payload = segmentQuery.data.data;
-        setForm( {
-            name: payload.name || '',
-            description: payload.description || '',
-            is_active: Boolean( payload.is_active ),
-            rule: normalizeRule( payload.rule ),
-        } );
-    }, [ segmentQuery.data ] );
-
-    const updateRule = (
-        key: keyof SegmentRule,
-        patch: Partial< SegmentRuleGroup >
-    ) => {
-        setForm( ( current ) => ( {
-            ...current,
-            rule: {
-                ...current.rule,
-                [ key ]: {
-                    ...current.rule[ key ],
-                    ...patch,
-                },
-            },
-        } ) );
-    };
-
-    const toggleRuleValue = ( key: keyof SegmentRule, value: string ) => {
-        const currentValues = form.rule[ key ].values || [];
-        const nextValues = currentValues.includes( value )
-            ? currentValues.filter( ( item ) => item !== value )
-            : [ ...currentValues, value ];
-
-        updateRule( key, { values: nextValues } );
-    };
-
-    const detailsMutation = useMutation( {
-        mutationFn: () =>
-            laravelRequest< LaravelResource< Segment > >(
-                settings,
-                isEdit ? `/segments/${ createdSegmentId }` : '/segments',
-                {
-                    method: isEdit ? 'PUT' : 'POST',
-                    body: {
-                        name: form.name,
-                        description: form.description,
-                        is_active: form.is_active,
-                    },
+        <AlertDialog
+            open={ segment !== null }
+            onOpenChange={ ( open ) => {
+                if ( ! open && ! busy ) {
+                    onCancel();
                 }
-            ),
-        onSuccess: ( response ) => {
-            setNotice( '' );
-            const id = response.data?.id;
-            if ( id !== undefined && id !== null ) {
-                setCreatedSegmentId( String( id ) );
-            }
-            queryClient.invalidateQueries( { queryKey: [ 'np-segments' ] } );
-            setStep( 'rules' );
-        },
-        onError: ( error ) => setNotice( error.message ),
-    } );
-
-    const rulesMutation = useMutation( {
-        mutationFn: () =>
-            laravelRequest( settings, `/segments/${ createdSegmentId }`, {
-                method: 'PUT',
-                body: form,
-            } ),
-        onSuccess: () => {
-            queryClient.invalidateQueries( { queryKey: [ 'np-segments' ] } );
-            queryClient.invalidateQueries( {
-                queryKey: [ 'np-segment', createdSegmentId ],
-            } );
-            navigate( '/segments' );
-        },
-        onError: ( error ) => setNotice( error.message ),
-    } );
-
-    const metaCountries = metaQuery.data?.countries || [];
-    const countries = [
-        ...metaCountries,
-        ...prefillLocations.filter(
-            ( name ) =>
-                ! metaCountries.some(
-                    ( country ) => country.toLowerCase() === name.toLowerCase()
-                )
-        ),
-    ];
-    const canContinue = Boolean( form.name.trim() );
-    const canOpenRules = Boolean( createdSegmentId );
-
-    return (
-        <div className={ ui.page }>
-            <div>
-                <h3 className={ ui.heading }>
-                    { isEdit ? 'Edit Segment' : 'Create Segment' }
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                    Define your audience with targeting rules.
-                </p>
-            </div>
-
-            <StepTabs
-                canOpenRules={ canOpenRules }
-                onChange={ setStep }
-                step={ step }
-            />
-
-            <div className={ ui.gridDetail }>
-                <section className={ ui.cardPadded }>
-                    { notice ? (
-                        <Alert variant="destructive">
-                            <AlertDescription>{ notice }</AlertDescription>
-                        </Alert>
-                    ) : null }
-
-                    { step === 'details' ? (
-                        <>
-                            <div>
-                                <h3 className="text-xl font-bold text-foreground">
-                                    Segment Details
-                                </h3>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    Give your segment a name and description.
-                                </p>
-                            </div>
-
-                            <div className="mt-6 grid gap-5">
-                                <label
-                                    htmlFor="np-tag-name"
-                                    className="grid gap-2"
-                                >
-                                    <span className={ ui.label }>
-                                        Name{ ' ' }
-                                        <span className="text-destructive">
-                                            *
-                                        </span>
-                                    </span>
-                                    <input
-                                        id="np-tag-name"
-                                        className={ ui.input }
-                                        onChange={ ( event ) =>
-                                            setForm( {
-                                                ...form,
-                                                name: event.target.value,
-                                            } )
-                                        }
-                                        placeholder="e.g. UK Mobile Users"
-                                        value={ form.name }
-                                    />
-                                </label>
-                                <label
-                                    htmlFor="np-tag-description"
-                                    className="grid gap-2"
-                                >
-                                    <span className={ ui.label }>
-                                        Description
-                                    </span>
-                                    <textarea
-                                        id="np-tag-description"
-                                        className={ ui.textarea }
-                                        onChange={ ( event ) =>
-                                            setForm( {
-                                                ...form,
-                                                description: event.target.value,
-                                            } )
-                                        }
-                                        placeholder="What is this segment for?"
-                                        value={ form.description }
-                                    />
-                                </label>
-                                <div className="flex items-center gap-3">
-                                    <label
-                                        htmlFor="np-tag-active"
-                                        className="relative inline-flex h-8 w-14 cursor-pointer items-center"
-                                    >
-                                        <input
-                                            id="np-tag-active"
-                                            checked={ form.is_active }
-                                            className="peer sr-only"
-                                            onChange={ ( event ) =>
-                                                setForm( {
-                                                    ...form,
-                                                    is_active:
-                                                        event.target.checked,
-                                                } )
-                                            }
-                                            type="checkbox"
-                                        />
-                                        <span className="absolute inset-0 rounded-full bg-input transition-colors peer-checked:bg-primary peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring" />
-                                        <span className="absolute left-1 h-6 w-6 rounded-full bg-background shadow transition-transform peer-checked:translate-x-6" />
-                                        <span className="sr-only">Active</span>
-                                    </label>
-                                    <span className="text-sm font-semibold text-foreground">
-                                        { form.is_active
-                                            ? 'Active'
-                                            : 'Inactive' }
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="mt-6">
-                                <Button
-                                    className={ ui.primaryButton }
-                                    disabled={
-                                        detailsMutation.isPending ||
-                                        ! canContinue
-                                    }
-                                    onClick={ () => detailsMutation.mutate() }
-                                    type="button"
-                                >
-                                    Save & Continue
-                                    <ArrowRight className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </>
-                    ) : null }
-
-                    { step === 'rules' ? (
-                        <>
-                            <div>
-                                <h3 className="text-xl font-bold text-foreground">
-                                    Targeting Rules
-                                </h3>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    All conditions are combined with AND -
-                                    subscribers must match every rule.
-                                </p>
-                            </div>
-
-                            <div className="mt-8 grid gap-6">
-                                <div>
-                                    <RuleHeader
-                                        icon={ <Globe2 className="h-5 w-5" /> }
-                                        label="Location"
-                                    />
-                                    <div className="flex flex-col gap-3 md:flex-row">
-                                        <Select
-                                            onValueChange={ ( value ) =>
-                                                updateRule( 'location', {
-                                                    condition: value,
-                                                } )
-                                            }
-                                            value={
-                                                form.rule.location.condition
-                                            }
-                                        >
-                                            <SelectTrigger className="min-h-11 md:w-64">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                { conditions.map(
-                                                    ( condition ) => (
-                                                        <SelectItem
-                                                            key={
-                                                                condition.value
-                                                            }
-                                                            value={
-                                                                condition.value
-                                                            }
-                                                        >
-                                                            { condition.label }
-                                                        </SelectItem>
-                                                    )
-                                                ) }
-                                            </SelectContent>
-                                        </Select>
-                                        <CountrySelect
-                                            countries={ countries }
-                                            onChange={ ( values ) =>
-                                                updateRule( 'location', {
-                                                    values,
-                                                } )
-                                            }
-                                            values={ form.rule.location.values }
-                                        />
-                                    </div>
-                                </div>
-
-                                <AndDivider />
-
-                                <div>
-                                    <RuleHeader
-                                        icon={
-                                            <MonitorSmartphone className="h-5 w-5" />
-                                        }
-                                        label="Device"
-                                    />
-                                    <div className="flex flex-col gap-3 md:flex-row md:items-start">
-                                        <Select
-                                            onValueChange={ ( value ) =>
-                                                updateRule( 'device', {
-                                                    condition: value,
-                                                } )
-                                            }
-                                            value={ form.rule.device.condition }
-                                        >
-                                            <SelectTrigger className="min-h-11 md:w-64">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                { conditions.map(
-                                                    ( condition ) => (
-                                                        <SelectItem
-                                                            key={
-                                                                condition.value
-                                                            }
-                                                            value={
-                                                                condition.value
-                                                            }
-                                                        >
-                                                            { condition.label }
-                                                        </SelectItem>
-                                                    )
-                                                ) }
-                                            </SelectContent>
-                                        </Select>
-                                        <div className="flex flex-wrap gap-3">
-                                            { deviceOptions.map( ( option ) => (
-                                                <SelectableCard
-                                                    active={ form.rule.device.values.includes(
-                                                        option.value
-                                                    ) }
-                                                    icon={ option.icon }
-                                                    key={ option.value }
-                                                    label={ option.label }
-                                                    onClick={ () =>
-                                                        toggleRuleValue(
-                                                            'device',
-                                                            option.value
-                                                        )
-                                                    }
-                                                />
-                                            ) ) }
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <AndDivider />
-
-                                <div>
-                                    <RuleHeader
-                                        icon={ <Compass className="h-5 w-5" /> }
-                                        label="Browser"
-                                    />
-                                    <div className="flex flex-col gap-3 md:flex-row md:items-start">
-                                        <Select
-                                            onValueChange={ ( value ) =>
-                                                updateRule( 'browser', {
-                                                    condition: value,
-                                                } )
-                                            }
-                                            value={
-                                                form.rule.browser.condition
-                                            }
-                                        >
-                                            <SelectTrigger className="min-h-11 md:w-64">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                { conditions.map(
-                                                    ( condition ) => (
-                                                        <SelectItem
-                                                            key={
-                                                                condition.value
-                                                            }
-                                                            value={
-                                                                condition.value
-                                                            }
-                                                        >
-                                                            { condition.label }
-                                                        </SelectItem>
-                                                    )
-                                                ) }
-                                            </SelectContent>
-                                        </Select>
-                                        <div className="flex flex-wrap gap-3">
-                                            { browserOptions.map(
-                                                ( option ) => (
-                                                    <SelectableCard
-                                                        active={ form.rule.browser.values.includes(
-                                                            option.value
-                                                        ) }
-                                                        icon={ Chrome }
-                                                        key={ option.value }
-                                                        label={ option.label }
-                                                        onClick={ () =>
-                                                            toggleRuleValue(
-                                                                'browser',
-                                                                option.value
-                                                            )
-                                                        }
-                                                    />
-                                                )
-                                            ) }
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="mt-8 flex gap-2">
-                                <Button
-                                    className={ ui.secondaryButton }
-                                    onClick={ () => setStep( 'details' ) }
-                                    type="button"
-                                >
-                                    Back
-                                </Button>
-                                <Button
-                                    className={ ui.primaryButton }
-                                    disabled={
-                                        rulesMutation.isPending ||
-                                        ! createdSegmentId
-                                    }
-                                    onClick={ () => rulesMutation.mutate() }
-                                    type="button"
-                                >
-                                    { isEdit
-                                        ? 'Save Changes'
-                                        : 'Create Segment' }
-                                </Button>
-                            </div>
-                        </>
-                    ) : null }
-                </section>
-
-                <AudiencePreview form={ form } settings={ settings } />
-            </div>
-        </div>
+            } }
+        >
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <div className="mb-1 flex h-10 w-10 items-center justify-center self-center rounded-full bg-destructive/10 text-destructive sm:self-start">
+                        <Trash2 className="h-5 w-5" aria-hidden />
+                    </div>
+                    <AlertDialogTitle>
+                        Delete &ldquo;{ segment?.name }&rdquo;?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Its targeting rules are removed permanently, and this
+                        cannot be undone. Your subscribers and their tags stay
+                        untouched, but notifications can no longer be sent to
+                        this audience.
+                        { count > 0
+                            ? ` It currently matches ${ count.toLocaleString() } subscriber${
+                                  count === 1 ? '' : 's'
+                              }.`
+                            : '' }
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={ busy }>
+                        Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        disabled={ busy }
+                        onClick={ ( event ) => {
+                            event.preventDefault();
+                            onConfirm();
+                        } }
+                    >
+                        { busy ? 'Deleting…' : 'Delete segment' }
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     );
 }
 
@@ -1232,12 +191,12 @@ export default function SegmentsPage() {
     const routerLocation = useLocation();
     const queryClient = useQueryClient();
     const [ searchParams, setSearchParams ] = useSearchParams();
-    const activeTab =
+    const activeTab: TabKey =
         searchParams.get( 'tab' ) === 'tags' ? 'tags' : 'segments';
     const [ search, setSearch ] = useState( '' );
-    const [ segmentToDelete, setSegmentToDelete ] = useState< Segment | null >(
-        null
-    );
+    const [ cursor, setCursor ] = useState( '' );
+    const [ segmentToDelete, setSegmentToDelete ] =
+        useState< SegmentRow | null >( null );
     const settingsQuery = useQuery( {
         queryKey: [ 'np-settings' ],
         queryFn: getSettings,
@@ -1245,19 +204,39 @@ export default function SegmentsPage() {
     const settings = settingsQuery.data;
     const hasToken = hasApiToken( settings );
     const token = getApiToken( settings );
+    const siteName = siteNameFor( settings );
     const segmentId = params.segmentId;
     const isFormRoute =
         routerLocation.pathname.includes( '/segments/new' ) ||
         Boolean( segmentId );
 
     const segmentsQuery = useQuery( {
-        queryKey: [ 'np-segments', token ],
+        // The first page keeps the key the sidebar hover-prefetch warms
+        // (lib/prefetch-nav.ts), so that cache entry is still hit.
+        queryKey: cursor
+            ? [ 'np-segments', token, cursor ]
+            : [ 'np-segments', token ],
         enabled: hasToken && ! isFormRoute,
         queryFn: () =>
-            laravelRequest<
-                LaravelCollection< Segment > & { isPaidUser?: boolean }
-            >( settings, '/segments' ),
+            laravelRequest< SegmentPage >( settings, '/segments', {
+                query: cursor ? { cursor } : {},
+            } ),
+        placeholderData: keepPreviousData,
     } );
+
+    // Names the tag ids in each row's rule chips.
+    const tagsQuery = useQuery( {
+        queryKey: [ 'np-tags', token ],
+        enabled: hasToken && ! isFormRoute && activeTab === 'segments',
+        queryFn: () =>
+            laravelRequest< { data: TagOption[] } >( settings, '/tags' ),
+    } );
+    const tags = tagsQuery.data?.data || [];
+
+    const rows = useMemo(
+        () => segmentsQuery.data?.data || [],
+        [ segmentsQuery.data ]
+    );
 
     const deleteMutation = useMutation( {
         mutationFn: ( id: Segment[ 'id' ] ) =>
@@ -1266,14 +245,17 @@ export default function SegmentsPage() {
             } ),
         onSuccess: () => {
             setSegmentToDelete( null );
+            // Deleting the last row of a later page would leave it empty.
+            if ( rows.length <= 1 ) {
+                setCursor( '' );
+            }
             queryClient.invalidateQueries( { queryKey: [ 'np-segments' ] } );
+            queryClient.invalidateQueries( {
+                queryKey: [ 'np-segments-all' ],
+            } );
         },
     } );
 
-    const rows = useMemo(
-        () => segmentsQuery.data?.data || [],
-        [ segmentsQuery.data ]
-    );
     const filteredRows = useMemo( () => {
         if ( ! search.trim() ) {
             return rows;
@@ -1288,6 +270,9 @@ export default function SegmentsPage() {
         );
     }, [ rows, search ] );
     const loading = segmentsQuery.isFetching && ! segmentsQuery.data;
+    const isPaidUser = segmentsQuery.data?.isPaidUser ?? true;
+    const prevCursor = segmentsQuery.data?.meta?.prev_cursor || '';
+    const nextCursor = segmentsQuery.data?.meta?.next_cursor || '';
 
     if ( isFormRoute && ! hasToken ) {
         return <Navigate replace to="/segments" />;
@@ -1301,245 +286,295 @@ export default function SegmentsPage() {
         return <SegmentForm settings={ settings } segmentId={ segmentId } />;
     }
 
-    return (
-        <div className={ ui.page }>
-            <div className="inline-flex w-fit gap-1 border-b border-border">
-                { ( [ 'segments', 'tags' ] as const ).map( ( tab ) => (
-                    <button
-                        className={ `border-b-2 px-3 pb-2 text-sm font-semibold capitalize transition-colors ${
-                            activeTab === tab
-                                ? 'border-primary text-foreground'
-                                : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }` }
-                        key={ tab }
-                        onClick={ () =>
-                            setSearchParams(
-                                tab === 'tags' ? { tab: 'tags' } : {}
-                            )
-                        }
-                        type="button"
-                    >
-                        { tab }
-                    </button>
-                ) ) }
+    const newSegmentLink = (
+        <Link
+            to="/segments/new"
+            className={ cn(
+                buttonVariants(),
+                'h-10 gap-2 px-4 hover:text-primary-foreground focus:text-primary-foreground'
+            ) }
+        >
+            <Plus className="h-4 w-4" aria-hidden />
+            New Segment
+        </Link>
+    );
+
+    let listBody: ReactNode = null;
+
+    if ( loading ) {
+        listBody = (
+            <div className="mt-4 overflow-x-auto">
+                <Table>
+                    <TableBody>
+                        <SegmentSkeletonRows />
+                    </TableBody>
+                </Table>
             </div>
+        );
+    } else if ( ! rows.length ) {
+        listBody = (
+            <EmptyState
+                icon={ <Filter className="h-5 w-5" /> }
+                title="No segments yet"
+            >
+                <p className="max-w-72 text-sm text-muted-foreground">
+                    { hasToken
+                        ? 'Create a segment to target a specific group of subscribers when sending notifications.'
+                        : 'Connect NotifyPress to start creating audience segments for this site.' }
+                </p>
+                { hasToken ? (
+                    <Link
+                        to="/segments/new"
+                        className={ cn(
+                            buttonVariants(),
+                            'mt-1 h-10 gap-2 px-4 hover:text-primary-foreground focus:text-primary-foreground'
+                        ) }
+                    >
+                        <Plus className="h-4 w-4" aria-hidden />
+                        Create your first segment
+                    </Link>
+                ) : null }
+            </EmptyState>
+        );
+    } else if ( ! filteredRows.length ) {
+        listBody = (
+            <EmptyState
+                icon={ <Search className="h-5 w-5" /> }
+                title="No matches"
+            >
+                <p className="max-w-72 text-sm text-muted-foreground">
+                    No segments match your search.
+                </p>
+            </EmptyState>
+        );
+    } else {
+        listBody = (
+            <div className="mt-4 overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead className="whitespace-nowrap">
+                                Segment
+                            </TableHead>
+                            <TableHead className="whitespace-nowrap">
+                                Rules
+                            </TableHead>
+                            <TableHead className="whitespace-nowrap text-right">
+                                Subscribers
+                            </TableHead>
+                            <TableHead className="whitespace-nowrap">
+                                Status
+                            </TableHead>
+                            <TableHead className="whitespace-nowrap">
+                                Created
+                            </TableHead>
+                            <TableHead className="w-[88px] whitespace-nowrap text-right">
+                                Actions
+                            </TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        { filteredRows.map( ( segment ) => (
+                            <TableRow key={ segment.id } className="group">
+                                <TableCell>
+                                    <div className="flex min-w-48 max-w-80 items-center gap-3">
+                                        <span
+                                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
+                                            aria-hidden
+                                        >
+                                            <Filter className="h-4 w-4" />
+                                        </span>
+                                        <div className="min-w-0">
+                                            <p className="truncate font-medium text-foreground">
+                                                { segment.name }
+                                            </p>
+                                            <p className="truncate text-xs text-muted-foreground">
+                                                { segment.description ||
+                                                    'No description' }
+                                            </p>
+                                        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <RuleChips
+                                        rule={ normalizeRule( segment.rule ) }
+                                        tags={ tags }
+                                    />
+                                </TableCell>
+                                <TableCell className="text-right font-semibold tabular-nums text-foreground">
+                                    { Number(
+                                        segment.subscriber_count || 0
+                                    ).toLocaleString() }
+                                </TableCell>
+                                <TableCell>
+                                    { segment.is_active ? (
+                                        <Chip tone="success" dot>
+                                            Active
+                                        </Chip>
+                                    ) : (
+                                        <Chip dot>Inactive</Chip>
+                                    ) }
+                                </TableCell>
+                                <TableCell className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
+                                    { formatDate( segment.created_at, '-' ) }
+                                </TableCell>
+                                <TableCell>
+                                    <div className={ ROW_ACTIONS }>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        aria-label={ `Edit ${ segment.name }` }
+                                                        className="h-8 w-8"
+                                                        onClick={ () => {
+                                                            navigate(
+                                                                `/segments/${ segment.id }/edit`
+                                                            );
+                                                        } }
+                                                    >
+                                                        <Pencil
+                                                            className="h-4 w-4"
+                                                            aria-hidden
+                                                        />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="top">
+                                                    Edit segment
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        aria-label={ `Delete ${ segment.name }` }
+                                                        className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                        onClick={ () => {
+                                                            setSegmentToDelete(
+                                                                segment
+                                                            );
+                                                        } }
+                                                    >
+                                                        <Trash2
+                                                            className="h-4 w-4"
+                                                            aria-hidden
+                                                        />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="top">
+                                                    Delete segment
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ) ) }
+                    </TableBody>
+                </Table>
+            </div>
+        );
+    }
+
+    return (
+        <div className="container mx-auto space-y-6 px-4 py-6 sm:py-8">
+            <PageHeader
+                title="Segments"
+                description={
+                    siteName
+                        ? `Target specific groups of subscribers on ${ siteName }`
+                        : 'Target specific groups of subscribers'
+                }
+                actions={
+                    <>
+                        <SegmentedControl
+                            value={ activeTab }
+                            options={ TABS }
+                            onChange={ ( tab ) => {
+                                setSearchParams(
+                                    tab === 'tags' ? { tab: 'tags' } : {}
+                                );
+                            } }
+                            label="Segments or tags"
+                        />
+                        { activeTab === 'segments' && hasToken && isPaidUser
+                            ? newSegmentLink
+                            : null }
+                    </>
+                }
+            />
 
             { activeTab === 'tags' ? (
-                <TagsTab settings={ settings } />
+                <PaidFeatureOverlay
+                    isPaidUser={ isPaidUser }
+                    featureName="Tags"
+                    description="Tags are available on Starter plans and above. Upgrade to label subscribers and build segments from those labels."
+                >
+                    <TagsTab settings={ settings } />
+                </PaidFeatureOverlay>
             ) : (
                 <PaidFeatureOverlay
-                    isPaidUser={ segmentsQuery.data?.isPaidUser ?? true }
+                    isPaidUser={ isPaidUser }
                     featureName="Segments"
                     description="Audience segmentation is available on Starter plans and above. Upgrade to target specific groups of subscribers when sending notifications."
                 >
-                    <section
-                        className={ `overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow transition-opacity duration-500 ${
-                            loading ? 'opacity-75' : 'opacity-100'
-                        }` }
+                    <SectionCard
+                        title="All segments"
+                        description={
+                            rows.length > 0
+                                ? `${ rows.length } ${
+                                      rows.length === 1 ? 'segment' : 'segments'
+                                  } on this page`
+                                : 'Audiences you can send campaigns to'
+                        }
+                        actions={
+                            rows.length > 0 ? (
+                                <SearchInput
+                                    value={ search }
+                                    onChange={ setSearch }
+                                    label="Search segments"
+                                    placeholder="Search segments…"
+                                />
+                            ) : null
+                        }
+                        footer={
+                            rows.length > 0 ? (
+                                <>
+                                    <p className="text-sm text-muted-foreground">
+                                        Oldest first
+                                    </p>
+                                    <CursorPager
+                                        hasPrevious={ Boolean( prevCursor ) }
+                                        hasNext={ Boolean( nextCursor ) }
+                                        onPrevious={ () => {
+                                            setCursor( prevCursor );
+                                        } }
+                                        onNext={ () => {
+                                            setCursor( nextCursor );
+                                        } }
+                                        label="Segment pages"
+                                        disabled={ segmentsQuery.isFetching }
+                                    />
+                                </>
+                            ) : null
+                        }
                     >
-                        <div className="flex flex-col gap-4 border-b border-border p-6 md:flex-row md:items-center md:justify-between">
-                            <div>
-                                <h3 className={ ui.heading }>Segments</h3>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    { rows.length } segment
-                                    { rows.length === 1 ? '' : 's' } - target
-                                    specific groups of subscribers
-                                </p>
-                            </div>
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                { rows.length ? (
-                                    <label
-                                        htmlFor="np-segment-search"
-                                        className="relative block"
-                                    >
-                                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                        <input
-                                            id="np-segment-search"
-                                            className="min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 pl-9 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus:outline-none sm:w-72"
-                                            onChange={ ( event ) =>
-                                                setSearch( event.target.value )
-                                            }
-                                            placeholder="Search segments..."
-                                            value={ search }
-                                        />
-                                    </label>
-                                ) : null }
-                                { hasToken ? (
-                                    <Link
-                                        to="/segments/new"
-                                        className={ ui.primaryButton }
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                        New Segment
-                                    </Link>
-                                ) : null }
-                            </div>
-                        </div>
-
-                        { loading ? (
-                            <div className={ ui.tableScroll }>
-                                <table className={ ui.table }>
-                                    <thead>
-                                        <tr>
-                                            <th className={ ui.th }>Name</th>
-                                            <th className={ ui.th }>
-                                                Description
-                                            </th>
-                                            <th className={ ui.th }>Rules</th>
-                                            <th className={ ui.th }>Status</th>
-                                            <th className={ ui.th }>Created</th>
-                                            <th className={ ui.th } />
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <SegmentSkeletonRows />
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : null }
-                        { ! loading && ! rows.length ? (
-                            <div className="grid place-items-center px-6 py-20 text-center">
-                                <div className="grid max-w-sm gap-3 justify-items-center">
-                                    <span className="grid h-16 w-16 place-items-center rounded-full bg-muted text-muted-foreground">
-                                        <Filter className="h-8 w-8" />
-                                    </span>
-                                    <h4 className="text-lg font-bold text-foreground">
-                                        No segments yet
-                                    </h4>
-                                    <p className="text-sm text-muted-foreground">
-                                        { hasToken
-                                            ? 'Create a segment to target a specific group of subscribers when sending notifications.'
-                                            : 'Connect NotifyPress to start creating audience segments for this site.' }
-                                    </p>
-                                    { hasToken ? (
-                                        <Link
-                                            className={ `${ ui.primaryButton } mt-2` }
-                                            to="/segments/new"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                            Create your first segment
-                                        </Link>
-                                    ) : null }
-                                </div>
-                            </div>
-                        ) : null }
-                        { ! loading &&
-                        rows.length > 0 &&
-                        filteredRows.length > 0 ? (
-                            <div className={ ui.tableScroll }>
-                                <table className={ ui.table }>
-                                    <thead>
-                                        <tr>
-                                            <th className={ ui.th }>Name</th>
-                                            <th className={ ui.th }>
-                                                Description
-                                            </th>
-                                            <th className={ ui.th }>Rules</th>
-                                            <th className={ ui.th }>Status</th>
-                                            <th className={ ui.th }>Created</th>
-                                            <th className={ ui.th } />
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        { filteredRows.map( ( segment ) => (
-                                            <tr
-                                                className="group hover:bg-muted/40"
-                                                key={ segment.id }
-                                            >
-                                                <td className={ ui.td }>
-                                                    <strong>
-                                                        { segment.name }
-                                                    </strong>
-                                                </td>
-                                                <td
-                                                    className={ `${ ui.td } max-w-72 text-muted-foreground` }
-                                                >
-                                                    { segment.description ||
-                                                        '-' }
-                                                </td>
-                                                <td className={ ui.td }>
-                                                    <RuleChips
-                                                        rule={ normalizeRule(
-                                                            segment.rule
-                                                        ) }
-                                                    />
-                                                </td>
-                                                <td className={ ui.td }>
-                                                    <span
-                                                        className={ statusBadgeClass(
-                                                            segment.is_active
-                                                        ) }
-                                                    >
-                                                        { segment.is_active
-                                                            ? 'Active'
-                                                            : 'Inactive' }
-                                                    </span>
-                                                </td>
-                                                <td
-                                                    className={ `${ ui.td } whitespace-nowrap text-muted-foreground` }
-                                                >
-                                                    { segment.created_at ||
-                                                        '-' }
-                                                </td>
-                                                <td
-                                                    className={ `${ ui.td } text-right` }
-                                                >
-                                                    <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                                                        <Button
-                                                            aria-label="Edit segment"
-                                                            className={
-                                                                ui.ghostButton
-                                                            }
-                                                            variant="ghost"
-                                                            onClick={ () =>
-                                                                navigate(
-                                                                    `/segments/${ segment.id }/edit`
-                                                                )
-                                                            }
-                                                            type="button"
-                                                        >
-                                                            <Pencil className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            aria-label="Delete segment"
-                                                            className={ `${ ui.ghostButton } text-destructive hover:bg-destructive/10 hover:text-destructive` }
-                                                            variant="ghost"
-                                                            onClick={ () =>
-                                                                setSegmentToDelete(
-                                                                    segment
-                                                                )
-                                                            }
-                                                            type="button"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ) ) }
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : null }
-                        { ! loading &&
-                        rows.length > 0 &&
-                        ! filteredRows.length ? (
-                            <div className="grid place-items-center px-6 py-16 text-center">
-                                <div className="grid gap-3 justify-items-center">
-                                    <Search className="h-8 w-8 text-muted-foreground" />
-                                    <p className="text-sm text-muted-foreground">
-                                        No segments match your search.
-                                    </p>
-                                </div>
-                            </div>
-                        ) : null }
-                    </section>
+                        { listBody }
+                    </SectionCard>
                 </PaidFeatureOverlay>
             ) }
 
             <DeleteDialog
                 busy={ deleteMutation.isPending }
-                onCancel={ () => setSegmentToDelete( null ) }
+                onCancel={ () => {
+                    setSegmentToDelete( null );
+                } }
                 onConfirm={ () => {
                     if ( segmentToDelete ) {
                         deleteMutation.mutate( segmentToDelete.id );

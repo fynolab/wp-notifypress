@@ -49,6 +49,8 @@ export default function PaidFeatureOverlay( {
                 </div>
                 <a
                     href={ upgradeHref }
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white shadow transition-colors hover:bg-violet-700 hover:text-white focus:text-white"
                 >
                     <Lock className="h-3 w-3" />
@@ -57,19 +59,21 @@ export default function PaidFeatureOverlay( {
             </div>
 
             <div className="relative">
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-xl bg-background/60 backdrop-blur-sm">
-                    <div className="flex flex-col items-center gap-2 px-4 text-center">
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-start rounded-xl bg-background/30 px-4 pt-16">
+                    <div className="sticky top-24 flex max-w-sm flex-col items-center gap-2 rounded-xl border border-border bg-card/95 px-6 py-5 text-center shadow-lg">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-500/10">
                             <Lock className="h-5 w-5 text-violet-500" />
                         </div>
                         <p className="text-sm font-semibold text-foreground">
-                            { featureName } is a paid feature
+                            Available on paid plans
                         </p>
                         <p className="max-w-xs text-xs text-muted-foreground">
                             { description }
                         </p>
                         <a
                             href={ upgradeHref }
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow transition-colors hover:bg-violet-700 hover:text-white focus:text-white"
                         >
                             <Sparkles className="h-3.5 w-3.5" />
@@ -78,7 +82,7 @@ export default function PaidFeatureOverlay( {
                     </div>
                 </div>
 
-                <div className="pointer-events-none select-none blur-sm">
+                <div className="pointer-events-none select-none blur-[1.5px]">
                     { children }
                 </div>
             </div>

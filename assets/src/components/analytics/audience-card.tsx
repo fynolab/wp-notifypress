@@ -108,7 +108,7 @@ export function AudienceCard( {
                 </Suspense>
                 <figcaption className="mt-2 text-xs text-muted-foreground">
                     { 'month' === granularity ? 'Monthly' : 'Daily' } totals in
-                    UTC.
+                    your timezone.
                 </figcaption>
             </figure>
         </Card>

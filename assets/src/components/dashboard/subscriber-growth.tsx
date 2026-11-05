@@ -130,7 +130,7 @@ export function SubscriberGrowth( {
                     <GrowthChart days={ days } />
                 </Suspense>
                 <figcaption className="mt-2 text-xs text-muted-foreground">
-                    Daily totals in UTC.
+                    Daily totals in your timezone.
                 </figcaption>
             </figure>
         </Card>

@@ -63,6 +63,20 @@ module.exports = {
                 },
                 'content-bg': 'hsl(var(--content-bg))',
             },
+            // The app sets headings in `font-display` (Space Grotesk). The
+            // plugin ships no extra font, so `font-display` maps to the same
+            // stack #notifypress uses for body text (see style.scss).
+            fontFamily: {
+                display: [
+                    'ui-sans-serif',
+                    'system-ui',
+                    'sans-serif',
+                    '"Apple Color Emoji"',
+                    '"Segoe UI Emoji"',
+                    '"Segoe UI Symbol"',
+                    '"Noto Color Emoji"',
+                ],
+            },
             borderRadius: {
                 lg: 'var(--radius)',
                 md: 'calc(var(--radius) - 2px)',

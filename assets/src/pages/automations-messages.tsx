@@ -2,6 +2,7 @@ import { useState } from '@wordpress/element';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+    Bell,
     Check,
     Eye,
     Link as LinkIcon,
@@ -11,16 +12,13 @@ import {
 import { laravelRequest } from '../lib/api';
 import { getSettings } from '../lib/settings';
 import { ui } from '../lib/admin-ui';
-import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
 } from '../components/ui/dialog';
-import { Input } from '../components/ui/input';
 import {
     Select,
     SelectContent,
@@ -36,6 +34,16 @@ import {
     TableHeader,
     TableRow,
 } from '../components/ui/table';
+import {
+    Chip,
+    EmptyState,
+    PageHeader,
+    SearchInput,
+    SectionCard,
+    SegmentedLinks,
+} from '../components/page-parts';
+import { formatDateTime } from '../components/dashboard/format';
+import { automationsListQuery } from '../components/automations/automations-query';
 import type { NotifyPressSettings } from '../types';
 
 interface MessageRow {
@@ -106,14 +114,10 @@ function MessagesList( { settings }: { settings: NotifyPressSettings } ) {
     const messages = listQuery.data?.data ?? [];
     const automations = listQuery.data?.automations ?? [];
 
-    // Mirrors AutomationsList's `listQuery` in automations.tsx exactly, so
-    // hovering "Workflows" from here warms the same cache entry that page
-    // reads on mount.
+    // Uses the same helper as AutomationsList's `listQuery`, so hovering
+    // "Workflows" from here warms the unfiltered first page it reads on mount.
     const prefetchWorkflows = () =>
-        queryClient.prefetchQuery( {
-            queryKey: [ 'np-automations', settings.apiToken ],
-            queryFn: () => laravelRequest( settings, '/automations' ),
-        } );
+        queryClient.prefetchQuery( automationsListQuery( settings ) );
 
     const handleCopyLink = ( row: MessageRow ) => {
         const url = `${ window.location.origin }${ window.location.pathname }?page=notifypress#/notifications/${ row.message_id }/edit`;
@@ -122,230 +126,287 @@ function MessagesList( { settings }: { settings: NotifyPressSettings } ) {
         window.setTimeout( () => setCopiedId( null ), 1500 );
     };
 
-    return (
-        <div className="space-y-6 p-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                        Messages
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Messages are reusable notification content built
-                        specifically for automations. Editing a message here
-                        updates it everywhere it&apos;s used — automations
-                        reference the same message, not a copy.
-                    </p>
-                </div>
-                <Button asChild>
-                    <Link to="/notifications/new?message=1">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create message
-                    </Link>
-                </Button>
-            </div>
+    const createButton = (
+        <Button asChild className="h-10 gap-2 px-4">
+            <Link to="/notifications/new?message=1">
+                <Plus className="h-4 w-4" aria-hidden />
+                Create message
+            </Link>
+        </Button>
+    );
+    const filtered = Boolean(
+        search || automationId !== 'all' || automationStatus !== 'all'
+    );
 
-            <div className="flex items-center gap-2 border-b">
-                <Link
-                    to="/automations"
-                    className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-                    onMouseEnter={ prefetchWorkflows }
-                    onFocus={ prefetchWorkflows }
-                >
-                    Workflows
-                </Link>
-                <Link
-                    to="/automations/messages"
-                    className="border-b-2 border-primary px-3 py-2 text-sm font-medium"
-                >
-                    Messages
-                </Link>
-            </div>
+    let tableContent: JSX.Element;
 
-            <div className="flex flex-wrap items-center gap-2">
-                <Input
-                    value={ search }
-                    onChange={ ( event ) => setSearch( event.target.value ) }
-                    placeholder="Search by name or ID"
-                    className="max-w-xs"
-                />
-                <Select value={ sort } onValueChange={ setSort }>
-                    <SelectTrigger className="w-44">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="newest">Newest first</SelectItem>
-                        <SelectItem value="oldest">Oldest first</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Select
-                    value={ automationId }
-                    onValueChange={ setAutomationId }
-                >
-                    <SelectTrigger className="w-44">
-                        <SelectValue placeholder="Automation" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All automations</SelectItem>
-                        { automations.map( ( automation ) => (
-                            <SelectItem
-                                key={ automation.id }
-                                value={ String( automation.id ) }
+    if ( listQuery.isLoading ) {
+        tableContent = (
+            <p className="mt-4 py-10 text-center text-sm text-muted-foreground">
+                Loading…
+            </p>
+        );
+    } else if ( messages.length === 0 ) {
+        tableContent = (
+            <EmptyState
+                icon={ <MessageIcon className="h-5 w-5" /> }
+                title={ filtered ? 'No messages match' : 'No messages yet' }
+            >
+                <p className="max-w-80 text-sm text-muted-foreground">
+                    { filtered
+                        ? 'Try a different search or filter.'
+                        : 'Create a message to use in an automation\'s "Send" step.' }
+                </p>
+                { filtered ? null : (
+                    <div className="mt-1">{ createButton }</div>
+                ) }
+            </EmptyState>
+        );
+    } else {
+        tableContent = (
+            <div className="mt-4 overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead className="whitespace-nowrap">
+                                Message
+                            </TableHead>
+                            <TableHead className="whitespace-nowrap">
+                                Used in
+                            </TableHead>
+                            <TableHead className="whitespace-nowrap">
+                                Channel
+                            </TableHead>
+                            <TableHead className="whitespace-nowrap">
+                                Last edited
+                            </TableHead>
+                            <TableHead className="w-[88px]">
+                                <span className="sr-only">Actions</span>
+                            </TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        { messages.map( ( row ) => (
+                            <TableRow
+                                key={ `${ row.channel }:${ row.message_id }` }
                             >
-                                { automation.name }
-                            </SelectItem>
-                        ) ) }
-                    </SelectContent>
-                </Select>
-                <Select
-                    value={ automationStatus }
-                    onValueChange={ setAutomationStatus }
-                >
-                    <SelectTrigger className="w-44">
-                        <SelectValue placeholder="Automation status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Any status</SelectItem>
-                        <SelectItem value="draft">Inactive</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="paused">Paused</SelectItem>
-                        <SelectItem value="archived">Archived</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-
-            { messages.length === 0 ? (
-                <Card>
-                    <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <MessageIcon className="h-12 w-12 text-muted-foreground/40 mb-4" />
-                        <h3 className="text-lg font-medium">No messages yet</h3>
-                        <p className="text-sm text-muted-foreground mt-1 mb-6">
-                            Create a message to use in an automation&apos;s
-                            &quot;Send&quot; step.
-                        </p>
-                        <Button asChild>
-                            <Link to="/notifications/new?message=1">
-                                <Plus className="mr-2 h-4 w-4" />
-                                Create message
-                            </Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-            ) : (
-                <Card>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Message</TableHead>
-                                <TableHead>Channel</TableHead>
-                                <TableHead>Last edited</TableHead>
-                                <TableHead className="text-right">
-                                    Actions
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            { messages.map( ( row ) => (
-                                <TableRow
-                                    key={ `${ row.channel }:${ row.message_id }` }
-                                >
-                                    <TableCell>
-                                        <div className="flex items-center gap-3">
-                                            { row.thumbnail_url ? (
-                                                <img
-                                                    src={ row.thumbnail_url }
-                                                    alt=""
-                                                    className="h-10 w-10 rounded object-cover"
+                                <TableCell>
+                                    <div className="flex min-w-56 max-w-96 items-center gap-3">
+                                        { row.thumbnail_url ? (
+                                            <img
+                                                src={ row.thumbnail_url }
+                                                alt=""
+                                                className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-border"
+                                            />
+                                        ) : (
+                                            <span
+                                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+                                                aria-hidden
+                                            >
+                                                <Bell className="h-4 w-4" />
+                                            </span>
+                                        ) }
+                                        <div className="min-w-0">
+                                            <Link
+                                                to={ `/notifications/${ row.message_id }/edit` }
+                                                className="block truncate font-medium text-foreground hover:text-primary"
+                                            >
+                                                { row.title }
+                                            </Link>
+                                            <p className="truncate text-xs text-muted-foreground">
+                                                Message #{ row.message_id }
+                                                { row.step_id
+                                                    ? ` · Step #${ row.step_id }`
+                                                    : '' }
+                                            </p>
+                                        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    { row.automation_id ? (
+                                        <div className="min-w-40">
+                                            <Link
+                                                to={ `/automations/${ row.automation_id }/edit` }
+                                                className="block truncate text-sm font-medium text-foreground hover:text-primary"
+                                            >
+                                                { row.automation_name ??
+                                                    `Automation #${ row.automation_id }` }
+                                            </Link>
+                                            <p className="text-xs text-muted-foreground">
+                                                { row.usage_count > 1
+                                                    ? `${ row.usage_count } steps`
+                                                    : '1 step' }
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <Chip>Not used yet</Chip>
+                                    ) }
+                                </TableCell>
+                                <TableCell>
+                                    <Chip tone="primary">
+                                        { channelLabels[ row.channel ] ??
+                                            row.channel }
+                                    </Chip>
+                                </TableCell>
+                                <TableCell className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
+                                    { formatDateTime( row.updated_at ) }
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={ () =>
+                                                setPreviewing( row )
+                                            }
+                                            title="Preview"
+                                            aria-label={ `Preview ${ row.title }` }
+                                        >
+                                            <Eye
+                                                className="h-4 w-4"
+                                                aria-hidden
+                                            />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={ () =>
+                                                handleCopyLink( row )
+                                            }
+                                            title={
+                                                copiedId === row.message_id
+                                                    ? 'Copied!'
+                                                    : 'Copy link'
+                                            }
+                                            aria-label={ `Copy link to ${ row.title }` }
+                                        >
+                                            { copiedId === row.message_id ? (
+                                                <Check
+                                                    className="h-4 w-4"
+                                                    aria-hidden
                                                 />
                                             ) : (
-                                                <div className="h-10 w-10 rounded bg-muted" />
+                                                <LinkIcon
+                                                    className="h-4 w-4"
+                                                    aria-hidden
+                                                />
                                             ) }
-                                            <div>
-                                                <Link
-                                                    to={ `/notifications/${ row.message_id }/edit` }
-                                                    className="font-medium hover:underline"
-                                                >
-                                                    { row.title }
-                                                </Link>
-                                                <p className="text-xs text-muted-foreground">
-                                                    { row.automation_id ? (
-                                                        <>
-                                                            Message #
-                                                            { row.message_id } ·
-                                                            Step #
-                                                            { row.step_id } ·
-                                                            Automation #
-                                                            {
-                                                                row.automation_id
-                                                            }
-                                                            { row.usage_count >
-                                                            1
-                                                                ? ` · used in ${ row.usage_count } steps`
-                                                                : '' }
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            Message #
-                                                            { row.message_id } ·
-                                                            Not yet used in an
-                                                            automation
-                                                        </>
-                                                    ) }
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="secondary">
-                                            { channelLabels[ row.channel ] ??
-                                                row.channel }
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">
-                                        { new Date(
-                                            row.updated_at
-                                        ).toLocaleString() }
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8"
-                                                onClick={ () =>
-                                                    setPreviewing( row )
-                                                }
-                                                title="Preview"
-                                            >
-                                                <Eye className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8"
-                                                onClick={ () =>
-                                                    handleCopyLink( row )
-                                                }
-                                                title={
-                                                    copiedId === row.message_id
-                                                        ? 'Copied!'
-                                                        : 'Copy link'
-                                                }
-                                            >
-                                                { copiedId ===
-                                                row.message_id ? (
-                                                    <Check className="h-4 w-4" />
-                                                ) : (
-                                                    <LinkIcon className="h-4 w-4" />
-                                                ) }
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ) ) }
+                    </TableBody>
+                </Table>
+            </div>
+        );
+    }
+
+    return (
+        <div className="container mx-auto space-y-6 px-4 py-6 sm:py-8">
+            <PageHeader
+                title="Messages"
+                description="Reusable notification content for automations. Editing a message updates it everywhere it's used."
+                actions={
+                    <>
+                        <div
+                            onMouseEnter={ prefetchWorkflows }
+                            onFocus={ prefetchWorkflows }
+                        >
+                            <SegmentedLinks
+                                label="Automation sections"
+                                items={ [
+                                    {
+                                        to: '/automations',
+                                        label: 'Workflows',
+                                        active: false,
+                                    },
+                                    {
+                                        to: '/automations/messages',
+                                        label: 'Messages',
+                                        active: true,
+                                    },
+                                ] }
+                            />
+                        </div>
+                        { createButton }
+                    </>
+                }
+            />
+
+            <SectionCard
+                title="Message library"
+                description={ `${ messages.length } ${
+                    messages.length === 1 ? 'message' : 'messages'
+                }` }
+                actions={
+                    <SearchInput
+                        value={ search }
+                        onChange={ setSearch }
+                        label="Search messages"
+                        placeholder="Search by name or ID"
+                    />
+                }
+            >
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <Select value={ sort } onValueChange={ setSort }>
+                        <SelectTrigger
+                            aria-label="Sort"
+                            className="h-9 w-full rounded-lg sm:w-44"
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="newest">Newest first</SelectItem>
+                            <SelectItem value="oldest">Oldest first</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Select
+                        value={ automationId }
+                        onValueChange={ setAutomationId }
+                    >
+                        <SelectTrigger
+                            aria-label="Automation"
+                            className="h-9 w-full rounded-lg sm:w-48"
+                        >
+                            <SelectValue placeholder="Automation" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All automations</SelectItem>
+                            { automations.map( ( automation ) => (
+                                <SelectItem
+                                    key={ automation.id }
+                                    value={ String( automation.id ) }
+                                >
+                                    { automation.name }
+                                </SelectItem>
                             ) ) }
-                        </TableBody>
-                    </Table>
-                </Card>
-            ) }
+                        </SelectContent>
+                    </Select>
+                    <Select
+                        value={ automationStatus }
+                        onValueChange={ setAutomationStatus }
+                    >
+                        <SelectTrigger
+                            aria-label="Automation status"
+                            className="h-9 w-full rounded-lg sm:w-44"
+                        >
+                            <SelectValue placeholder="Automation status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Any status</SelectItem>
+                            <SelectItem value="draft">Inactive</SelectItem>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="paused">Paused</SelectItem>
+                            <SelectItem value="archived">Archived</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                { tableContent }
+            </SectionCard>
 
             <Dialog
                 open={ Boolean( previewing ) }
