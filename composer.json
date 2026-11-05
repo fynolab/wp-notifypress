@@ -7,7 +7,7 @@
     },
     "require": {
         "php": ">=8.1",
-        "notifypress/sdk": "^0.1"
+        "notifypress/sdk": "^0.2"
     },
     "require-dev": {
         "squizlabs/php_codesniffer": "^3.13",

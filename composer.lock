@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f6019d4ea93cbc7b8fc8082b73e07e63",
+    "content-hash": "ba25cd32a3dbd32a099621d894a7cffa",
     "packages": [
         {
             "name": "notifypress/sdk",
-            "version": "v0.1.0",
+            "version": "v0.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/fynolab/notifypress-php-sdk.git",
-                "reference": "4e7c33027fe26431565979fe981f2c535b74af0e"
+                "reference": "39ba448e52d6f8769af77b39446daae60c3bee53"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/fynolab/notifypress-php-sdk/zipball/4e7c33027fe26431565979fe981f2c535b74af0e",
-                "reference": "4e7c33027fe26431565979fe981f2c535b74af0e",
+                "url": "https://api.github.com/repos/fynolab/notifypress-php-sdk/zipball/39ba448e52d6f8769af77b39446daae60c3bee53",
+                "reference": "39ba448e52d6f8769af77b39446daae60c3bee53",
                 "shasum": ""
             },
             "require": {
@@ -57,10 +57,10 @@
                 "web-push"
             ],
             "support": {
-                "issues": "https://github.com/fynolab/notifypress-php/issues",
-                "source": "https://github.com/fynolab/notifypress-php"
+                "issues": "https://github.com/fynolab/notifypress-php-sdk/issues",
+                "source": "https://github.com/fynolab/notifypress-php-sdk"
             },
-            "time": "2026-08-03T14:43:29+00:00"
+            "time": "2026-11-05T14:57:03+00:00"
         },
         {
             "name": "psr/http-client",
