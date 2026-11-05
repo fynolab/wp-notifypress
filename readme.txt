@@ -146,15 +146,16 @@ Yes, you can customize notification titles, messages, icons, and target URLs thr
 1. Dashboard with notifications sent, subscriber totals, click rate, top countries and recent campaigns.
 2. Guided setup wizard to connect your NotifyPress account and review your site details.
 3. Campaigns list with delivery status, views and clicks for every notification.
-4. Subscriber list with location, browser, device and timezone details.
+4. Subscriber list with location, browser, device, tags and how many subscribers you can reach.
 5. Segments to target subscribers by country and other rules.
 6. Pre-built automation templates such as welcome messages and re-engagement.
 7. Visual automation builder with wait, send notification, add tag and webhook steps.
 8. Automation workflows list with live enrollment stats.
 9. Analytics overview inside WordPress admin.
-10. Analytics charts for monthly sends, subscriber growth, browser breakdown and campaign status.
-11. PDF reports for campaign performance, subscriber growth and monthly summaries.
-12. Opt-in prompt settings with layout styles, accent color, bell position and live preview.
+10. PDF reports for campaign performance, subscriber growth and monthly summaries.
+11. Opt-in prompt settings with layout styles, accent color, bell position and live preview.
+12. PDF reports generate in the background with live progress, then download.
+13. The full dashboard: audience map by country, recent campaigns, daily subscriber growth, and devices and browsers.
 
 == Changelog ==
 
