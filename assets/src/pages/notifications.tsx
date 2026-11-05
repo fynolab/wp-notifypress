@@ -100,9 +100,12 @@ import { TimePicker } from '../components/ui/time-picker';
 import { getApiToken, getSettings, hasApiToken } from '../lib/settings';
 import { laravelRequest } from '../lib/api';
 import {
-    formatDateInput,
-    formatTimeInput,
-    toScheduleTimestamp,
+    browserTimeZone,
+    formatTime,
+    instantToLocalParts,
+    parseInstant,
+    parseLocalDay,
+    toInstant,
 } from '../lib/format';
 import { ui } from '../lib/admin-ui';
 import type {
@@ -129,8 +132,31 @@ interface NotificationFormData {
     time: string;
     days: number[];
     day_of_month: number;
+    // The timezone a saved recurring send was set up in ('' for a new one,
+    // which uses the browser's).
+    timezone: string;
     icon: File | null;
     image: File | null;
+}
+
+/**
+ * "HH:mm" from a saved recurring cron ("minute hour * * days").
+ *
+ * @param {string|null|undefined} cron The saved cron expression.
+ * @return {string} The time, or '' when there is none.
+ */
+function cronTime( cron?: string | null ): string {
+    if ( ! cron ) {
+        return '';
+    }
+
+    const [ minute, hour ] = cron.split( ' ' );
+
+    if ( minute === undefined || hour === undefined ) {
+        return '';
+    }
+
+    return `${ hour.padStart( 2, '0' ) }:${ minute.padStart( 2, '0' ) }`;
 }
 
 const notificationPlaceholder = {
@@ -153,6 +179,7 @@ const defaultForm: NotificationFormData = {
     time: '',
     days: [],
     day_of_month: 1,
+    timezone: '',
     icon: null,
     image: null,
 };
@@ -377,9 +404,9 @@ function notificationRawDate( notification: CampaignRow ): string {
 // The list is grouped by day; scheduled and recurring sends in the future sit
 // under "Upcoming".
 function dayGroup( notification: CampaignRow ): { key: string; label: string } {
-    const date = new Date( notificationRawDate( notification ) );
+    const date = parseInstant( notificationRawDate( notification ) );
 
-    if ( Number.isNaN( date.getTime() ) ) {
+    if ( ! date ) {
         return { key: 'unknown', label: 'Undated' };
     }
 
@@ -426,16 +453,7 @@ function dayGroup( notification: CampaignRow ): { key: string; label: string } {
 }
 
 function timeOf( notification: CampaignRow ): string {
-    const date = new Date( notificationRawDate( notification ) );
-
-    if ( Number.isNaN( date.getTime() ) ) {
-        return '';
-    }
-
-    return new Intl.DateTimeFormat( undefined, {
-        hour: 'numeric',
-        minute: '2-digit',
-    } ).format( date );
+    return formatTime( notificationRawDate( notification ), '' );
 }
 
 // What to show where the stats go, for campaigns without views.
@@ -577,6 +595,8 @@ function NotificationForm( {
             return;
         }
 
+        const scheduledParts = instantToLocalParts( payload.scheduled_at );
+
         setForm( ( current ) => ( {
             ...current,
             title: payload.title || '',
@@ -587,9 +607,23 @@ function NotificationForm( {
             image_url: payload.image_url || '',
             last_used_icon: false,
             last_used_image: false,
-            scheduled_date: formatDateInput( payload.scheduled_at ),
-            scheduled_time: formatTimeInput( payload.scheduled_at ),
+            scheduled_date: scheduledParts.date,
+            scheduled_time: scheduledParts.time,
+            // A saved recurring send keeps its schedule and the timezone it
+            // was set up in, so editing it never silently re-times it.
+            frequency: payload.recurring_frequency || current.frequency,
+            time: cronTime( payload.recurring_cron ) || current.time,
+            days: payload.recurring_days || current.days,
+            day_of_month:
+                payload.recurring_day_of_month || current.day_of_month,
+            timezone: payload.recurring_timezone || '',
         } ) );
+
+        if ( payload.status === 'recurring' ) {
+            setSendOption( 'recurring' );
+        } else if ( payload.status === 'scheduled' ) {
+            setSendOption( 'schedule' );
+        }
         setDraftId( payload.id ? String( payload.id ) : notificationId || '' );
     }, [ notificationId, notificationQuery.data ] );
 
@@ -742,8 +776,8 @@ function NotificationForm( {
                 {
                     method: 'POST',
                     body: {
-                        scheduled_at: toScheduleTimestamp(
-                            form.scheduled_date,
+                        scheduled_at: toInstant(
+                            parseLocalDay( form.scheduled_date ) ?? new Date(),
                             form.scheduled_time
                         ),
                     },
@@ -768,6 +802,7 @@ function NotificationForm( {
                     body: {
                         frequency: form.frequency,
                         time: form.time,
+                        timezone: form.timezone || browserTimeZone(),
                         days:
                             form.frequency === 'weekly' ? form.days : undefined,
                         day_of_month:
@@ -916,9 +951,8 @@ function NotificationForm( {
         setForm( { ...form, days } );
     };
 
-    const scheduledDateValue = form.scheduled_date
-        ? new Date( `${ form.scheduled_date }T00:00:00` )
-        : undefined;
+    const scheduledDateValue =
+        parseLocalDay( form.scheduled_date ) ?? undefined;
 
     // Later steps stay locked: each step is reached by saving the one
     // before it, so the draft exists before Audience and Send. Earlier
@@ -1546,6 +1580,17 @@ function NotificationForm( {
                                         Pick a time for each send.
                                     </p>
                                 ) }
+                                { /* Only when this recurring send was set up in
+                                    another timezone: then its times are not the
+                                    viewer's local times. */ }
+                                { form.timezone &&
+                                form.timezone !== browserTimeZone() ? (
+                                    <p className="text-xs text-muted-foreground">
+                                        Times are in { form.timezone }, the
+                                        timezone this recurring send was set up
+                                        in.
+                                    </p>
+                                ) : null }
                                 { form.frequency === 'weekly' ? (
                                     <div>
                                         <Label>On</Label>

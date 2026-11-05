@@ -1,3 +1,5 @@
+import { toLocalDayKey } from '../../lib/format';
+
 import type {
     AnalyticsAudience,
     AnalyticsBestTimes,
@@ -19,9 +21,9 @@ const DAYS = 30;
 
 function isoDay( offsetFromToday: number ): string {
     const date = new Date();
-    date.setUTCDate( date.getUTCDate() - offsetFromToday );
+    date.setDate( date.getDate() - offsetFromToday );
 
-    return date.toISOString().slice( 0, 10 );
+    return toLocalDayKey( date );
 }
 
 // A smooth, repeatable wave so the bars look like real traffic.

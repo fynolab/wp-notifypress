@@ -59,6 +59,7 @@ import { RuleChips, normalizeRule } from '../components/segments/segment-parts';
 import type { TagOption } from '../components/segments/segment-parts';
 import { SegmentForm } from '../components/segments/segment-form';
 import { ROW_ACTIONS, TagsTab } from '../components/segments/tags-tab';
+import { formatDate } from '../lib/format';
 
 type TabKey = 'segments' | 'tags';
 
@@ -415,7 +416,7 @@ export default function SegmentsPage() {
                                     ) }
                                 </TableCell>
                                 <TableCell className="whitespace-nowrap text-sm tabular-nums text-muted-foreground">
-                                    { segment.created_at || '-' }
+                                    { formatDate( segment.created_at, '-' ) }
                                 </TableCell>
                                 <TableCell>
                                     <div className={ ROW_ACTIONS }>

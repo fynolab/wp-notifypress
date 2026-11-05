@@ -127,8 +127,8 @@ export function EngagementCard( {
                             />
                         </Suspense>
                         <figcaption className="mt-2 text-xs text-muted-foreground">
-                            { adverb } totals in UTC. Views are on the left
-                            axis, clicks on the right.
+                            { adverb } totals in your timezone. Views are on the
+                            left axis, clicks on the right.
                         </figcaption>
                     </figure>
                 </>

@@ -25,6 +25,7 @@ import {
     SectionCard,
 } from '../components/page-parts';
 import { formatCount } from '../components/dashboard/format';
+import { formatDate } from '../lib/format';
 import { SubscriberStats } from '../components/subscribers/subscriber-parts';
 import { SUBSCRIBERS_LIST_PARAMS } from '../components/subscribers/subscribers-query';
 import { SubscriberRow } from '../components/subscribers/subscriber-row';
@@ -76,43 +77,10 @@ function siteNameFor( settings?: NotifyPressSettings ): string | null {
     );
 }
 
-const SHORT_MONTHS = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-];
-
-// Matches the app's server-side `d M Y` cast (e.g. "29 Jun 2026"). The API
-// sends ISO8601 in the app's timezone, so format the date portion as-is
-// instead of converting to the browser's timezone.
+// Matches the app's `d M Y` style (e.g. "29 Jun 2026"), in the browser's
+// timezone. Falls back to the raw value when it is not a date.
 function formatRegisteredDate( value?: string | null ) {
-    if ( ! value ) {
-        return '—';
-    }
-
-    const datePart = value.includes( 'T' ) ? value.slice( 0, 10 ) : value;
-    const date = new Date( `${ datePart }T00:00:00` );
-
-    if ( Number.isNaN( date.getTime() ) ) {
-        return value;
-    }
-
-    // Built by hand: PHP's `M` is always three letters ("Sep"), while
-    // Intl's en-GB short month writes "Sept".
-    const day = String( date.getDate() ).padStart( 2, '0' );
-
-    return `${ day } ${
-        SHORT_MONTHS[ date.getMonth() ]
-    } ${ date.getFullYear() }`;
+    return formatDate( value, value || '—' );
 }
 
 function SubscriberSkeletonRows() {
