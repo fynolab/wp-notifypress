@@ -33,10 +33,16 @@ NotifyPress issues two credentials per site, and they are not interchangeable:
 
 | | Where to find it | Where it may be used |
 |---|---|---|
-| **API token** (`{id}\|{secret}`) | Site settings → API token | Servers only. It is a secret with full access to the site. |
+| **API token** | Site settings → API token | Servers only. It is a secret with full access to the site. |
 | **Public key** (`npk_...`) | Site settings → widget snippet | Safe to embed in a page. Used only by the public opt-in endpoints. |
 
 Use `NotifyPress` with the API token, and `NotifyPressPublic` with the public key.
+
+> **Pass the token exactly as the dashboard shows it.** If you have a value containing
+> a pipe, use only the part *after* the pipe. The part before it is an internal id the
+> server supplies itself; including it
+> still authenticates, so nothing looks wrong, but the site can no longer be resolved
+> and every call fails with `NotFoundException: No site is linked to this API token.`
 
 ## Quickstart per environment
 
@@ -47,7 +53,7 @@ Nothing to configure. The SDK falls back to cURL, then PHP streams.
 ```php
 require 'vendor/autoload.php';
 
-$client = new NotifyPress\NotifyPress('1|your-secret');
+$client = new NotifyPress\NotifyPress('your-api-token');
 
 foreach ($client->subscribers->list() as $subscriber) {
     echo $subscriber->token, PHP_EOL;
@@ -96,7 +102,7 @@ use NotifyPress\Config;
 use NotifyPress\Http\Client\Psr18Client;
 
 $client = new NotifyPress(
-    Config::make('1|your-secret')->withHttpClient(new Psr18Client($yourPsr18Client))
+    Config::make('your-api-token')->withHttpClient(new Psr18Client($yourPsr18Client))
 );
 ```
 
@@ -108,7 +114,7 @@ $client = new NotifyPress(
 use NotifyPress\Config;
 
 $client = new NotifyPress(
-    Config::make('1|your-secret')
+    Config::make('your-api-token')
         ->withBaseUrl('https://app.notifypress.com/api/v1')
         ->withTimeout(10.0)
         ->withMaxRetries(4)
@@ -127,15 +133,19 @@ $client->sites->current();
 $client->sites->updateCurrent(SiteUpdate::make('Example', 'https://example.com')->promptDelaySeconds(5));
 
 $client->notifications->list(NotificationQuery::make()->status(NotificationStatus::SENT)->limit(50));
+$client->notifications->list(NotificationQuery::make()->fullText()->excludeWelcome()); // untruncated campaigns only
 $client->notifications->retrieve(9);
 $client->notifications->cancel(9);
+$client->notifications->capabilities();   // ['canSchedule' => true, 'canRecur' => false] for the plan
 
 $client->subscribers->create(SubscriberCreate::make($fcmToken)->country('CA')->browser('Chrome'));
-$client->subscribers->addTag($fcmToken, $tagId);
+$client->subscribers->addTag($fcmToken, $tagId);   // paid plans only (PaidPlanException on Free)
 $client->subscribers->delete($subscriberId);   // numeric ID, not the token
 
-$client->tags->create(TagCreate::interest('Deals'));
+$client->tags->create(TagCreate::interest('Deals'));   // paid plans only (PaidPlanException on Free)
+$client->segments->list(SegmentQuery::make()->perPage(100));   // CursorPage; ->subscriberCount on each row
 $client->segments->previewCount(SegmentRule::make()->location(['CA', 'US']));
+$client->automations->list(AutomationQuery::make()->status(AutomationStatus::ACTIVE)->search('welcome'));
 $client->automations->trigger('cart_abandoned', $fcmToken);
 $client->dashboard->analytics();
 ```
@@ -163,9 +173,11 @@ $client->notifications->send($base->set('ttl_seconds', 300));
 Iterating a list yields **the current page**. Walking the whole set is explicit, because every step is another HTTP round trip:
 
 ```php
-$page = $client->subscribers->list(SubscriberQuery::make()->limit(100));
+$page = $client->subscribers->list(SubscriberQuery::make()->limit(100)->sortByCreatedAt());
 
 $page->total;          // cached count of the full set
+$page->active;         // cached count of active subscribers
+$page->isPaidUser();   // tagging is a paid feature
 $page->hasNextPage();
 $page->nextPage();
 
@@ -173,7 +185,9 @@ foreach ($page as $subscriber) { }               // this page
 foreach ($page->autoPaging() as $subscriber) { } // every page, fetched lazily
 ```
 
-`GET /automations` is offset-paginated and returns an `OffsetPage` with `currentPage`, `lastPage`, and `isPaidUser()`.
+Query options (sorting, `per_page`) are kept on every page `nextPage()` and `autoPaging()` fetch. `segments->list()` is cursor-paginated the same way: 10 per page by default, up to 100 with `SegmentQuery::perPage()`.
+
+`GET /automations` is offset-paginated and returns an `OffsetPage` with `currentPage`, `lastPage`, `isPaidUser()`, and `statusCounts()` (`all`, `active`, `paused`, `inactive` for the whole site).
 
 ## Errors
 
@@ -226,19 +240,32 @@ $client->tags->delete($tagId, RequestOptions::make()->retryable());
 
 ## Scheduling and timezones
 
-`scheduled_at` is `Y-m-d H:i:s` in the **account's display timezone** — not ISO 8601, and not UTC. The SDK formats the wall-clock time exactly as given and performs no conversion, so pass a `DateTime` already expressed in that timezone:
+Every time the API stores is UTC, and every time it returns is ISO 8601 with an offset.
+
+`scheduled_at` must name one exact instant. Pass a `DateTime` in your user's timezone: the SDK sends it with its offset (`DateTimeInterface::ATOM`), so 09:30 in Dhaka and 09:30 in Toronto are different, correct moments, daylight saving included:
 
 ```php
 $client->notifications->schedule(
     ScheduleNotification::make('Morning', 'Rise and shine')
-        ->at(new DateTimeImmutable('2026-08-15 09:30:00'))
+        ->at(new DateTimeImmutable('2026-08-15 09:30:00', new DateTimeZone('Asia/Dhaka')))
 );
-
-RecurringSchedule::weekly('09:30')->onDays([1, 3, 5]);   // Mon/Wed/Fri
-RecurringSchedule::monthly('09:30')->onDayOfMonth(15);
+// sends "scheduled_at": "2026-08-15T09:30:00+06:00"
 ```
 
-Datetimes on responses stay strings for the same reason — parsing them here would attach the wrong timezone.
+A string must carry its offset too (`'2026-08-15T09:30:00+06:00'` or `'2026-08-15T03:30:00Z'`). A bare `'2026-08-15 09:30:00'` is ambiguous, so the SDK throws `InvalidArgumentException` before sending (the API would reject it).
+
+Recurring sends repeat at a local time. Say which timezone it is in; without `inTimezone()` the API uses the account's saved timezone:
+
+```php
+RecurringSchedule::weekly('09:30')->onDays([1, 3, 5])->inTimezone('Asia/Dhaka');   // Mon/Wed/Fri 09:30 Dhaka
+RecurringSchedule::monthly('09:30')->onDayOfMonth(15)->inTimezone('America/Toronto');
+```
+
+Datetimes on responses stay ISO strings (`$notification->scheduledAt`), with `DateTimeImmutable` helpers when you need one:
+
+```php
+$local = $notification->scheduledAtDate()?->setTimezone(new DateTimeZone('Asia/Dhaka'));
+```
 
 ## Uploads
 

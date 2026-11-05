@@ -101,17 +101,17 @@
         },
         {
             "name": "notifypress/sdk",
-            "version": "v0.1.0",
-            "version_normalized": "0.1.0.0",
+            "version": "v0.2.0",
+            "version_normalized": "0.2.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/fynolab/notifypress-php-sdk.git",
-                "reference": "4e7c33027fe26431565979fe981f2c535b74af0e"
+                "reference": "39ba448e52d6f8769af77b39446daae60c3bee53"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/fynolab/notifypress-php-sdk/zipball/4e7c33027fe26431565979fe981f2c535b74af0e",
-                "reference": "4e7c33027fe26431565979fe981f2c535b74af0e",
+                "url": "https://api.github.com/repos/fynolab/notifypress-php-sdk/zipball/39ba448e52d6f8769af77b39446daae60c3bee53",
+                "reference": "39ba448e52d6f8769af77b39446daae60c3bee53",
                 "shasum": ""
             },
             "require": {
@@ -131,7 +131,7 @@
                 "ext-curl": "Enables the default zero-dependency cURL transport (falls back to PHP streams).",
                 "guzzlehttp/guzzle": "Detected automatically and used as the HTTP client when installed (e.g. in Laravel)."
             },
-            "time": "2026-08-03T14:43:29+00:00",
+            "time": "2026-11-05T14:57:03+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -153,8 +153,8 @@
                 "web-push"
             ],
             "support": {
-                "issues": "https://github.com/fynolab/notifypress-php/issues",
-                "source": "https://github.com/fynolab/notifypress-php"
+                "issues": "https://github.com/fynolab/notifypress-php-sdk/issues",
+                "source": "https://github.com/fynolab/notifypress-php-sdk"
             },
             "install-path": "../notifypress/sdk"
         },

@@ -4,7 +4,7 @@ Tags: push notifications, web push, notifications, pwa, progressive web app
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -158,6 +158,9 @@ Yes, you can customize notification titles, messages, icons, and target URLs thr
 
 == Changelog ==
 
+= 1.1.1 =
+* Improved: Updated the bundled NotifyPress PHP SDK to 0.2.0.
+
 = 1.1.0 =
 * New: Redesigned admin pages that match the NotifyPress app: dashboard, campaigns, subscribers, segments, automations, analytics and reports.
 * New: Every date and time shows in your own timezone, and scheduled campaigns go out at the exact time you pick.
@@ -181,6 +184,9 @@ Yes, you can customize notification titles, messages, icons, and target URLs thr
 * REST API endpoints
 
 == Upgrade Notice ==
+
+= 1.1.1 =
+Updates the bundled NotifyPress PHP SDK.
 
 = 1.1.0 =
 Redesigned admin pages, and every date and time now shows in your own timezone.
